@@ -52,7 +52,7 @@ const AuthModal = ({ open, onOpenChange, onSuccess }: AuthModalProps) => {
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
             {step === 'phone' 
-              ? 'We'll send you a verification code to log in.' 
+              ? "We'll send you a verification code to log in." 
               : `We've sent a code to ${phoneNumber}`}
           </DialogDescription>
         </DialogHeader>
