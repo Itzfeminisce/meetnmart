@@ -1,11 +1,11 @@
 
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Mic, MicOff, Video, PhoneCall } from 'lucide-react';
+import { Mic, MicOff, Video, PhoneCall, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Seller } from '@/types';
 import { toast } from 'sonner';
+import EscrowRequestModal from '@/components/EscrowRequestModal';
 
 const LiveCall = () => {
   const location = useLocation();
@@ -15,6 +15,12 @@ const LiveCall = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
+  const [escrowModalOpen, setEscrowModalOpen] = useState(false);
+  const [isSeller] = useState(() => {
+    // In a real app, this would check the current user's role
+    // For demo purposes, we'll use 50% chance of being a seller
+    return Math.random() > 0.5;
+  });
 
   // Simulate call timer
   useEffect(() => {
@@ -34,6 +40,11 @@ const LiveCall = () => {
 
   const handleEndCall = () => {
     navigate('/rating', { state: { seller, callDuration } });
+  };
+
+  const handlePaymentRequest = (amount: number) => {
+    // In a real app, this would send the payment request to the buyer
+    toast.success(`Payment request of $${amount.toFixed(2)} sent to buyer!`);
   };
 
   const getInitials = (name: string) => {
@@ -110,6 +121,17 @@ const LiveCall = () => {
           />
         </Button>
         
+        {isSeller && (
+          <Button
+            variant="outline" 
+            size="icon"
+            className="h-14 w-14 rounded-full bg-market-green/20 border-none"
+            onClick={() => setEscrowModalOpen(true)}
+          >
+            <DollarSign size={24} className="text-market-green" />
+          </Button>
+        )}
+        
         <Button
           variant="destructive" 
           size="icon"
@@ -119,6 +141,15 @@ const LiveCall = () => {
           <PhoneCall size={24} className="rotate-[135deg]" />
         </Button>
       </div>
+      
+      {isSeller && (
+        <EscrowRequestModal 
+          open={escrowModalOpen}
+          onOpenChange={setEscrowModalOpen}
+          sellerName={seller.name}
+          onSuccess={handlePaymentRequest}
+        />
+      )}
     </div>
   );
 };

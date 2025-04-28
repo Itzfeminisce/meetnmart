@@ -1,10 +1,11 @@
 
 import { useState } from 'react';
-import { User, Clock } from 'lucide-react';
+import { User, Clock, PhoneCall, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import BottomNavigation from '@/components/BottomNavigation';
+import EscrowRequestModal from '@/components/EscrowRequestModal';
 import { toast } from 'sonner';
 
 const user = {
@@ -24,12 +25,30 @@ const recentCalls = [
   { id: 'c3', buyerName: 'Robert Lee', time: 'Yesterday', duration: '', missed: true },
 ];
 
+const paymentRequests = [
+  { id: 'p1', buyerName: 'John Smith', amount: 45.99, status: 'accepted', time: '1 hour ago' },
+  { id: 'p2', buyerName: 'Emma Davis', amount: 24.50, status: 'pending', time: 'Yesterday' },
+];
+
 const SellerDashboard = () => {
   const [isOnline, setIsOnline] = useState(user.isOnline);
+  const [escrowModalOpen, setEscrowModalOpen] = useState(false);
+  const [selectedBuyer, setSelectedBuyer] = useState<{id: string; name: string} | null>(null);
   
   const handleToggleOnline = (checked: boolean) => {
     setIsOnline(checked);
     toast.success(checked ? 'You are now online!' : 'You are now offline');
+  };
+
+  const handleRequestPayment = (buyerId: string, buyerName: string) => {
+    setSelectedBuyer({id: buyerId, name: buyerName});
+    setEscrowModalOpen(true);
+  };
+  
+  const handlePaymentRequestSubmit = (amount: number) => {
+    if (selectedBuyer) {
+      toast.success(`Payment request of $${amount.toFixed(2)} sent to ${selectedBuyer.name}!`);
+    }
   };
 
   return (
@@ -77,7 +96,47 @@ const SellerDashboard = () => {
       <div className="mb-6">
         <h2 className="text-lg font-medium flex items-center mb-4">
           <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
-          Recent Activity
+          Payment Requests
+        </h2>
+        
+        <div className="space-y-3 mb-6">
+          {paymentRequests.length > 0 ? (
+            paymentRequests.map(payment => (
+              <div
+                key={payment.id}
+                className="glass-morphism rounded-lg p-3 flex items-center"
+              >
+                <div className="h-10 w-10 rounded-full bg-market-green/20 flex items-center justify-center mr-3">
+                  <DollarSign size={20} className="text-market-green" />
+                </div>
+                <div className="flex-grow">
+                  <h3 className="font-medium text-sm">${payment.amount.toFixed(2)} from {payment.buyerName}</h3>
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    <Clock size={12} className="mr-1" />
+                    <span>{payment.time}</span>
+                    <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
+                      payment.status === 'accepted' 
+                        ? 'bg-market-green/20 text-market-green' 
+                        : payment.status === 'pending' 
+                        ? 'bg-market-orange/20 text-market-orange' 
+                        : 'bg-destructive/20 text-destructive'
+                    }`}>
+                      {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              No payment requests yet
+            </div>
+          )}
+        </div>
+        
+        <h2 className="text-lg font-medium flex items-center mb-4">
+          <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
+          Recent Calls
         </h2>
         
         <div className="space-y-3">
@@ -87,7 +146,7 @@ const SellerDashboard = () => {
               className="glass-morphism rounded-lg p-3 flex items-center"
             >
               <div className="h-10 w-10 rounded-full bg-secondary/50 flex items-center justify-center mr-3">
-                <User size={20} className="text-muted-foreground" />
+                <PhoneCall size={20} className="text-muted-foreground" />
               </div>
               <div className="flex-grow">
                 <h3 className="font-medium text-sm">
@@ -104,13 +163,17 @@ const SellerDashboard = () => {
                   )}
                 </div>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="text-market-blue"
-              >
-                Details
-              </Button>
+              {!call.missed && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-market-green hover:text-market-green/90"
+                  onClick={() => handleRequestPayment(call.id, call.buyerName)}
+                >
+                  <DollarSign size={16} className="mr-1" />
+                  Request
+                </Button>
+              )}
             </div>
           ))}
         </div>
@@ -139,6 +202,13 @@ const SellerDashboard = () => {
       </Button>
       
       <BottomNavigation />
+      
+      <EscrowRequestModal 
+        open={escrowModalOpen}
+        onOpenChange={setEscrowModalOpen}
+        sellerName={user.name}
+        onSuccess={handlePaymentRequestSubmit}
+      />
     </div>
   );
 };

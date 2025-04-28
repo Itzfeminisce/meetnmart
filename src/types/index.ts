@@ -26,12 +26,20 @@ export interface Seller {
 
 export type CallType = 'audio' | 'video';
 
+export interface PaymentRequest {
+  id: string;
+  amount: number;
+  status: 'pending' | 'accepted' | 'rejected';
+  timestamp: Date;
+}
+
 export interface Call {
   id: string;
   sellerId: string;
   type: CallType;
   timestamp: Date;
   duration?: number;
+  paymentRequest?: PaymentRequest;
 }
 
 export interface User {

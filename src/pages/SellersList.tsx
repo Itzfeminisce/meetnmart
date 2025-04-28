@@ -5,7 +5,7 @@ import { ArrowLeft, Bell, BellOff, PhoneCall } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import BottomNavigation from '@/components/BottomNavigation';
-import EscrowPaymentModal from '@/components/EscrowPaymentModal';
+import EscrowPaymentConfirmModal from '@/components/EscrowPaymentConfirmModal';
 import { sellers, categories } from '@/lib/mockData';
 import { Market, Seller } from '@/types';
 import { toast } from 'sonner';
@@ -15,11 +15,37 @@ const SellersList = () => {
   const navigate = useNavigate();
   const { market, categoryId } = location.state as { market: Market; categoryId: string };
   
-  const [escrowModalOpen, setEscrowModalOpen] = useState(false);
+  const [paymentConfirmModalOpen, setPaymentConfirmModalOpen] = useState(false);
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
+  const [requestAmount, setRequestAmount] = useState(0);
 
-  const category = categories.find(cat => cat.categoryId === categoryId);
+  const category = categories.find(cat => cat.id === categoryId);
   const filteredSellers = sellers.filter(seller => seller.category === categoryId);
+
+  // This is for demo purposes to simulate a seller requesting payment
+  // In a real app, this would come from a notification or a WebSocket
+  const simulatePaymentRequest = (seller: Seller) => {
+    setSelectedSeller(seller);
+    setRequestAmount(Math.floor(Math.random() * 50) + 10); // Random amount between 10 and 60
+    setPaymentConfirmModalOpen(true);
+  };
+
+  // In a real app, this would happen randomly or after a call
+  // For demo purposes, we'll just show a button to simulate it
+  const simulateRandomPaymentRequest = () => {
+    const onlineSellers = filteredSellers.filter(s => s.isOnline);
+    if (onlineSellers.length > 0) {
+      const randomSeller = onlineSellers[Math.floor(Math.random() * onlineSellers.length)];
+      setTimeout(() => {
+        simulatePaymentRequest(randomSeller);
+      }, 5000); // Simulate payment request after 5 seconds
+    }
+  };
+
+  // Trigger a random payment request for demo purposes
+  useState(() => {
+    simulateRandomPaymentRequest();
+  });
 
   const handleCall = (seller: Seller) => {
     if (!seller.isOnline) {
@@ -29,16 +55,6 @@ const SellersList = () => {
     
     setSelectedSeller(seller);
     navigate('/call', { state: { seller } });
-  };
-
-  const handleEscrowRequest = (seller: Seller) => {
-    if (!seller.isOnline) {
-      toast.error("This seller is currently offline.");
-      return;
-    }
-    
-    setSelectedSeller(seller);
-    setEscrowModalOpen(true);
   };
 
   const getInitials = (name: string) => {
@@ -64,7 +80,7 @@ const SellersList = () => {
           <div>
             <h1 className="text-2xl font-bold text-gradient">{market.name}</h1>
             <p className="text-sm text-muted-foreground">
-              {categories.find(c => c.id === categoryId)?.name || 'All Categories'}
+              {category?.name || 'All Categories'}
             </p>
           </div>
         </div>
@@ -121,17 +137,10 @@ const SellersList = () => {
                   {seller.description}
                 </p>
                 
-                <div className="flex space-x-2">
-                  <Button 
-                    variant="secondary"
-                    className="flex-1 bg-secondary/70"
-                    onClick={() => handleEscrowRequest(seller)}
-                  >
-                    Request Escrow
-                  </Button>
+                <div className="flex justify-end">
                   <Button 
                     onClick={() => handleCall(seller)}
-                    className={`flex-1 ${seller.isOnline ? 'bg-market-green hover:bg-market-green/90' : 'bg-muted text-muted-foreground'}`}
+                    className={`${seller.isOnline ? 'bg-market-green hover:bg-market-green/90' : 'bg-muted text-muted-foreground'}`}
                     disabled={!seller.isOnline}
                   >
                     <PhoneCall size={16} className="mr-2" />
@@ -151,12 +160,16 @@ const SellersList = () => {
       <BottomNavigation />
       
       {selectedSeller && (
-        <EscrowPaymentModal
-          open={escrowModalOpen}
-          onOpenChange={setEscrowModalOpen}
+        <EscrowPaymentConfirmModal
+          open={paymentConfirmModalOpen}
+          onOpenChange={setPaymentConfirmModalOpen}
           sellerName={selectedSeller.name}
-          onSuccess={() => {
-            toast.success(`Escrow payment request sent to ${selectedSeller.name}!`);
+          amount={requestAmount}
+          onAccept={() => {
+            toast.success(`Payment of $${requestAmount.toFixed(2)} sent to ${selectedSeller.name}!`);
+          }}
+          onReject={() => {
+            toast.info(`Payment request from ${selectedSeller.name} was rejected.`);
           }}
         />
       )}
