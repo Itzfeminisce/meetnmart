@@ -75,7 +75,7 @@ const Index = () => {
           </div>
 
           <div className="mt-8 text-sm text-muted-foreground">
-            <p>Test credentials: 09100000000, OTP: 123456</p>
+            <p>Test credentials: +15086842093, OTP: 123456</p>
           </div>
         </div>
       </main>
