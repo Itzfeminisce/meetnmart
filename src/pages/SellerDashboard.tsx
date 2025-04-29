@@ -23,12 +23,12 @@ const paymentRequests = [
 ];
 
 const SellerDashboard = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, signOut, isLoading } = useAuth();
   const navigate = useNavigate();
   const [isOnline, setIsOnline] = useState(true);
   const [escrowModalOpen, setEscrowModalOpen] = useState(false);
-  const [selectedBuyer, setSelectedBuyer] = useState<{id: string; name: string} | null>(null);
-  
+  const [selectedBuyer, setSelectedBuyer] = useState<{ id: string; name: string } | null>(null);
+
   useEffect(() => {
     if (!user) {
       navigate('/');
@@ -38,7 +38,7 @@ const SellerDashboard = () => {
   const handleToggleOnline = async (checked: boolean) => {
     setIsOnline(checked);
     toast.success(checked ? 'You are now online!' : 'You are now offline');
-    
+
     if (user) {
       await supabase
         .from('profiles')
@@ -48,18 +48,23 @@ const SellerDashboard = () => {
   };
 
   const handleRequestPayment = (buyerId: string, buyerName: string) => {
-    setSelectedBuyer({id: buyerId, name: buyerName});
+    setSelectedBuyer({ id: buyerId, name: buyerName });
     setEscrowModalOpen(true);
   };
-  
+
   const handlePaymentRequestSubmit = (amount: number) => {
     if (selectedBuyer) {
       toast.success(`Payment request of $${amount.toFixed(2)} sent to ${selectedBuyer.name}!`);
     }
   };
-  
+
   const handleEditProfile = () => {
     navigate('/edit-profile');
+  };
+  const handleSignOut = async () => {
+    toast.success('Clearing session...');
+    await signOut()
+    navigate('/');
   };
 
   if (!profile) {
@@ -78,7 +83,7 @@ const SellerDashboard = () => {
         <h1 className="text-2xl font-bold text-gradient">Seller Dashboard</h1>
         <p className="text-muted-foreground">Manage your seller account</p>
       </header>
-      
+
       <div className="glass-morphism rounded-xl p-4 mb-6">
         <div className="flex items-center">
           <Avatar className="h-16 w-16 mr-4 border-2 border-market-orange/50">
@@ -92,11 +97,11 @@ const SellerDashboard = () => {
           </Avatar>
           <div>
             <h2 className="text-lg font-medium">{profile.name || 'MeetnMart Seller'}</h2>
-            <p className="text-sm text-muted-foreground">{profile.category || 'Uncategorized'}</p>
+            <p className="text-sm text-muted-foreground capitalize">{profile.category || 'Uncategorized'}</p>
             <p className="text-xs text-market-blue">{profile.phone_number || user?.phone}</p>
           </div>
         </div>
-        
+
         <div className="mt-4 pt-4 border-t border-border">
           <div className="flex items-center justify-between">
             <div>
@@ -105,7 +110,7 @@ const SellerDashboard = () => {
                 {isOnline ? 'You are visible to buyers' : 'You are not visible to buyers'}
               </p>
             </div>
-            <Switch 
+            <Switch
               checked={isOnline}
               onCheckedChange={handleToggleOnline}
               className={isOnline ? 'bg-market-green' : undefined}
@@ -113,13 +118,13 @@ const SellerDashboard = () => {
           </div>
         </div>
       </div>
-      
+
       <div className="mb-6">
         <h2 className="text-lg font-medium flex items-center mb-4">
           <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
           Payment Requests
         </h2>
-        
+
         <div className="space-y-3 mb-6">
           {paymentRequests.length > 0 ? (
             paymentRequests.map(payment => (
@@ -135,13 +140,12 @@ const SellerDashboard = () => {
                   <div className="flex items-center text-xs text-muted-foreground">
                     <Clock size={12} className="mr-1" />
                     <span>{payment.time}</span>
-                    <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
-                      payment.status === 'accepted' 
-                        ? 'bg-market-green/20 text-market-green' 
-                        : payment.status === 'pending' 
-                        ? 'bg-market-orange/20 text-market-orange' 
+                    <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${payment.status === 'accepted'
+                      ? 'bg-market-green/20 text-market-green'
+                      : payment.status === 'pending'
+                        ? 'bg-market-orange/20 text-market-orange'
                         : 'bg-destructive/20 text-destructive'
-                    }`}>
+                      }`}>
                       {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
                     </span>
                   </div>
@@ -154,12 +158,12 @@ const SellerDashboard = () => {
             </div>
           )}
         </div>
-        
+
         <h2 className="text-lg font-medium flex items-center mb-4">
           <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
           Recent Calls
         </h2>
-        
+
         <div className="space-y-3">
           {recentCalls.map(call => (
             <div
@@ -185,8 +189,8 @@ const SellerDashboard = () => {
                 </div>
               </div>
               {!call.missed && (
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   className="text-market-green hover:text-market-green/90"
                   onClick={() => handleRequestPayment(call.id, call.buyerName)}
@@ -199,13 +203,13 @@ const SellerDashboard = () => {
           ))}
         </div>
       </div>
-      
+
       <div className="mb-6">
         <h2 className="text-lg font-medium flex items-center mb-4">
           <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
           Earnings Overview
         </h2>
-        
+
         <div className="grid grid-cols-2 gap-3">
           <div className="glass-morphism rounded-lg p-3 text-center">
             <div className="text-market-green text-xl font-bold">$254.65</div>
@@ -217,17 +221,24 @@ const SellerDashboard = () => {
           </div>
         </div>
       </div>
-      
-      <Button 
+
+      <Button
         className="w-full mb-8 bg-market-orange hover:bg-market-orange/90"
         onClick={handleEditProfile}
       >
         Edit Seller Profile
       </Button>
-      
+      <Button
+        disabled={isLoading}
+        className="w-full mb-8 bg-destructive/10 hover:bg-destructive/90 hover:text-foreground text-destructive"
+        onClick={handleSignOut}
+      >
+        Log out
+      </Button>
+
       <BottomNavigation />
-      
-      <EscrowRequestModal 
+
+      <EscrowRequestModal
         open={escrowModalOpen}
         onOpenChange={setEscrowModalOpen}
         sellerName={profile.name || 'MeetnMart Seller'}

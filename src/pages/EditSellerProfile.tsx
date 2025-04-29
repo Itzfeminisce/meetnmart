@@ -140,7 +140,7 @@ const EditSellerProfile = () => {
       setUploading(false);
     }
   };
-
+  
   if (!user) {
     navigate('/');
     return null;

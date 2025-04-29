@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Seller } from '@/types';
 import { toast } from 'sonner';
+import { formatDuration, getInitials } from '@/lib/utils';
 
 const RatingFeedback = () => {
   const location = useLocation();
@@ -16,11 +17,6 @@ const RatingFeedback = () => {
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState('');
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins} min ${secs} sec`;
-  };
 
   const handleSubmit = () => {
     if (rating === 0) {
@@ -36,14 +32,6 @@ const RatingFeedback = () => {
   const handleSkip = () => {
     toast.info("Rating skipped");
     navigate('/markets');
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(part => part[0])
-      .join('')
-      .toUpperCase();
   };
 
   return (

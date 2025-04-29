@@ -9,6 +9,7 @@ import EscrowPaymentConfirmModal from '@/components/EscrowPaymentConfirmModal';
 import { sellers, categories } from '@/lib/mockData';
 import { Market, Seller } from '@/types';
 import { toast } from 'sonner';
+import { getInitials } from '@/lib/utils';
 
 const SellersList = () => {
   const location = useLocation();
@@ -55,14 +56,6 @@ const SellersList = () => {
     
     setSelectedSeller(seller);
     navigate('/call', { state: { seller } });
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(part => part[0])
-      .join('')
-      .toUpperCase();
   };
 
   return (

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { PhoneCall, ShoppingBasket } from 'lucide-react';
 import AuthModal from '@/components/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -30,6 +31,12 @@ const Index = () => {
   const handleAuthSuccess = () => {
     navigate('/markets');
   };
+
+  // const handleSignOut = async () => {
+  //   toast.success('Clearing session...');
+  //   await signOut()
+  //   navigate('/');
+  // };
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-background to-background/80">
@@ -57,7 +64,8 @@ const Index = () => {
             {user ? (
               <Button 
                 variant="outline"
-                onClick={() => signOut()}
+                // disabled={isLoading}
+                onClick={signOut}
                 className="bg-secondary/50 border-none"
               >
                 Sign Out

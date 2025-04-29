@@ -1,5 +1,5 @@
 
-import { Market, Category, Seller } from '../types';
+import { Market, Category, Seller, DeliveryAgent } from '../types';
 
 export const markets: Market[] = [
   {
@@ -89,4 +89,41 @@ export const sellers: Seller[] = [
     rating: 4.6,
     description: 'Plumbing and electrical services.',
   },
+];
+
+// Mock data
+export const mockAgents: DeliveryAgent[] = [
+  {
+    id: '1',
+    name: 'Michael Rodriguez',
+    avatar: 'https://plus.unsplash.com/premium_photo-1664303727151-4c345687204a?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8cmlkZXJzfGVufDB8fDB8fHww',
+    rating: 4.8,
+    completedDeliveries: 243,
+    distanceAway: '0.8 miles',
+    estimatedArrival: '5-10 mins',
+    transportType: 'Car',
+    specialties: ['Furniture', 'Electronics']
+  },
+  {
+    id: '2',
+    name: 'Sarah Johnson',
+    avatar: "https://images.unsplash.com/photo-1652856033313-26e48413243f?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8cmlkZXJzfGVufDB8fDB8fHww",
+    rating: 4.9,
+    completedDeliveries: 378,
+    distanceAway: '1.2 miles',
+    estimatedArrival: '7-12 mins',
+    transportType: 'Van',
+    specialties: ['Heavy items', 'Multiple packages']
+  },
+  {
+    id: '3',
+    name: 'David Chen',
+    avatar: 'https://images.unsplash.com/photo-1640785450406-3f26f2af2e40?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fHJpZGVyc3xlbnwwfHwwfHx8MA%3D%3D',
+    rating: 4.7,
+    completedDeliveries: 156,
+    distanceAway: '0.5 miles',
+    estimatedArrival: '3-8 mins',
+    transportType: 'Motorbike',
+    specialties: ['Quick delivery', 'Small packages']
+  }
 ];

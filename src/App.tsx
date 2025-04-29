@@ -1,23 +1,14 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, useRoutes } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-
-// Pages
-import Index from "./pages/Index";
-import MarketSelection from "./pages/MarketSelection";
-import CategorySelection from "./pages/CategorySelection";
-import SellersList from "./pages/SellersList";
-import LiveCall from "./pages/LiveCall";
-import RatingFeedback from "./pages/RatingFeedback";
-import SellerDashboard from "./pages/SellerDashboard";
-import EditSellerProfile from "./pages/EditSellerProfile";
-import NotFound from "./pages/NotFound";
+import { appRoutes } from "./routes";
 
 const queryClient = new QueryClient();
+
+const Router = () => useRoutes(appRoutes);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -26,17 +17,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/markets" element={<MarketSelection />} />
-            <Route path="/categories" element={<CategorySelection />} />
-            <Route path="/sellers" element={<SellersList />} />
-            <Route path="/call" element={<LiveCall />} />
-            <Route path="/rating" element={<RatingFeedback />} />
-            <Route path="/seller-dashboard" element={<SellerDashboard />} />
-            <Route path="/edit-profile" element={<EditSellerProfile />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Router />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

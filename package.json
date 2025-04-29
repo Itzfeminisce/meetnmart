@@ -8,8 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "generate-assets": "pwa-asset-generator logo.svg public/icons -i public/index.html -m public/manifest.json && sharp -i public/images/social/raw.jpg -o public/images/social/preview.jpg resize 1200,630"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -81,6 +80,7 @@
     "tailwindcss": "^3.4.11",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
-    "vite": "^5.4.1"
+    "vite": "^5.4.1",
+    "vite-plugin-sitemap": "^0.7.1"
   }
 }

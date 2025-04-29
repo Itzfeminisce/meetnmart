@@ -82,3 +82,60 @@
     @apply max-w-md mx-auto min-h-screen bg-background text-foreground pb-16;
   }
 }
+
+@layer components {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-market-orange to-market-green;
+  }
+  
+  .glass-morphism {
+    @apply bg-secondary/60 backdrop-blur-md border border-white/10;
+  }
+  
+  /* Animation for fade in */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  /* Call-specific styles */
+  .call-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+  }
+  
+  /* For mobile safe area at the bottom */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 1rem);
+  }
+  
+  /* Active speaker highlight */
+  .active-speaker {
+    @apply border-market-orange border-3 shadow-glow;
+  }
+  
+  .shadow-glow {
+    box-shadow: 0 0 15px 2px rgba(255, 153, 0, 0.3);
+  }
+  
+  /* Thumbnail hover effects */
+  .thumbnail-hover {
+    @apply transition-all duration-200;
+  }
+  
+  .thumbnail-hover:hover {
+    @apply transform scale-105 border-primary;
+  }
+}
+
+@layer utilities {
+  /* Add any utility classes here */
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+}

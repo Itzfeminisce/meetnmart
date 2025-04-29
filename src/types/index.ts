@@ -22,6 +22,9 @@ export interface Seller {
   isOnline: boolean;
   rating: number;
   description: string;
+
+  // Newly Added
+  location?: string;
 }
 
 export type CallType = 'audio' | 'video';
@@ -48,4 +51,42 @@ export interface User {
   phoneNumber: string;
   avatar?: string;
   isSeller: boolean;
+}
+
+
+// // Newly Added
+// export interface Seller {
+//   id: string;
+//   name: string;
+//   avatar?: string;
+//   description: string;
+//   rating?: number;
+//   location: string;
+// }
+
+export interface DeliveryAgent {
+  id: string;
+  name: string;
+  avatar?: string;
+  rating: number;
+  completedDeliveries: number;
+  distanceAway: string;
+  estimatedArrival: string;
+  transportType: string;
+  specialties?: string[];
+  location?: string;
+}
+
+export interface DeliveryOrder {
+  id: string;
+  pickupLocation: string;
+  deliveryAddress: string;
+  goodsDescription?: string;
+  priceOffer?: number;
+  status: 'pending' | 'accepted' | 'in-progress' | 'completed' | 'cancelled';
+  sellerId: string;
+  deliveryAgentId?: string;
+  buyerId: string;
+  escrowAmount?: number;
+  timestamp: string;
 }

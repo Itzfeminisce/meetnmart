@@ -6,6 +6,7 @@ import { User } from 'lucide-react';
 import { useState } from 'react';
 import AuthModal from './AuthModal';
 import { useNavigate } from 'react-router-dom';
+import { getInitials } from '@/lib/utils';
 
 interface UserAvatarProps {
   size?: 'sm' | 'md' | 'lg';
@@ -21,15 +22,6 @@ const UserAvatar = ({ size = 'md', showSignIn = true }: UserAvatarProps) => {
     sm: 'h-8 w-8',
     md: 'h-10 w-10',
     lg: 'h-12 w-12'
-  };
-  
-  const getInitials = (name: string | null) => {
-    if (!name) return 'U';
-    return name
-      .split(' ')
-      .map(part => part[0])
-      .join('')
-      .toUpperCase();
   };
 
   const handleAuthSuccess = () => {
