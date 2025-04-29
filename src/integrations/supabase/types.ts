@@ -12,8 +12,11 @@ export type Database = {
       profiles: {
         Row: {
           avatar: string | null
+          category: string | null
           created_at: string
+          description: string | null
           id: string
+          is_online: boolean | null
           is_seller: boolean
           name: string | null
           phone_number: string
@@ -21,8 +24,11 @@ export type Database = {
         }
         Insert: {
           avatar?: string | null
+          category?: string | null
           created_at?: string
+          description?: string | null
           id: string
+          is_online?: boolean | null
           is_seller?: boolean
           name?: string | null
           phone_number: string
@@ -30,8 +36,11 @@ export type Database = {
         }
         Update: {
           avatar?: string | null
+          category?: string | null
           created_at?: string
+          description?: string | null
           id?: string
+          is_online?: boolean | null
           is_seller?: boolean
           name?: string | null
           phone_number?: string

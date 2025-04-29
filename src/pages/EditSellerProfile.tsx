@@ -106,17 +106,6 @@ const EditSellerProfile = () => {
     setUploading(true);
 
     try {
-      // Check if storage bucket exists, if not, we can't upload
-      const { data: bucketExists } = await supabase
-        .storage
-        .getBucket('avatars');
-
-      if (!bucketExists) {
-        toast.error("Storage not configured. Please contact support.");
-        setUploading(false);
-        return;
-      }
-
       // Upload the avatar to Supabase Storage
       const { error: uploadError } = await supabase
         .storage
