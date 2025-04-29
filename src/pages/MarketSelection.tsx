@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, ArrowRight, Search, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,15 @@ import { markets } from '@/lib/mockData';
 import { Market } from '@/types';
 import { toast } from 'sonner';
 
+interface Coordinates {
+  latitude: number;
+  longitude: number;
+}
+
 const MarketSelection = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDetecting, setIsDetecting] = useState(false);
+  const [location, setLocation] = useState<Coordinates | null>(null);
   const navigate = useNavigate();
 
   const filteredMarkets = searchQuery
@@ -23,11 +29,48 @@ const MarketSelection = () => {
 
   const handleLocationDetection = () => {
     setIsDetecting(true);
-    // Simulate location detection
-    setTimeout(() => {
+    
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
       setIsDetecting(false);
-      toast.success("Location detected! Showing nearby markets.");
-    }, 1500);
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const userCoordinates = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        };
+        
+        setLocation(userCoordinates);
+        
+        // For demo purposes, just show success message
+        setTimeout(() => {
+          setIsDetecting(false);
+          toast.success("Location detected! Showing nearby markets.");
+          
+          // In a real app, we would sort markets based on distance from user location
+          // For now, we're just simulating this behavior
+        }, 1000);
+      },
+      (error) => {
+        setIsDetecting(false);
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            toast.error("Location access denied. Please enable location services.");
+            break;
+          case error.POSITION_UNAVAILABLE:
+            toast.error("Location information is unavailable.");
+            break;
+          case error.TIMEOUT:
+            toast.error("Location request timed out.");
+            break;
+          default:
+            toast.error("An unknown error occurred while detecting location.");
+        }
+      }
+    );
   };
 
   const handleSelectMarket = (market: Market) => {

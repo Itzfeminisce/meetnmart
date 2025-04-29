@@ -17,14 +17,14 @@ const BottomNavigation = () => {
 
   const handleProfileClick = () => {
     if (user) {
-      navigate('/profile');
+      navigate('/seller-dashboard');
     } else {
       setShowAuthModal(true);
     }
   };
 
   const handleAuthSuccess = () => {
-    navigate('/profile');
+    navigate('/seller-dashboard');
   };
 
   return (
@@ -57,7 +57,9 @@ const BottomNavigation = () => {
 
           <button 
             onClick={handleProfileClick}
-            className={`flex flex-col items-center justify-center ${isActive('/profile') ? 'text-market-orange' : 'text-muted-foreground'}`}
+            className={`flex flex-col items-center justify-center ${
+              isActive('/seller-dashboard') || isActive('/profile') ? 'text-market-orange' : 'text-muted-foreground'
+            }`}
           >
             <User size={20} />
             <span className="text-xs mt-1">Profile</span>
