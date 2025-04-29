@@ -14,6 +14,7 @@ import SellersList from "./pages/SellersList";
 import LiveCall from "./pages/LiveCall";
 import RatingFeedback from "./pages/RatingFeedback";
 import SellerDashboard from "./pages/SellerDashboard";
+import EditSellerProfile from "./pages/EditSellerProfile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/call" element={<LiveCall />} />
             <Route path="/rating" element={<RatingFeedback />} />
             <Route path="/seller-dashboard" element={<SellerDashboard />} />
+            <Route path="/edit-profile" element={<EditSellerProfile />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

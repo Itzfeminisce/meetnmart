@@ -1,5 +1,6 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, Clock, PhoneCall, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -7,17 +8,8 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import BottomNavigation from '@/components/BottomNavigation';
 import EscrowRequestModal from '@/components/EscrowRequestModal';
 import { toast } from 'sonner';
-
-const user = {
-  id: 's1',
-  name: 'Maya Johnson',
-  avatar: 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7',
-  phoneNumber: '+1 (555) 123-4567',
-  category: 'Food & Produce',
-  description: 'Fresh local produce, fruits and vegetables.',
-  isOnline: true,
-  isSeller: true,
-};
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const recentCalls = [
   { id: 'c1', buyerName: 'John Smith', time: '2 hours ago', duration: '8:45', missed: false },
@@ -31,13 +23,28 @@ const paymentRequests = [
 ];
 
 const SellerDashboard = () => {
-  const [isOnline, setIsOnline] = useState(user.isOnline);
+  const { user, profile } = useAuth();
+  const navigate = useNavigate();
+  const [isOnline, setIsOnline] = useState(true);
   const [escrowModalOpen, setEscrowModalOpen] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<{id: string; name: string} | null>(null);
   
-  const handleToggleOnline = (checked: boolean) => {
+  useEffect(() => {
+    if (!user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
+
+  const handleToggleOnline = async (checked: boolean) => {
     setIsOnline(checked);
     toast.success(checked ? 'You are now online!' : 'You are now offline');
+    
+    if (user) {
+      await supabase
+        .from('profiles')
+        .update({ is_online: checked })
+        .eq('id', user.id);
+    }
   };
 
   const handleRequestPayment = (buyerId: string, buyerName: string) => {
@@ -50,6 +57,20 @@ const SellerDashboard = () => {
       toast.success(`Payment request of $${amount.toFixed(2)} sent to ${selectedBuyer.name}!`);
     }
   };
+  
+  const handleEditProfile = () => {
+    navigate('/edit-profile');
+  };
+
+  if (!profile) {
+    return (
+      <div className="app-container flex items-center justify-center h-screen">
+        <div className="text-center">
+          <p className="text-muted-foreground">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container px-4 pt-6 animate-fade-in">
@@ -61,18 +82,18 @@ const SellerDashboard = () => {
       <div className="glass-morphism rounded-xl p-4 mb-6">
         <div className="flex items-center">
           <Avatar className="h-16 w-16 mr-4 border-2 border-market-orange/50">
-            {user.avatar ? (
-              <AvatarImage src={user.avatar} alt={user.name} />
+            {profile.avatar ? (
+              <AvatarImage src={profile.avatar} alt={profile.name} />
             ) : (
               <AvatarFallback className="bg-secondary text-foreground">
-                {user.name.charAt(0).toUpperCase()}
+                {profile.name ? profile.name.charAt(0).toUpperCase() : 'S'}
               </AvatarFallback>
             )}
           </Avatar>
           <div>
-            <h2 className="text-lg font-medium">{user.name}</h2>
-            <p className="text-sm text-muted-foreground">{user.category}</p>
-            <p className="text-xs text-market-blue">{user.phoneNumber}</p>
+            <h2 className="text-lg font-medium">{profile.name || 'MeetnMart Seller'}</h2>
+            <p className="text-sm text-muted-foreground">{profile.category || 'Uncategorized'}</p>
+            <p className="text-xs text-market-blue">{profile.phone_number || user?.phone}</p>
           </div>
         </div>
         
@@ -197,7 +218,10 @@ const SellerDashboard = () => {
         </div>
       </div>
       
-      <Button className="w-full mb-8 bg-market-orange hover:bg-market-orange/90">
+      <Button 
+        className="w-full mb-8 bg-market-orange hover:bg-market-orange/90"
+        onClick={handleEditProfile}
+      >
         Edit Seller Profile
       </Button>
       
@@ -206,7 +230,7 @@ const SellerDashboard = () => {
       <EscrowRequestModal 
         open={escrowModalOpen}
         onOpenChange={setEscrowModalOpen}
-        sellerName={user.name}
+        sellerName={profile.name || 'MeetnMart Seller'}
         onSuccess={handlePaymentRequestSubmit}
       />
     </div>

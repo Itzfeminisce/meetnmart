@@ -11,6 +11,7 @@ interface AuthContextType {
   signInWithPhone: (phoneNumber: string) => Promise<{ error: any | null }>;
   verifyOTP: (phoneNumber: string, token: string) => Promise<{ error: any | null }>;
   signOut: () => Promise<void>;
+  fetchUserProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,15 +53,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const fetchUserProfile = async (userId: string) => {
+  const fetchUserProfile = async (userId?: string) => {
     try {
+      const id = userId || user?.id;
+      if (!id) return;
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', id)
         .single();
 
       if (error) throw error;
+
+      // Set default names if not already set
+      if (data && !data.name) {
+        const defaultName = data.is_seller ? 'MeetnMart Seller' : 'MeetnMart Buyer';
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ name: defaultName })
+          .eq('id', id);
+
+        if (updateError) throw updateError;
+        data.name = defaultName;
+      }
+
       setProfile(data);
     } catch (error: any) {
       console.error('Error fetching user profile:', error);
@@ -108,7 +125,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     signInWithPhone,
     verifyOTP,
-    signOut
+    signOut,
+    fetchUserProfile
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
