@@ -1,75 +1,89 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { PhoneCall, ShoppingBasket } from 'lucide-react';
 import AuthModal from '@/components/AuthModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
-  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { user, isLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = () => {
+  useEffect(() => {
+    // If user is already logged in, you can optionally redirect them
+    if (user && !isLoading) {
+      // Optional: Auto-redirect to markets page
+      // navigate('/markets');
+    }
+  }, [user, isLoading, navigate]);
+
+  const handleGetStarted = () => {
+    if (user) {
+      navigate('/markets');
+    } else {
+      setShowAuthModal(true);
+    }
+  };
+
+  const handleAuthSuccess = () => {
     navigate('/markets');
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Hero Section with Background */}
-      <div className="relative h-[70vh] overflow-hidden">
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage: 'url(https://images.unsplash.com/photo-1605810230434-7631ac76ec81)',
-            filter: 'brightness(0.4)'
-          }}
-        ></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background"></div>
-        
-        <div className="relative z-10 flex flex-col items-center justify-center h-full px-6 text-center">
-          <h1 className="text-4xl font-bold mb-4 text-gradient animate-fade-in">
-            Market Meet Now
-          </h1>
-          <p className="text-lg text-gray-300 mb-8 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-            Connect with local sellers in real-time
-          </p>
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-background to-background/80">
+      <main className="flex-grow flex flex-col items-center justify-center p-4 text-center animate-fade-in">
+        <div className="glass-morphism max-w-md p-6 rounded-xl">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold tracking-tight mb-2">
+              <span className="text-gradient">Virtual Markets</span>
+            </h1>
+            <p className="text-xl text-muted-foreground">
+              Connect with local sellers through live video
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            <Button 
+              size="lg" 
+              onClick={handleGetStarted}
+              className="bg-market-orange hover:bg-market-orange/90"
+            >
+              <ShoppingBasket className="mr-2 h-4 w-4" />
+              {user ? 'Browse Markets' : 'Get Started'}
+            </Button>
+            
+            {user ? (
+              <Button 
+                variant="outline"
+                onClick={() => signOut()}
+                className="bg-secondary/50 border-none"
+              >
+                Sign Out
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                onClick={() => setShowAuthModal(true)}
+                className="bg-secondary/50 border-none"
+              >
+                <PhoneCall className="mr-2 h-4 w-4" />
+                Continue with Phone
+              </Button>
+            )}
+          </div>
+
+          <div className="mt-8 text-sm text-muted-foreground">
+            <p>Test credentials: 09100000000, OTP: 123456</p>
+          </div>
         </div>
-      </div>
-      
-      {/* Content Section */}
-      <div className="flex-1 px-6 -mt-20 relative z-20 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-        <div className="glass-morphism rounded-xl p-6 max-w-md mx-auto">
-          <h2 className="text-xl font-semibold mb-4">Your local marketplace in your pocket</h2>
-          <ul className="space-y-3 mb-6">
-            <li className="flex items-center">
-              <span className="text-market-orange mr-2">✓</span>
-              <span>Find local sellers with live availability</span>
-            </li>
-            <li className="flex items-center">
-              <span className="text-market-orange mr-2">✓</span>
-              <span>Connect through audio & video calls</span>
-            </li>
-            <li className="flex items-center">
-              <span className="text-market-orange mr-2">✓</span>
-              <span>Safe transactions with escrow payments</span>
-            </li>
-          </ul>
-          <Button 
-            onClick={() => setAuthModalOpen(true)}
-            className="w-full bg-market-orange hover:bg-market-orange/90 font-medium"
-          >
-            Join Your Local Market
-          </Button>
-          
-          <p className="text-xs text-muted-foreground mt-4 text-center">
-            By continuing, you agree to our Terms of Service and Privacy Policy
-          </p>
-        </div>
-      </div>
-      
-      <AuthModal 
-        open={authModalOpen}
-        onOpenChange={setAuthModalOpen}
-        onSuccess={handleLogin}
+      </main>
+
+      <AuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        onSuccess={handleAuthSuccess}
       />
     </div>
   );

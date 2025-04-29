@@ -4,6 +4,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 interface AuthModalProps {
   open: boolean;
@@ -12,29 +14,52 @@ interface AuthModalProps {
 }
 
 const AuthModal = ({ open, onOpenChange, onSuccess }: AuthModalProps) => {
+  const { signInWithPhone, verifyOTP } = useAuth();
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handlePhoneSubmit = (e: React.FormEvent) => {
+  const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phoneNumber || phoneNumber.length < 10) {
       toast.error("Please enter a valid phone number");
       return;
     }
-    // In a real app, this would trigger an API call to send OTP
-    toast.success(`OTP sent to ${phoneNumber}`);
+
+    setIsLoading(true);
+    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+    
+    const { error } = await signInWithPhone(formattedPhone);
+    
+    setIsLoading(false);
+    if (error) {
+      toast.error(error.message || "Failed to send verification code");
+      return;
+    }
+    
+    toast.success(`OTP sent to ${formattedPhone}`);
     setStep('otp');
   };
 
-  const handleOtpSubmit = (e: React.FormEvent) => {
+  const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otp || otp.length < 4) {
+    if (!otp || otp.length < 6) {
       toast.error("Please enter a valid OTP");
       return;
     }
     
-    // In a real app, this would verify the OTP with backend
+    setIsLoading(true);
+    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+    
+    const { error } = await verifyOTP(formattedPhone, otp);
+    
+    setIsLoading(false);
+    if (error) {
+      toast.error(error.message || "Invalid verification code");
+      return;
+    }
+    
     toast.success("Authentication successful!");
     onOpenChange(false);
     setStep('phone');
@@ -66,41 +91,60 @@ const AuthModal = ({ open, onOpenChange, onSuccess }: AuthModalProps) => {
               type="tel"
               className="bg-secondary/50 border-none text-lg"
               autoFocus
+              disabled={isLoading}
             />
-            <Button type="submit" className="w-full bg-market-orange hover:bg-market-orange/90">
-              Continue
+            <Button 
+              type="submit" 
+              className="w-full bg-market-orange hover:bg-market-orange/90"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Sending...' : 'Continue'}
             </Button>
           </form>
         ) : (
           <form onSubmit={handleOtpSubmit} className="space-y-4">
-            <Input
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              placeholder="Enter 6-digit code"
-              maxLength={6}
-              className="bg-secondary/50 border-none text-center text-xl tracking-widest"
-              autoFocus
-            />
+            <div className="flex justify-center py-4">
+              <InputOTP 
+                value={otp} 
+                onChange={setOtp}
+                maxLength={6}
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
             <div className="flex justify-between items-center">
               <Button 
                 type="button" 
                 variant="ghost" 
                 onClick={() => setStep('phone')}
                 className="text-muted-foreground hover:text-foreground"
+                disabled={isLoading}
               >
                 Change number
               </Button>
               <Button 
                 type="button" 
                 variant="ghost"
-                onClick={() => toast.success("New code sent!")}
+                onClick={() => handlePhoneSubmit({ preventDefault: () => {} } as React.FormEvent)}
                 className="text-market-blue hover:text-market-blue/90"
+                disabled={isLoading}
               >
                 Resend code
               </Button>
             </div>
-            <Button type="submit" className="w-full bg-market-orange hover:bg-market-orange/90">
-              Verify & Login
+            <Button 
+              type="submit" 
+              className="w-full bg-market-orange hover:bg-market-orange/90"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Verifying...' : 'Verify & Login'}
             </Button>
           </form>
         )}
