@@ -9,6 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      escrow_transactions: {
+        Row: {
+          amount: number
+          buyer_id: string
+          created_at: string
+          delivery_agent_id: string | null
+          description: string | null
+          id: string
+          is_delivery: boolean
+          seller_id: string
+          service_description: string | null
+          status: Database["public"]["Enums"]["escrow_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          buyer_id: string
+          created_at?: string
+          delivery_agent_id?: string | null
+          description?: string | null
+          id?: string
+          is_delivery?: boolean
+          seller_id: string
+          service_description?: string | null
+          status?: Database["public"]["Enums"]["escrow_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          buyer_id?: string
+          created_at?: string
+          delivery_agent_id?: string | null
+          description?: string | null
+          id?: string
+          is_delivery?: boolean
+          seller_id?: string
+          service_description?: string | null
+          status?: Database["public"]["Enums"]["escrow_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar: string | null
@@ -48,15 +90,82 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wallets: {
+        Row: {
+          balance: number
+          created_at: string
+          escrowed_balance: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          escrowed_balance?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          escrowed_balance?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { uid: string }
+        Returns: string
+      }
+      get_user_wallet: {
+        Args: { uid: string }
+        Returns: Json
+      }
     }
     Enums: {
-      [_ in never]: never
+      escrow_status:
+        | "initiated"
+        | "pending"
+        | "held"
+        | "delivered"
+        | "confirmed"
+        | "released"
+        | "disputed"
+        | "refunded"
+      user_role: "buyer" | "seller" | "moderator" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -171,6 +280,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      escrow_status: [
+        "initiated",
+        "pending",
+        "held",
+        "delivered",
+        "confirmed",
+        "released",
+        "disputed",
+        "refunded",
+      ],
+      user_role: ["buyer", "seller", "moderator", "admin"],
+    },
   },
 } as const

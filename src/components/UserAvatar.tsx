@@ -14,7 +14,7 @@ interface UserAvatarProps {
 }
 
 const UserAvatar = ({ size = 'md', showSignIn = true }: UserAvatarProps) => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, userRole } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const navigate = useNavigate();
   
@@ -25,7 +25,26 @@ const UserAvatar = ({ size = 'md', showSignIn = true }: UserAvatarProps) => {
   };
 
   const handleAuthSuccess = () => {
-    // Optional: redirect or refresh data
+    // Check user role to determine where to navigate
+    if (!userRole) {
+      navigate('/role-selection');
+    } else if (profile?.is_seller) {
+      navigate('/seller-dashboard');
+    } else {
+      navigate('/buyer-dashboard');
+    }
+  };
+
+  const handleAvatarClick = () => {
+    if (user) {
+      if (!userRole) {
+        navigate('/role-selection');
+      } else if (profile?.is_seller) {
+        navigate('/seller-dashboard');
+      } else {
+        navigate('/buyer-dashboard');
+      }
+    }
   };
 
   if (!user && !showSignIn) {
@@ -35,9 +54,12 @@ const UserAvatar = ({ size = 'md', showSignIn = true }: UserAvatarProps) => {
   return (
     <>
       {user ? (
-        <Avatar className={`${sizeClass[size]} border-2 border-secondary`}>
+        <Avatar 
+          className={`${sizeClass[size]} border-2 border-secondary cursor-pointer`}
+          onClick={handleAvatarClick}
+        >
           {profile?.avatar ? (
-            <AvatarImage src={profile.avatar} alt={profile.name || 'User'} />
+            <AvatarImage src={profile.avatar} alt={profile?.name || 'User'} />
           ) : (
             <AvatarFallback className="bg-secondary text-foreground">
               {getInitials(profile?.name)}

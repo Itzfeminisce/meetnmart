@@ -1,1 +1,33 @@
+
 project_id = "sshunoitrbfjwjxvxtbd"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "extensions"]
+
+[db]
+port = 54322
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+
+[analytics]
+enabled = true
+
+[functions]
+[functions.livekit-token]
+verify_jwt = true
+
+[functions.livekit-create-room]
+verify_jwt = true
