@@ -33,3 +33,20 @@ export function formatDuration(seconds: number): string {
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
+
+export const getEnvVar = (key: string): string => {
+  const value = import.meta.env[key];
+  if (!value) {
+      throw new Error(`Missing environment variable: ${key}`);
+  }
+  return value;
+};
+
+export function toLivekitRoomName(input: string): string {
+  return input
+    .toLowerCase() // optional: normalize case
+    .replace(/[^a-z0-9_-]+/gi, '-') // replace invalid chars with hyphen
+    .replace(/^-+|-+$/g, '')        // trim leading/trailing hyphens
+    .replace(/-{2,}/g, '-')         // collapse multiple hyphens
+    .slice(0, 512);                 // enforce max length
+}

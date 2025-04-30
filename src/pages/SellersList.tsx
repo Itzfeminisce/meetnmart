@@ -9,7 +9,8 @@ import EscrowPaymentConfirmModal from '@/components/EscrowPaymentConfirmModal';
 import { sellers, categories } from '@/lib/mockData';
 import { Market, Seller } from '@/types';
 import { toast } from 'sonner';
-import { getInitials } from '@/lib/utils';
+import { getInitials, toLivekitRoomName } from '@/lib/utils';
+import livekitService from '@/services/livekitService';
 
 const SellersList = () => {
   const location = useLocation();
@@ -48,14 +49,13 @@ const SellersList = () => {
     simulateRandomPaymentRequest();
   });
 
-  const handleCall = (seller: Seller) => {
+  const handleCall = async (seller: Seller) => {
     if (!seller.isOnline) {
       toast.error("This seller is currently offline.");
       return;
     }
-    
     setSelectedSeller(seller);
-    navigate('/call', { state: { seller } });
+    navigate('/call', { state: { seller} });
   };
 
   return (

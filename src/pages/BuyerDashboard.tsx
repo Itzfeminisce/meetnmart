@@ -11,9 +11,11 @@ import { WalletData } from '@/types';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MarketPlaceholder } from '@/components/MarketPlaceholder';
+import { toast } from 'sonner';
+import BottomNavigation from '@/components/BottomNavigation';
 
 const BuyerDashboard = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, signOut, isLoading } = useAuth();
   const [walletData, setWalletData] = useState<WalletData>({ balance: 0, escrowed_balance: 0 });
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [recentCalls, setRecentCalls] = useState([]);
@@ -27,13 +29,13 @@ const BuyerDashboard = () => {
       try {
         const { data, error } = await supabase.rpc('get_user_wallet', {
           uid: user.id,
-        });
+        }) as any;
 
         if (error) throw error;
         if (data) {
           setWalletData({
-            balance: Number(data.balance) || 0,
-            escrowed_balance: Number(data.escrowed_balance) || 0
+            balance: +data.balance || 0,
+            escrowed_balance: +data.escrowed_balance || 0
           });
         }
       } catch (error) {
@@ -73,8 +75,18 @@ const BuyerDashboard = () => {
     navigate('/markets');
   };
 
+  
+  const handleEditProfile = () => {
+    navigate('/edit-profile');
+  };
+  const handleSignOut = async () => {
+    toast.success('Clearing session...');
+    await signOut()
+    navigate('/');
+  };
+
   return (
-    <div className="container px-4 py-6 pb-safe">
+    <div className="app-container px-4 pt-6 animate-fade-in">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Hello, {profile?.name || 'Buyer'}!</h1>
         <p className="text-muted-foreground">Welcome back to your dashboard</p>
@@ -180,6 +192,22 @@ const BuyerDashboard = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      <Button
+        className="w-full mb-8 bg-market-orange hover:bg-market-orange/90"
+        onClick={handleEditProfile}
+      >
+        Edit Seller Profile
+      </Button>
+      <Button
+        disabled={isLoading}
+        className="w-full mb-8 bg-destructive/10 hover:bg-destructive/90 hover:text-foreground text-destructive"
+        onClick={handleSignOut}
+      >
+        Log out
+      </Button>
+
+      <BottomNavigation />
     </div>
   );
 };

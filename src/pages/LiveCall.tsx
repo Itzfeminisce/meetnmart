@@ -8,7 +8,7 @@ import EscrowRequestModal from '@/components/EscrowRequestModal';
 import InviteDeliveryModal from '@/components/InviteDeliveryModal';
 import DeliveryOrderSheet from '@/components/DeliveryOrderSheet';
 import DeliveryEscrowModal from '@/components/DeliveryEscrowModal';
-import { cn, formatDuration, getInitials } from '@/lib/utils';
+import { cn, formatDuration, getInitials, toLivekitRoomName } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import livekitService from '@/services/livekitService';
 import { Room } from 'livekit-client';
@@ -17,8 +17,9 @@ import { Participant, CallControls } from '@/components/LiveKitComponents';
 const LiveCall = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, userRole } = useAuth();
   const { seller } = location.state as { seller: Seller };
+  const [isSeller] = useState(userRole);
   
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -28,11 +29,6 @@ const LiveCall = () => {
   const [inviteDeliveryModalOpen, setInviteDeliveryModalOpen] = useState(false);
   const [deliveryOrderSheetOpen, setDeliveryOrderSheetOpen] = useState(false);
   const [deliveryAgent, setDeliveryAgent] = useState<DeliveryAgent | null>(null);
-  const [isSeller] = useState(() => {
-    // In a real app, this would check the current user's role
-    // For demo purposes, we'll use 50% chance of being a seller
-    return Math.random() > 0.5;
-  });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [activeSpeaker, setActiveSpeaker] = useState('seller'); // 'seller' or 'delivery'
@@ -78,7 +74,7 @@ const LiveCall = () => {
       try {
         // In a real app, you'd get the room name from the call request
         // For this demo, we'll create a room name
-        const roomName = `call_${Date.now()}_${seller.id}_${user.id}`;
+        const roomName = toLivekitRoomName(`call_${Date.now()}_${seller.id}_${user.id}`)
         const participantName = profile.name || user.id;
         
         const newRoom = await livekitService.connectToRoom(roomName, participantName);

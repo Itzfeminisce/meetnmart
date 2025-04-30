@@ -20,12 +20,16 @@ const RoleSelection = () => {
       setIsLoading(true);
       
       // Update user role in the database
-      const { error: roleError } = await supabase
+      const { error: roleError, ...rest } = await supabase
         .from('user_roles')
-        .upsert({ 
-          user_id: user.id, 
+        .update({ 
+          // user_id: user.id, 
           role 
-        });
+        })
+        .eq('id', user.id);
+
+        console.log("[handleRoleSelect]", {rest,roleError, user });
+        
       
       if (roleError) throw roleError;
 

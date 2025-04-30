@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Room, LocalParticipant, RemoteParticipant, Track, TrackPublication, ConnectionState } from 'livekit-client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 
 // Participant Component
 interface ParticipantProps {
+  // participant: LocalParticipant;
+  // participant: RemoteParticipant;
   participant: LocalParticipant | RemoteParticipant;
   isSpeaking?: boolean;
   isCameraOn?: boolean;
@@ -18,32 +20,61 @@ interface ParticipantProps {
   large?: boolean;
 }
 
-export const Participant = ({ 
-  participant, 
-  isSpeaking = false, 
-  isCameraOn = false, 
+export const Participant = ({
+  participant,
+  isSpeaking = false,
+  isCameraOn = false,
   isMicOn = true,
   isLocal = false,
-  large = false 
+  large = false
 }: ParticipantProps) => {
-  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  console.log("[Participant]", {
+    participant,
+    isSpeaking,
+    isCameraOn,
+    isMicOn,
+    isLocal,
+    large,
+
+  });
+
+  // const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const videoElement = useRef<HTMLVideoElement | null>(null) // useState<HTMLVideoElement | null>(null);
+
   const name = participant.identity || 'Unknown';
-  
+
+  // useEffect(() => {
+  //   if (!videoElement.current) return;
+
+  //   // In a real implementation, you would attach the video track to the video element
+  //   // This would use LiveKit's APIs to get and attach the track
+
+  //   // For demonstration purposes, we're just showing a placeholder
+
+  //   return () => {
+  //     // Cleanup
+  //   };
+  // }, [participant, videoElement.current]);
+
+
+
   useEffect(() => {
-    if (!videoElement) return;
-    
-    // In a real implementation, you would attach the video track to the video element
-    // This would use LiveKit's APIs to get and attach the track
-    
-    // For demonstration purposes, we're just showing a placeholder
-    
+    const videoTrack = Array.from(participant.videoTrackPublications.values())
+      .find((pub) => pub.track !== undefined)?.track;
+
+    if (videoElement.current && videoTrack) {
+      videoTrack.attach(videoElement.current);
+    }
+
     return () => {
-      // Cleanup
+      if (videoElement.current && videoTrack) {
+        videoTrack.detach(videoElement.current);
+      }
     };
-  }, [participant, videoElement]);
+  }, [participant]);
 
   return (
-    <div 
+    <div
       className={cn(
         "relative rounded-lg overflow-hidden bg-secondary/30",
         large ? "w-full h-full" : "w-full max-w-[180px]",
@@ -52,7 +83,7 @@ export const Participant = ({
     >
       {isCameraOn ? (
         <video
-          ref={setVideoElement}
+          ref={videoElement}
           autoPlay
           playsInline
           muted={isLocal}
@@ -65,7 +96,7 @@ export const Participant = ({
           </Avatar>
         </div>
       )}
-      
+
       {/* Status indicators */}
       <div className="absolute bottom-2 left-2 flex gap-1">
         {!isMicOn && (
@@ -74,7 +105,7 @@ export const Participant = ({
           </div>
         )}
       </div>
-      
+
       {/* Name tag */}
       <div className="absolute bottom-2 right-2 bg-background/60 px-2 py-1 rounded-full text-xs">
         {name} {isLocal && "(You)"}
@@ -111,7 +142,7 @@ export const CallControls = ({
       isMobile ? "pb-safe" : ""
     )}>
       <Button
-        variant="outline" 
+        variant="outline"
         size={isMobile ? "default" : "icon"}
         className={cn(
           "bg-secondary border-none",
@@ -125,9 +156,9 @@ export const CallControls = ({
           <Mic size={isMobile ? 20 : 24} className="text-foreground" />
         )}
       </Button>
-      
+
       <Button
-        variant="outline" 
+        variant="outline"
         size={isMobile ? "default" : "icon"}
         className={cn(
           "bg-secondary border-none",
@@ -141,11 +172,11 @@ export const CallControls = ({
           <VideoOff size={isMobile ? 20 : 24} className="text-destructive" />
         )}
       </Button>
-      
+
       {/* Additional controls can go here */}
-      
+
       <Button
-        variant="destructive" 
+        variant="destructive"
         size={isMobile ? "default" : "icon"}
         className={cn(
           "bg-destructive border-none",
