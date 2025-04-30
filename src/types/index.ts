@@ -1,4 +1,3 @@
-
 export interface Market {
   id: string;
   name: string;
@@ -89,4 +88,33 @@ export interface DeliveryOrder {
   buyerId: string;
   escrowAmount?: number;
   timestamp: string;
+}
+
+export interface WalletData {
+  balance: number;
+  escrowed_balance: number;
+}
+
+export interface LiveKitRoom {
+  id: string;
+  name: string;
+  created_at: string;
+  participants: number;
+  active: boolean;
+}
+
+export interface CallRequest {
+  id: string;
+  buyer_id: string;
+  seller_id: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'completed';
+  room_name?: string;
+  created_at: string;
+}
+
+export interface CallSession {
+  id: string;
+  room_name: string;
+  token: string;
+  participants: string[];
 }

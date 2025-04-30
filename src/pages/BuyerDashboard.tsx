@@ -1,291 +1,185 @@
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { History, TrendingUp, User, DollarSign, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import BottomNavigation from '@/components/BottomNavigation';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Clock, DollarSign, ShoppingBag, Truck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent } from '@/components/ui/card';
-import { toast } from 'sonner';
-import { formatDuration } from '@/lib/utils';
-
-// Mock data for the buyer dashboard
-const mockTransactions = [
-  { id: 't1', description: 'Fresh Vegetables', amount: 24.50, date: '2 days ago', status: 'completed' },
-  { id: 't2', description: 'Handmade Craft', amount: 45.99, date: '5 days ago', status: 'completed' },
-  { id: 't3', description: 'Delivery Service', amount: 15.00, date: 'Apr 15', status: 'pending' },
-];
-
-const mockEscrows = [
-  { id: 'e1', description: 'Organic Fruits', amount: 32.75, seller: 'Maria G.', status: 'held', date: '3 hours ago' },
-  { id: 'e2', description: 'Custom Artwork', amount: 89.50, seller: 'John A.', status: 'delivered', date: 'Yesterday' },
-];
-
-const mockCalls = [
-  { id: 'c1', sellerName: 'Fresh Market', duration: 462, time: '1 hour ago' },
-  { id: 'c2', sellerName: 'Craft Corner', duration: 185, time: 'Yesterday' },
-  { id: 'c3', sellerName: 'Tech Gadgets', duration: 723, time: 'Apr 15' },
-];
-
-interface WalletData {
-  balance: number;
-  escrowed_balance: number;
-}
+import { getInitials } from '@/lib/utils';
+import { WalletData } from '@/types';
+import { useNavigate } from 'react-router-dom';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MarketPlaceholder } from '@/components/MarketPlaceholder';
 
 const BuyerDashboard = () => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile } = useAuth();
+  const [walletData, setWalletData] = useState<WalletData>({ balance: 0, escrowed_balance: 0 });
+  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [recentCalls, setRecentCalls] = useState([]);
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [walletData, setWalletData] = useState<WalletData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) {
-      navigate('/');
-      return;
-    }
+    if (!user) return;
 
+    // Fetch wallet data
     const fetchWalletData = async () => {
       try {
-        // Call the Supabase function to get user wallet data
-        const { data, error } = await supabase.rpc('get_user_wallet', { uid: user.id });
-        
+        const { data, error } = await supabase.rpc('get_user_wallet', {
+          uid: user.id,
+        });
+
         if (error) throw error;
-        setWalletData(data);
+        if (data) {
+          setWalletData({
+            balance: Number(data.balance) || 0,
+            escrowed_balance: Number(data.escrowed_balance) || 0
+          });
+        }
       } catch (error) {
         console.error('Error fetching wallet data:', error);
-      } finally {
-        setIsLoading(false);
       }
     };
 
+    // Fetch mock data for demo purposes
+    const fetchMockData = () => {
+      // Mock transactions data
+      const mockTransactions = [
+        { id: 1, type: 'payment', amount: 52.50, description: 'Fresh vegetables', status: 'completed', date: '2025-04-28' },
+        { id: 2, type: 'escrow', amount: 120.00, description: 'Electronic goods', status: 'pending', date: '2025-04-27' },
+        { id: 3, type: 'payment', amount: 35.75, description: 'Local spices', status: 'completed', date: '2025-04-25' },
+      ];
+
+      // Mock calls data
+      const mockCalls = [
+        { id: 1, seller: 'Aisha M.', duration: '12:45', date: '2025-04-28', category: 'Vegetables' },
+        { id: 2, seller: 'Kofi Electronics', duration: '08:20', date: '2025-04-26', category: 'Electronics' },
+        { id: 3, seller: 'Mama Spices', duration: '05:30', date: '2025-04-24', category: 'Food' },
+      ];
+
+      setRecentTransactions(mockTransactions);
+      setRecentCalls(mockCalls);
+    };
+
     fetchWalletData();
-  }, [user, navigate]);
+    fetchMockData();
+  }, [user]);
 
-  const handleEditProfile = () => {
-    navigate('/edit-profile');
-  };
-
-  const handleSignOut = async () => {
-    toast.success('Clearing session...');
-    await signOut();
-    navigate('/');
-  };
-
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-market-green/20 text-market-green';
-      case 'pending':
-        return 'bg-market-orange/20 text-market-orange';
-      case 'held':
-        return 'bg-market-blue/20 text-market-blue';
-      case 'delivered':
-        return 'bg-purple-500/20 text-purple-500';
-      default:
-        return 'bg-secondary/20 text-muted-foreground';
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="app-container flex items-center justify-center h-screen">
-        <div className="text-center">
-          <p className="text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </div>
-    );
+  if (!user) {
+    return <MarketPlaceholder message="Please sign in to view your dashboard" />;
   }
 
+  const navigateToMarkets = () => {
+    navigate('/markets');
+  };
+
   return (
-    <div className="app-container px-4 pt-6 pb-20 animate-fade-in">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-gradient">Buyer Dashboard</h1>
-        <p className="text-muted-foreground">Manage your purchases and transactions</p>
-      </header>
-
-      <div className="glass-morphism rounded-xl p-4 mb-6">
-        <div className="flex items-center">
-          <Avatar className="h-16 w-16 mr-4 border-2 border-market-blue/50">
-            {profile?.avatar ? (
-              <AvatarImage src={profile.avatar} alt={profile.name} />
-            ) : (
-              <AvatarFallback className="bg-secondary text-foreground">
-                {profile?.name ? profile.name.charAt(0).toUpperCase() : 'B'}
-              </AvatarFallback>
-            )}
-          </Avatar>
-          <div>
-            <h2 className="text-lg font-medium">{profile?.name || 'MeetnMart Buyer'}</h2>
-            <p className="text-xs text-market-blue">{profile?.phone_number || user?.phone}</p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="bg-secondary/30 p-3 rounded-lg text-center">
-            <p className="text-xs text-muted-foreground mb-1">Available Balance</p>
-            <p className="text-xl font-semibold text-market-green">${walletData?.balance.toFixed(2) || '0.00'}</p>
-          </div>
-          <div className="bg-secondary/30 p-3 rounded-lg text-center">
-            <p className="text-xs text-muted-foreground mb-1">In Escrow</p>
-            <p className="text-xl font-semibold text-market-orange">${walletData?.escrowed_balance.toFixed(2) || '0.00'}</p>
-          </div>
-        </div>
+    <div className="container px-4 py-6 pb-safe">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Hello, {profile?.name || 'Buyer'}!</h1>
+        <p className="text-muted-foreground">Welcome back to your dashboard</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="grid grid-cols-3 mb-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-          <TabsTrigger value="trends">Trends</TabsTrigger>
+      {/* Wallet Card */}
+      <Card className="mb-6 bg-gradient-to-br from-market-green/20 to-background shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Wallet Balance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-3xl font-bold">${walletData.balance.toFixed(2)}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                ${walletData.escrowed_balance.toFixed(2)} in escrow
+              </p>
+            </div>
+            <Button variant="outline" className="rounded-full h-10 w-10 p-0">
+              <DollarSign className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <Button 
+          variant="outline" 
+          className="flex flex-col h-auto py-4 text-market-green border-market-green/30"
+          onClick={navigateToMarkets}
+        >
+          <ShoppingBag className="h-6 w-6 mb-2" />
+          <span>Shop Now</span>
+        </Button>
+        <Button 
+          variant="outline" 
+          className="flex flex-col h-auto py-4 text-market-orange border-market-orange/30"
+        >
+          <Truck className="h-6 w-6 mb-2" />
+          <span>Delivery</span>
+        </Button>
+      </div>
+
+      <Tabs defaultValue="transactions" className="mt-6">
+        <TabsList className="grid grid-cols-2">
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="calls">Recent Calls</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="overview">
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-lg font-medium flex items-center mb-4">
-                <span className="bg-market-blue/20 w-1 h-5 mr-2"></span>
-                Active Escrows
-              </h2>
-
-              {mockEscrows.length > 0 ? (
-                <div className="space-y-3">
-                  {mockEscrows.map((escrow) => (
-                    <div key={escrow.id} className="glass-morphism rounded-lg p-3 flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-market-blue/20 flex items-center justify-center mr-3">
-                        <DollarSign size={20} className="text-market-blue" />
-                      </div>
-                      <div className="flex-grow">
-                        <div className="flex justify-between">
-                          <h3 className="font-medium text-sm">${escrow.amount.toFixed(2)} - {escrow.description}</h3>
-                          <span className={`px-2 py-0.5 rounded-full text-xs ${getStatusClass(escrow.status)}`}>
-                            {escrow.status.charAt(0).toUpperCase() + escrow.status.slice(1)}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Seller: {escrow.seller} · {escrow.date}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-muted-foreground text-sm">
-                  No active escrow payments
-                </div>
-              )}
-            </div>
-
-            <div>
-              <h2 className="text-lg font-medium flex items-center mb-4">
-                <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
-                Recent Calls
-              </h2>
-
-              <div className="space-y-3">
-                {mockCalls.map((call) => (
-                  <div key={call.id} className="glass-morphism rounded-lg p-3 flex items-center">
-                    <div className="h-10 w-10 rounded-full bg-secondary/50 flex items-center justify-center mr-3">
-                      <Clock size={20} className="text-muted-foreground" />
-                    </div>
-                    <div className="flex-grow">
-                      <h3 className="font-medium text-sm">{call.sellerName}</h3>
-                      <div className="flex items-center text-xs text-muted-foreground">
-                        <span>{formatDuration(call.duration)}</span>
-                        <span className="mx-2">•</span>
-                        <span>{call.time}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="history">
-          <div>
-            <h2 className="text-lg font-medium flex items-center mb-4">
-              <span className="bg-market-green/20 w-1 h-5 mr-2"></span>
-              Transaction History
-            </h2>
-
-            <div className="space-y-3">
-              {mockTransactions.map((transaction) => (
-                <div key={transaction.id} className="glass-morphism rounded-lg p-3 flex items-center">
-                  <div className="h-10 w-10 rounded-full bg-market-green/20 flex items-center justify-center mr-3">
-                    <DollarSign size={20} className="text-market-green" />
-                  </div>
-                  <div className="flex-grow">
-                    <div className="flex justify-between">
-                      <h3 className="font-medium text-sm">{transaction.description}</h3>
-                      <span className="font-medium">${transaction.amount.toFixed(2)}</span>
-                    </div>
-                    <div className="flex items-center text-xs text-muted-foreground">
-                      <span>{transaction.date}</span>
-                      <span className={`ml-2 px-1.5 py-0.5 rounded-full ${getStatusClass(transaction.status)}`}>
-                        {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="trends">
+        <TabsContent value="transactions">
           <div className="space-y-4">
-            <Card className="glass-morphism">
-              <CardContent className="pt-6">
-                <h3 className="font-medium text-center mb-4">Shopping Categories</h3>
-                <div className="h-32 flex items-center justify-center">
-                  <p className="text-muted-foreground text-sm">Spending trends visualization will appear here</p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="glass-morphism">
-              <CardContent className="pt-6">
-                <h3 className="font-medium text-center mb-4">Monthly Spending</h3>
-                <div className="h-32 flex items-center justify-center">
-                  <p className="text-muted-foreground text-sm">Monthly spending chart will appear here</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="glass-morphism rounded-lg p-3 text-center">
-                <div className="text-market-green text-lg font-bold">$245.30</div>
-                <div className="text-xs text-muted-foreground">Last 30 days</div>
-              </div>
-              <div className="glass-morphism rounded-lg p-3 text-center">
-                <div className="text-market-blue text-lg font-bold">$1,320.75</div>
-                <div className="text-xs text-muted-foreground">All time</div>
-              </div>
-            </div>
+            {recentTransactions.map((tx) => (
+              <Card key={tx.id} className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="flex items-center p-4">
+                    <div className={`rounded-full p-2 mr-4 ${tx.type === 'escrow' ? 'bg-blue-100' : 'bg-green-100'}`}>
+                      {tx.type === 'escrow' ? (
+                        <Clock className="h-5 w-5 text-blue-600" />
+                      ) : (
+                        <DollarSign className="h-5 w-5 text-green-600" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">{tx.description}</p>
+                      <p className="text-xs text-muted-foreground">{tx.date}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">${tx.amount.toFixed(2)}</p>
+                      <p className={`text-xs ${tx.status === 'completed' ? 'text-green-600' : 'text-amber-600'}`}>
+                        {tx.status}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="calls">
+          <div className="space-y-4">
+            {recentCalls.map((call) => (
+              <Card key={call.id} className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="flex items-center p-4">
+                    <Avatar className="h-10 w-10 mr-4">
+                      <AvatarImage src="" />
+                      <AvatarFallback>{getInitials(call.seller)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="font-medium">{call.seller}</p>
+                      <p className="text-xs text-muted-foreground">{call.category}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">{call.duration}</p>
+                      <p className="text-xs text-muted-foreground">{call.date}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </TabsContent>
       </Tabs>
-
-      <Button
-        className="w-full bg-market-blue hover:bg-market-blue/90"
-        onClick={handleEditProfile}
-      >
-        Edit Profile
-      </Button>
-      
-      <Button
-        className="w-full mt-4 mb-8 bg-destructive/10 hover:bg-destructive/90 hover:text-foreground text-destructive"
-        onClick={handleSignOut}
-      >
-        Log out
-      </Button>
-
-      <BottomNavigation />
     </div>
   );
 };

@@ -9,10 +9,15 @@ import InviteDeliveryModal from '@/components/InviteDeliveryModal';
 import DeliveryOrderSheet from '@/components/DeliveryOrderSheet';
 import DeliveryEscrowModal from '@/components/DeliveryEscrowModal';
 import { cn, formatDuration, getInitials } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import livekitService from '@/services/livekitService';
+import { Room } from 'livekit-client';
+import { Participant, CallControls } from '@/components/LiveKitComponents';
 
 const LiveCall = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
   const { seller } = location.state as { seller: Seller };
   
   const [isMuted, setIsMuted] = useState(false);
@@ -31,7 +36,12 @@ const LiveCall = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [activeSpeaker, setActiveSpeaker] = useState('seller'); // 'seller' or 'delivery'
-
+  
+  // LiveKit integration
+  const [room, setRoom] = useState<Room | null>(null);
+  const [isConnecting, setIsConnecting] = useState(true);
+  const [participants, setParticipants] = useState<any[]>([]);
+  
   // Update mobile status on window resize
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -58,8 +68,68 @@ const LiveCall = () => {
     }
   }, [deliveryAgent]);
   
+  // LiveKit room connection
+  useEffect(() => {
+    const connectToRoom = async () => {
+      if (!user || !profile) return;
+      
+      setIsConnecting(true);
+      
+      try {
+        // In a real app, you'd get the room name from the call request
+        // For this demo, we'll create a room name
+        const roomName = `call_${Date.now()}_${seller.id}_${user.id}`;
+        const participantName = profile.name || user.id;
+        
+        const newRoom = await livekitService.connectToRoom(roomName, participantName);
+        
+        if (newRoom) {
+          setRoom(newRoom);
+          
+          // Set up event listeners (in a real app)
+          // newRoom.on(RoomEvent.ParticipantConnected, handleParticipantConnected);
+          // newRoom.on(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected);
+          // newRoom.on(RoomEvent.TrackSubscribed, handleTrackSubscribed);
+          // newRoom.on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed);
+          
+          // For this demo, we'll simulate participants
+          setParticipants([
+            { id: 'local', name: participantName, isLocal: true },
+            { id: seller.id, name: seller.name, isLocal: false }
+          ]);
+          
+          // Handle local tracks
+          setIsMuted(false);
+          setIsVideoOn(true);
+          
+          toast.success('Connected to call');
+        } else {
+          toast.error('Failed to connect to call');
+        }
+      } catch (error) {
+        console.error('Error connecting to LiveKit room:', error);
+        toast.error('Failed to connect to call');
+      } finally {
+        setIsConnecting(false);
+      }
+    };
+    
+    connectToRoom();
+    
+    // Cleanup when leaving the page
+    return () => {
+      if (room) {
+        room.disconnect();
+      }
+    };
+  }, [user, profile, seller]);
 
   const handleEndCall = () => {
+    // Disconnect from the room
+    if (room) {
+      room.disconnect();
+    }
+    
     navigate('/rating', { state: { seller, callDuration, deliveryAgent } });
   };
 
@@ -86,12 +156,38 @@ const LiveCall = () => {
   const handleDeliveryAgentSelected = (agent: DeliveryAgent) => {
     setInviteDeliveryModalOpen(false);
     setDeliveryAgent(agent);
+    
+    // In a real app, you'd invite the delivery agent to the LiveKit room here
+    // For this demo, we'll simulate adding them to the participants list
+    setParticipants(prev => [...prev, { id: agent.id, name: agent.name, isLocal: false }]);
+    
     toast.success(`${agent.name} has been invited and will join the call shortly!`);
   };
 
-
   const toggleFullscreen = () => {
     setIsFullscreenMode(!isFullscreenMode);
+  };
+  
+  const handleToggleMute = () => {
+    setIsMuted(!isMuted);
+    
+    // In a real app, this would mute/unmute the local audio track
+    // if (room) {
+    //   room.localParticipant.setMicrophoneEnabled(!isMuted);
+    // }
+    
+    toast.success(isMuted ? 'Microphone unmuted' : 'Microphone muted');
+  };
+  
+  const handleToggleVideo = () => {
+    setIsVideoOn(!isVideoOn);
+    
+    // In a real app, this would enable/disable the local video track
+    // if (room) {
+    //   room.localParticipant.setCameraEnabled(!isVideoOn);
+    // }
+    
+    toast.success(isVideoOn ? 'Camera turned off' : 'Camera turned on');
   };
 
   return (
@@ -101,7 +197,7 @@ const LiveCall = () => {
         <div className="flex items-center gap-2">
           <Users size={20} />
           <span className="font-medium">
-            {deliveryAgent ? '2 participants' : '1 participant'}
+            {deliveryAgent ? '3 participants' : '2 participants'}
           </span>
         </div>
         <div className="glass-morphism px-3 py-1 rounded-full text-sm font-medium">
@@ -126,40 +222,30 @@ const LiveCall = () => {
             isMobile ? "pb-20" : "pb-24"
           )}
         >
-          {!deliveryAgent ? (
-            // Single participant layout
+          {participants.length <= 2 ? (
+            // Two participant layout
             <div className="relative max-w-lg w-full h-full flex flex-col items-center justify-center">
+              {/* Main participant (remote) */}
               <div className="aspect-video w-full max-h-[70vh] relative rounded-xl overflow-hidden bg-secondary/30 border-2 border-market-orange/50 flex items-center justify-center">
-                {seller.avatar ? (
-                  <img
-                    src={seller.avatar}
-                    alt={seller.name}
-                    className="h-full w-full object-cover"
+                {participants.find(p => !p.isLocal) && (
+                  <Participant 
+                    participant={{ identity: seller.name } as any}
+                    isSpeaking={true}
+                    isCameraOn={true}
+                    isMicOn={true}
+                    large={true}
                   />
-                ) : (
-                  <div className="text-6xl font-bold text-muted-foreground">
-                    {getInitials(seller.name)}
-                  </div>
                 )}
-                
-                {/* Video controls indicator */}
-                <div className="absolute bottom-3 left-3 flex gap-2">
-                  {isMuted && (
-                    <div className="bg-background/80 rounded-full p-1">
-                      <MicOff size={16} className="text-market-orange" />
-                    </div>
-                  )}
-                  {!isVideoOn && (
-                    <div className="bg-background/80 rounded-full p-1">
-                      <VideoOff size={16} className="text-market-orange" />
-                    </div>
-                  )}
-                </div>
-                
-                {/* Name tag */}
-                <div className="absolute bottom-3 right-3 glass-morphism px-3 py-1 rounded-full text-sm">
-                  {seller.name}
-                </div>
+              </div>
+              
+              {/* Self view (small) */}
+              <div className="absolute bottom-5 right-5 w-32 h-24 rounded-lg overflow-hidden border-2 border-background shadow-md">
+                <Participant 
+                  participant={{ identity: profile?.name || 'You' } as any}
+                  isLocal={true}
+                  isCameraOn={isVideoOn}
+                  isMicOn={!isMuted}
+                />
               </div>
             </div>
           ) : (
@@ -169,49 +255,22 @@ const LiveCall = () => {
               <div className="flex-1 relative">
                 <div className="aspect-video w-full h-full max-h-[60vh] md:max-h-none relative rounded-xl overflow-hidden bg-secondary/30 border-2 border-market-orange/50 flex items-center justify-center">
                   {activeSpeaker === 'seller' ? (
-                    seller.avatar ? (
-                      <img
-                        src={seller.avatar}
-                        alt={seller.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="text-6xl font-bold text-muted-foreground">
-                        {getInitials(seller.name)}
-                      </div>
-                    )
+                    <Participant 
+                      participant={{ identity: seller.name } as any}
+                      isSpeaking={true}
+                      isCameraOn={true}
+                      isMicOn={true}
+                      large={true}
+                    />
                   ) : (
-                    deliveryAgent.avatar ? (
-                      <img
-                        src={deliveryAgent.avatar}
-                        alt={deliveryAgent.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="text-6xl font-bold text-muted-foreground">
-                        {getInitials(deliveryAgent.name)}
-                      </div>
-                    )
+                    <Participant 
+                      participant={{ identity: deliveryAgent?.name || 'Delivery' } as any}
+                      isSpeaking={true}
+                      isCameraOn={true}
+                      isMicOn={true}
+                      large={true}
+                    />
                   )}
-                  
-                  {/* Video controls indicator */}
-                  <div className="absolute bottom-3 left-3 flex gap-2">
-                    {isMuted && (
-                      <div className="bg-background/80 rounded-full p-1">
-                        <MicOff size={16} className="text-market-orange" />
-                      </div>
-                    )}
-                    {!isVideoOn && (
-                      <div className="bg-background/80 rounded-full p-1">
-                        <VideoOff size={16} className="text-market-orange" />
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Name tag */}
-                  <div className="absolute bottom-3 right-3 glass-morphism px-3 py-1 rounded-full text-sm">
-                    {activeSpeaker === 'seller' ? seller.name : `${deliveryAgent.name} (Delivery)`}
-                  </div>
                 </div>
               </div>
               
@@ -220,46 +279,53 @@ const LiveCall = () => {
                 "flex gap-2",
                 isMobile ? "flex-row justify-center" : "flex-col justify-start w-1/4"
               )}>
-                {/* Inactive participant thumbnail */}
+                {/* Local participant thumbnail */}
                 <div 
                   className={cn(
-                    "relative rounded-lg overflow-hidden bg-secondary/30 border-2 cursor-pointer hover:border-primary/50 transition-colors",
-                    activeSpeaker === 'seller' ? "border-muted" : "border-market-orange/50",
+                    "relative rounded-lg overflow-hidden bg-secondary/30 border-2",
                     isMobile ? "h-24 w-24" : "aspect-video w-full"
                   )}
-                  onClick={() => setActiveSpeaker(activeSpeaker === 'seller' ? 'delivery' : 'seller')}
                 >
-                  {activeSpeaker !== 'seller' ? (
-                    seller.avatar ? (
-                      <img
-                        src={seller.avatar}
-                        alt={seller.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center text-xl font-bold text-muted-foreground">
-                        {getInitials(seller.name)}
-                      </div>
-                    )
-                  ) : (
-                    deliveryAgent.avatar ? (
-                      <img
-                        src={deliveryAgent.avatar}
-                        alt={deliveryAgent.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center text-xl font-bold text-muted-foreground">
-                        {getInitials(deliveryAgent.name)}
-                      </div>
-                    )
-                  )}
-                  
-                  {/* Small name tag */}
-                  <div className="absolute bottom-1 right-1 left-1 glass-morphism px-1 py-0.5 rounded text-xs text-center truncate">
-                    {activeSpeaker !== 'seller' ? seller.name : `${deliveryAgent.name}`}
-                  </div>
+                  <Participant 
+                    participant={{ identity: profile?.name || 'You' } as any}
+                    isLocal={true}
+                    isCameraOn={isVideoOn}
+                    isMicOn={!isMuted}
+                  />
                 </div>
+                
+                {/* Other participants thumbnails */}
+                {activeSpeaker === 'seller' && deliveryAgent && (
+                  <div 
+                    className={cn(
+                      "relative rounded-lg overflow-hidden bg-secondary/30 border-2 cursor-pointer hover:border-primary/50 transition-colors",
+                      isMobile ? "h-24 w-24" : "aspect-video w-full"
+                    )}
+                    onClick={() => setActiveSpeaker('delivery')}
+                  >
+                    <Participant 
+                      participant={{ identity: deliveryAgent.name } as any}
+                      isCameraOn={true}
+                      isMicOn={true}
+                    />
+                  </div>
+                )}
+                
+                {activeSpeaker === 'delivery' && (
+                  <div 
+                    className={cn(
+                      "relative rounded-lg overflow-hidden bg-secondary/30 border-2 cursor-pointer hover:border-primary/50 transition-colors",
+                      isMobile ? "h-24 w-24" : "aspect-video w-full"
+                    )}
+                    onClick={() => setActiveSpeaker('seller')}
+                  >
+                    <Participant 
+                      participant={{ identity: seller.name } as any}
+                      isCameraOn={true}
+                      isMicOn={true}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -267,101 +333,59 @@ const LiveCall = () => {
       </div>
       
       {/* Call Controls */}
+      <div className="absolute left-0 right-0 bottom-0">
+        <CallControls 
+          isMuted={isMuted}
+          isVideoOn={isVideoOn}
+          onToggleMute={handleToggleMute}
+          onToggleVideo={handleToggleVideo}
+          onEndCall={handleEndCall}
+          onInviteDelivery={!isSeller && !deliveryAgent ? handleInviteDelivery : undefined}
+          showInviteDelivery={!isSeller && !deliveryAgent}
+          isMobile={isMobile}
+        />
+      </div>
+      
+      {/* Action buttons */}
       <div className={cn(
-        "glass-morphism p-3 flex justify-center items-center space-x-2 md:space-x-4 absolute left-0 right-0 bottom-0",
-        isMobile ? "pb-safe" : ""
+        "absolute left-0 right-0 bottom-20 flex justify-center gap-2",
+        isMobile ? "pb-4" : "pb-2"
       )}>
-        <Button
-          variant="outline" 
-          size={isMobile ? "default" : "icon"}
-          className={cn(
-            "bg-secondary border-none",
-            isMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
-          )}
-          onClick={() => {
-            setIsMuted(!isMuted);
-            toast.success(isMuted ? "Microphone unmuted" : "Microphone muted");
-          }}
-        >
-          {isMuted ? (
-            <MicOff size={isMobile ? 20 : 24} className="text-market-orange" />
-          ) : (
-            <Mic size={isMobile ? 20 : 24} className="text-foreground" />
-          )}
-        </Button>
-        
-        <Button
-          variant="outline" 
-          size={isMobile ? "default" : "icon"}
-          className={cn(
-            "bg-secondary border-none",
-            isMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
-          )}
-          onClick={() => {
-            setIsVideoOn(!isVideoOn);
-            toast.success(isVideoOn ? "Camera turned off" : "Camera turned on");
-          }}
-        >
-          {isVideoOn ? (
-            <Video size={isMobile ? 20 : 24} className="text-foreground" />
-          ) : (
-            <VideoOff size={isMobile ? 20 : 24} className="text-market-orange" />
-          )}
-        </Button>
-        
         {!isSeller && !deliveryAgent && (
           <Button
             variant="outline" 
-            size={isMobile ? "default" : "icon"}
-            className={cn(
-              "bg-primary/20 border-none",
-              isMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
-            )}
+            size="sm"
+            className="bg-primary/20 border-none"
             onClick={handleInviteDelivery}
           >
-            <Truck size={isMobile ? 20 : 24} className="text-primary" />
+            <Truck size={16} className="text-primary mr-2" />
+            Invite Delivery
           </Button>
         )}
         
         {!isSeller && deliveryAgent && (
           <Button
             variant="outline" 
-            size={isMobile ? "default" : "icon"}
-            className={cn(
-              "bg-market-green/20 border-none",
-              isMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
-            )}
+            size="sm"
+            className="bg-market-green/20 border-none"
             onClick={() => setDeliveryEscrowModalOpen(true)}
           >
-            <DollarSign size={isMobile ? 20 : 24} className="text-market-green" />
+            <DollarSign size={16} className="text-market-green mr-2" />
+            Pay for Delivery
           </Button>
         )}
         
         {isSeller && (
           <Button
             variant="outline" 
-            size={isMobile ? "default" : "icon"}
-            className={cn(
-              "bg-market-green/20 border-none",
-              isMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
-            )}
+            size="sm"
+            className="bg-market-green/20 border-none"
             onClick={() => setEscrowModalOpen(true)}
           >
-            <DollarSign size={isMobile ? 20 : 24} className="text-market-green" />
+            <DollarSign size={16} className="text-market-green mr-2" />
+            Request Payment
           </Button>
         )}
-        
-        <Button
-          variant="destructive" 
-          size={isMobile ? "default" : "icon"}
-          className={cn(
-            "bg-destructive border-none",
-            isMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
-          )}
-          onClick={handleEndCall}
-        >
-          <PhoneCall size={isMobile ? 20 : 24} className="rotate-[135deg]" />
-        </Button>
       </div>
       
       {/* Modals */}
