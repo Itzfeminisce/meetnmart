@@ -23,10 +23,9 @@ const RoleSelection = () => {
       const { error: roleError, ...rest } = await supabase
         .from('user_roles')
         .update({ 
-          // user_id: user.id, 
           role 
         })
-        .eq('id', user.id);
+        .eq('user_id', user.id);
 
         console.log("[handleRoleSelect]", {rest,roleError, user });
         

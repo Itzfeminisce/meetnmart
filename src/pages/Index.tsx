@@ -8,12 +8,15 @@ import { toast } from 'sonner';
 
 const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const { user, isLoading, signOut, profile, userRole } = useAuth();
+  const { user, isAutheticated, isLoading, signOut, profile, userRole } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
+
+    console.log("Home Pgae", {user, profile, userRole, isAutheticated, isLoading});
+    
     // If user is already logged in, check their status
-    if (user && !isLoading) {
+    if (isAutheticated) {
       // If they haven't selected a role yet, redirect to role selection
       if (!userRole) {
         navigate('/role-selection');
