@@ -1,4 +1,3 @@
-
 import { Home, Search, Bell, User } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,7 +7,7 @@ import AuthModal from "./AuthModal";
 const BottomNavigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile, userRole } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   
   const isActive = (path: string) => {
@@ -16,15 +15,34 @@ const BottomNavigation = () => {
   };
 
   const handleProfileClick = () => {
-    if (user) {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    // If user hasn't chosen a role yet, direct them to role selection
+    if (!userRole) {
+      navigate('/role-selection');
+      return;
+    }
+
+    // Otherwise, direct to the appropriate dashboard based on role
+    if (profile?.is_seller) {
       navigate('/seller-dashboard');
     } else {
-      setShowAuthModal(true);
+      navigate('/buyer-dashboard');
     }
   };
 
   const handleAuthSuccess = () => {
-    navigate('/seller-dashboard');
+    // After successful auth, check if user has a role
+    if (!userRole) {
+      navigate('/role-selection');
+    } else if (profile?.is_seller) {
+      navigate('/seller-dashboard');
+    } else {
+      navigate('/buyer-dashboard');
+    }
   };
 
   return (
@@ -58,7 +76,9 @@ const BottomNavigation = () => {
           <button 
             onClick={handleProfileClick}
             className={`flex flex-col items-center justify-center ${
-              isActive('/seller-dashboard') || isActive('/profile') ? 'text-market-orange' : 'text-muted-foreground'
+              isActive('/seller-dashboard') || isActive('/buyer-dashboard') || isActive('/profile') || isActive('/role-selection') 
+              ? 'text-market-orange' 
+              : 'text-muted-foreground'
             }`}
           >
             <User size={20} />

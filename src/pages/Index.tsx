@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,34 +8,44 @@ import { toast } from 'sonner';
 
 const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const { user, isLoading, signOut } = useAuth();
+  const { user, isLoading, signOut, profile, userRole } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // If user is already logged in, you can optionally redirect them
+    // If user is already logged in, check their status
     if (user && !isLoading) {
-      // Optional: Auto-redirect to markets page
-      // navigate('/markets');
+      // If they haven't selected a role yet, redirect to role selection
+      if (!userRole) {
+        navigate('/role-selection');
+        return;
+      }
+      
+      // Otherwise redirect to appropriate dashboard
+      if (profile?.is_seller) {
+        navigate('/seller-dashboard');
+      } else {
+        navigate('/buyer-dashboard');
+      }
     }
-  }, [user, isLoading, navigate]);
+  }, [user, isLoading, navigate, profile, userRole]);
 
   const handleGetStarted = () => {
     if (user) {
-      navigate('/markets');
+      if (!userRole) {
+        navigate('/role-selection');
+      } else if (profile?.is_seller) {
+        navigate('/seller-dashboard');
+      } else {
+        navigate('/buyer-dashboard');
+      }
     } else {
       setShowAuthModal(true);
     }
   };
 
   const handleAuthSuccess = () => {
-    navigate('/markets');
+    // After authentication, the useEffect will handle redirection
   };
-
-  // const handleSignOut = async () => {
-  //   toast.success('Clearing session...');
-  //   await signOut()
-  //   navigate('/');
-  // };
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-background to-background/80">
@@ -58,13 +67,12 @@ const Index = () => {
               className="bg-market-orange hover:bg-market-orange/90"
             >
               <ShoppingBasket className="mr-2 h-4 w-4" />
-              {user ? 'Browse Markets' : 'Get Started'}
+              {user ? 'Go to Dashboard' : 'Get Started'}
             </Button>
             
             {user ? (
               <Button 
                 variant="outline"
-                // disabled={isLoading}
                 onClick={signOut}
                 className="bg-secondary/50 border-none"
               >
