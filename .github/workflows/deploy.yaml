@@ -18,22 +18,26 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
       with:
-        node-version: '20' # Use your preferred Node.js version
-        cache: 'npm'
+        bun-version: latest
 
     - name: Install dependencies
       run: |
-        echo "Installing dependencies..."
-        npm ci
+        echo "Installing dependencies with Bun..."
+        bun install --legacy-peer-deps
       
     - name: Build project
       run: |
-        echo "Building  project..."
-        npm run build
+        echo "Building project with Bun..."
+        bun run build
         echo "Build completed!"
+      
+    - name: List build output (for debugging)
+      run: |
+        echo "Contents of dist directory:"
+        ls -la dist/
       
     - name: Setup SSH
       uses: webfactory/ssh-agent@v0.8.0
