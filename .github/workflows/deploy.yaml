@@ -38,22 +38,21 @@ jobs:
       run: |
         echo "Contents of dist directory:"
         ls -la dist/
-      
-    - name: Setup SSH
-      uses: webfactory/ssh-agent@v0.8.0
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         
-    - name: Add Truehost to known hosts
+    - name: Deploy using SSH (direct method)
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        TRUEHOST_USERNAME: ${{ secrets.TRUEHOST_USERNAME }}
+        TRUEHOST_PATH: ${{ secrets.TRUEHOST_PATH }}
       run: |
+        echo "Setting up SSH..."
         mkdir -p ~/.ssh
+        echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
         ssh-keyscan -H server.truehost.com >> ~/.ssh/known_hosts
         
-    - name: Deploy to Truehost
-      run: |
         echo "Starting deployment to Truehost..."
-        # Deploy only the dist/build folder to the server
-        rsync -avz --delete \
-          ./dist/ ${{ secrets.TRUEHOST_USERNAME }}@server.truehost.com:${{ secrets.TRUEHOST_PATH }}/
+        rsync -avz --delete -e "ssh -i ~/.ssh/deploy_key" \
+          ./dist/ $TRUEHOST_USERNAME@server.truehost.com:$TRUEHOST_PATH/
         
         echo "Deployment completed successfully!"
