@@ -75,9 +75,9 @@ const BuyerDashboard = () => {
     navigate('/markets');
   };
 
-  
+
   const handleEditProfile = () => {
-    navigate('/edit-profile');
+    navigate('/edit-buyer-profile');
   };
   const handleSignOut = async () => {
     toast.success('Clearing session...');
@@ -87,9 +87,16 @@ const BuyerDashboard = () => {
 
   return (
     <div className="app-container px-4 pt-6 animate-fade-in">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Hello, {profile?.name || 'Buyer'}!</h1>
-        <p className="text-muted-foreground">Welcome back to your dashboard</p>
+      <div className="flex justify-between items-center gap-2">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Hello, {profile?.name || 'Buyer'}!</h1>
+          <p className="text-muted-foreground">Welcome back to your dashboard</p>
+        </div>
+
+        <Avatar className="h-14 w-14 mr-5  self-start  text-market-green border-market-green/30">
+          <AvatarImage src={profile?.avatar} alt="Profile" />
+          <AvatarFallback className="bg-secondary text-foreground">{getInitials(profile?.name)}</AvatarFallback>
+        </Avatar>
       </div>
 
       {/* Wallet Card */}
@@ -114,16 +121,16 @@ const BuyerDashboard = () => {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="flex flex-col h-auto py-4 text-market-green border-market-green/30"
           onClick={navigateToMarkets}
         >
           <ShoppingBag className="h-6 w-6 mb-2" />
           <span>Shop Now</span>
         </Button>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="flex flex-col h-auto py-4 text-market-orange border-market-orange/30"
         >
           <Truck className="h-6 w-6 mb-2" />
@@ -136,7 +143,7 @@ const BuyerDashboard = () => {
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
           <TabsTrigger value="calls">Recent Calls</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="transactions">
           <div className="space-y-4">
             {recentTransactions.map((tx) => (
@@ -166,7 +173,7 @@ const BuyerDashboard = () => {
             ))}
           </div>
         </TabsContent>
-        
+
         <TabsContent value="calls">
           <div className="space-y-4">
             {recentCalls.map((call) => (
@@ -197,7 +204,7 @@ const BuyerDashboard = () => {
         className="w-full mb-8 bg-market-orange hover:bg-market-orange/90"
         onClick={handleEditProfile}
       >
-        Edit Seller Profile
+        Edit Profile
       </Button>
       <Button
         disabled={isLoading}
@@ -206,6 +213,8 @@ const BuyerDashboard = () => {
       >
         Log out
       </Button>
+
+      <BottomNavigation />
 
       <BottomNavigation />
     </div>

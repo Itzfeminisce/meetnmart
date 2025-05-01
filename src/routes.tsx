@@ -9,19 +9,34 @@ import RatingFeedback from "./pages/RatingFeedback";
 import SellerDashboard from "./pages/SellerDashboard";
 import BuyerDashboard from "./pages/BuyerDashboard";
 import RoleSelection from "./pages/RoleSelection";
-import EditSellerProfile from "./pages/EditSellerProfile";
+import EditSellerProfile from "./pages/EditBuyerProfile";
 import NotFound from "./pages/NotFound";
+import { RouteObject } from "react-router-dom";
+import AuthGaurd from "./contexts/AuthGaurd";
+import EditBuyerProfile from "./pages/EditBuyerProfile";
 
-export const appRoutes = [
-  { path: "/", element: <Index />, name: "Home" },
-  { path: "/markets", element: <MarketSelection />, name: "Markets" },
-  { path: "/categories", element: <CategorySelection />, name: "Categories" },
-  { path: "/sellers", element: <SellersList />, name: "Sellers" },
-  { path: "/call", element: <LiveCall />, name: "Live Call" },
-  { path: "/rating", element: <RatingFeedback />, name: "Rating" },
-  { path: "/role-selection", element: <RoleSelection />, name: "Select Role" },
-  { path: "/seller-dashboard", element: <SellerDashboard />, name: "Seller Dashboard" },
-  { path: "/buyer-dashboard", element: <BuyerDashboard />, name: "Buyer Dashboard" },
-  { path: "/edit-profile", element: <EditSellerProfile />, name: "Edit Profile" },
-  { path: "*", element: <NotFound />, name: "404" },
+export const appRoutes: RouteObject[] = [
+
+  // Guest Routes
+  { path: "/", element: <Index /> },
+  { path: "/role-selection", element: <RoleSelection /> },
+
+
+  // Protected Routes
+  {
+    element: <AuthGaurd />, children: [
+      { path: "/markets", element: <MarketSelection /> },
+      { path: "/categories", element: <CategorySelection /> },
+      { path: "/sellers", element: <SellersList /> },
+      { path: "/call", element: <LiveCall /> },
+      { path: "/rating", element: <RatingFeedback /> },
+      { path: "/seller-dashboard", element: <SellerDashboard /> },
+      { path: "/buyer-dashboard", element: <BuyerDashboard /> },
+      { path: "/edit-seller-profile", element: <EditSellerProfile /> },
+      { path: "/edit-buyer-profile", element: <EditBuyerProfile /> },
+    ]
+  },
+
+  // All Catch Route
+  { path: "*", element: <NotFound /> },
 ];

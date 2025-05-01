@@ -14,7 +14,7 @@ interface AuthModalProps {
 }
 
 const AuthModal = ({ open, onOpenChange, onSuccess }: AuthModalProps) => {
-  const { signInWithPhone, verifyOTP } = useAuth();
+  const { signInWithPhone, verifyOTP, fetchUserProfile} = useAuth();
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
@@ -59,7 +59,7 @@ const AuthModal = ({ open, onOpenChange, onSuccess }: AuthModalProps) => {
       toast.error(error.message || "Invalid verification code");
       return;
     }
-    
+
     toast.success("Authentication successful!");
     onOpenChange(false);
     setStep('phone');

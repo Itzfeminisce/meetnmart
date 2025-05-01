@@ -1,6 +1,6 @@
 
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Navigate, redirect, useNavigate } from 'react-router-dom';
 import { User, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,39 +9,45 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const RoleSelection = () => {
-  const { user, fetchUserProfile } = useAuth();
+  const { user, fetchUserProfile,isAuthenticated, userRole} = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
+  if(!isAuthenticated){
+    return <Navigate to={"/"} />
+  }
+
+  if(isAuthenticated && userRole){
+    return <Navigate to={"/markets"} />
+  }
+
   const handleRoleSelect = async (role: 'buyer' | 'seller') => {
     if (!user) return;
-    
+
     try {
       setIsLoading(true);
-      
+
       // Update user role in the database
       const { error: roleError, ...rest } = await supabase
         .from('user_roles')
-        .update({ 
-          role 
+        .upsert({
+          user_id: user.id,
+          role
         })
-        .eq('user_id', user.id);
+        // .eq('user_id', user.id);
 
-        console.log("[handleRoleSelect]", {rest,roleError, user });
-        
-      
       if (roleError) throw roleError;
 
       // Update profile with is_seller flag
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ 
-          is_seller: role === 'seller' 
+        .update({
+          is_seller: role === 'seller'
         })
         .eq('id', user.id);
 
       if (profileError) throw profileError;
-      
+
       // Refresh the user profile
       await fetchUserProfile();
 
@@ -49,7 +55,7 @@ const RoleSelection = () => {
 
       // Redirect based on role
       navigate(role === 'buyer' ? '/buyer-dashboard' : '/seller-dashboard');
-      
+
     } catch (error: any) {
       console.error('Error setting role:', error);
       toast.error('Failed to set your role. Please try again.');
@@ -68,7 +74,7 @@ const RoleSelection = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
-        <Card 
+        <Card
           className="glass-morphism hover:border-market-blue cursor-pointer transition-all"
           onClick={() => !isLoading && handleRoleSelect('buyer')}
         >
@@ -83,7 +89,7 @@ const RoleSelection = () => {
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className="glass-morphism hover:border-market-orange cursor-pointer transition-all"
           onClick={() => !isLoading && handleRoleSelect('seller')}
         >

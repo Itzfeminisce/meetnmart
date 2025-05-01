@@ -59,7 +59,7 @@ const SellerDashboard = () => {
   };
 
   const handleEditProfile = () => {
-    navigate('/edit-profile');
+    navigate('/edit-seller-profile');
   };
   const handleSignOut = async () => {
     toast.success('Clearing session...');
@@ -226,7 +226,7 @@ const SellerDashboard = () => {
         className="w-full mb-8 bg-market-orange hover:bg-market-orange/90"
         onClick={handleEditProfile}
       >
-        Edit Seller Profile
+        Edit Profile
       </Button>
       <Button
         disabled={isLoading}

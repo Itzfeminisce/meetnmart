@@ -35,7 +35,7 @@ export function formatDuration(seconds: number): string {
 }
 
 export const getEnvVar = (key: string): string => {
-  const value = import.meta.env[key];
+  const value = import.meta.env[`${key.startsWith("VITE_") ? key : `VITE_${key}`}`];
   if (!value) {
       throw new Error(`Missing environment variable: ${key}`);
   }

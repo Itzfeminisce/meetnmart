@@ -2,6 +2,10 @@
 import { Room, RoomEvent, RemoteParticipant, LocalParticipant, RemoteTrackPublication, ConnectionState } from 'livekit-client';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAxios } from '@/lib/axiosUtils';
+
+
+const axiosUtils = useAxios()
 
 // This would normally be retrieved from an environment variable or server
 const LIVEKIT_URL = 'wss://meetnmart-0yt4w00u.livekit.cloud';
@@ -19,18 +23,15 @@ const livekitService = {
    */
   async getToken(roomName: string, participantName: string, isHost: boolean = false): Promise<string | null> {
     try {
-      const { data, error } = await supabase.functions.invoke('livekit-token', {
-        body: { roomName, participantName, isHost }
-      });
+      // const { data, error } = await supabase.functions.invoke('livekit-token', {
+      //   body: { roomName, participantName, isHost }
+      // });
 
-      console.log("[getToken]", { data, error });
+      const response = await axiosUtils.Post<{ token: string }>("/livekit/token", { roomName, participantName, isHost })
 
+      console.log("[getToken]", { response });
 
-      if (error) throw error;
-      return data.token;
-
-      // For demo purposes, return a mock token
-      return `mock_token_for_${roomName}_${participantName}`;
+      return response.token
     } catch (error) {
       console.error('Error getting LiveKit token:', error);
       toast.error('Failed to get access token');

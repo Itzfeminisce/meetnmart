@@ -8,6 +8,8 @@ import BottomNavigation from '@/components/BottomNavigation';
 import { markets } from '@/lib/mockData';
 import { Market } from '@/types';
 import { toast } from 'sonner';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getInitials } from '@/lib/utils';
 
 interface Coordinates {
   latitude: number;
@@ -129,11 +131,15 @@ const MarketSelection = () => {
               onClick={() => handleSelectMarket(market)}
             >
               <div className="h-16 w-16 rounded-md overflow-hidden mr-3 flex-shrink-0">
-                <img
+                {/* <img
                   src={market.image || 'https://images.unsplash.com/photo-1487958449943-2429e8be8625'}
                   alt={market.name}
                   className="h-full w-full object-cover"
-                />
+                /> */}
+                 <Avatar className="h-full w-full object-cover mr-4">
+                      <AvatarImage src="" />
+                      <AvatarFallback>{getInitials(market.name)}</AvatarFallback>
+                    </Avatar>
               </div>
               <div className="flex-grow">
                 <h3 className="font-medium">{market.name}</h3>
