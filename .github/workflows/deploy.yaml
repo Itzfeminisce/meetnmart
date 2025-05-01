@@ -1,0 +1,55 @@
+name: Deploy MeetnMart Project
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    types: [ closed ]
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20' # Use your preferred Node.js version
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        echo "Installing dependencies..."
+        npm ci
+      
+    - name: Build project
+      run: |
+        echo "Building  project..."
+        npm run build
+        echo "Build completed!"
+      
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        
+    - name: Add Truehost to known hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H server.truehost.com >> ~/.ssh/known_hosts
+        
+    - name: Deploy to Truehost
+      run: |
+        echo "Starting deployment to Truehost..."
+        # Deploy only the dist/build folder to the server
+        rsync -avz --delete \
+          ./dist/ ${{ secrets.TRUEHOST_USERNAME }}@server.truehost.com:${{ secrets.TRUEHOST_PATH }}/
+        
+        echo "Deployment completed successfully!"

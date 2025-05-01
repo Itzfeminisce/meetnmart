@@ -13,6 +13,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import livekitService from '@/services/livekitService';
 import { Room, RoomEvent, LocalParticipant, RemoteParticipant } from 'livekit-client';
 import { Participant, CallControls } from '@/components/LiveKitComponents';
+import { CallTimer } from '@/components/CallTimer';
+import { useSocket } from '@/contexts/SocketContext';
+import { CallAction } from '@/types/call';
 
 const LiveCall = () => {
   const location = useLocation();
@@ -20,6 +23,7 @@ const LiveCall = () => {
   const { user, profile, userRole } = useAuth();
   const { seller } = location.state as { seller: Seller };
   const [isSeller] = useState(userRole);
+  const socket = useSocket()
   
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -39,6 +43,8 @@ const LiveCall = () => {
   const [localParticipant, setLocalParticipant] = useState<LocalParticipant | null>(null);
   const [remoteParticipants, setRemoteParticipants] = useState<RemoteParticipant[]>([]);
   
+  console.log("rerendering...");
+  
   // Update mobile status on window resize
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -46,14 +52,6 @@ const LiveCall = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Simulate call timer
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCallDuration(prev => prev + 1);
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, []);
 
   // Simulate active speaker changes (for demo purposes)
   useEffect(() => {
@@ -111,7 +109,13 @@ const LiveCall = () => {
           await newRoom.localParticipant.setCameraEnabled(true);
 
           // Post outgoing call to notify seller
-          if(seller){}
+          if(seller && socket.isConnected){
+            socket.publish(CallAction.Outgoing, {
+              room: roomName,
+              seller,
+              caller: profile.name
+            })
+          }
           
           toast.success('Connected to call');
           setIsConnecting(false);
@@ -272,7 +276,7 @@ const LiveCall = () => {
           </span>
         </div>
         <div className="glass-morphism px-3 py-1 rounded-full text-sm font-medium">
-          {formatDuration(callDuration)}
+          <CallTimer />
         </div>
         <Button 
           variant="ghost" 
