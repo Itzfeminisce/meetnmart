@@ -27,7 +27,7 @@ const livekitService = {
       //   body: { roomName, participantName, isHost }
       // });
 
-      const response = await axiosUtils.Post<{ data: string }>("/livekit/token", { roomName, participantName, isHost })
+      const response = await axiosUtils.Post<{ data: string }>("/api/livekit/token", { roomName, participantName, isHost })
 
       console.log("[getToken]", { response });
 
