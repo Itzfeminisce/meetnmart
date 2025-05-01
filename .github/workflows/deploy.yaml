@@ -39,19 +39,19 @@ jobs:
           echo "Contents of dist directory:"
           ls -la dist/
 
-          - name: Deploy using SSH (direct method)
-          env:
-            SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-            TRUEHOST_USERNAME: ${{ secrets.TRUEHOST_USERNAME }}
-            TRUEHOST_PATH: ${{ secrets.TRUEHOST_PATH }}
-          run: |
-            echo "Setting up SSH..."
-            mkdir -p ~/.ssh
-            echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
-            chmod 600 ~/.ssh/deploy_key
-            ssh-keyscan -H 102.212.247.154 >> ~/.ssh/known_hosts
-            
-            echo "Starting deployment to Truehost..."
-            rsync -avz --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" ./dist/ $TRUEHOST_USERNAME@102.212.247.154:$TRUEHOST_PATH/
-            
-            echo "Deployment completed successfully!"
+      - name: Deploy using SSH (direct method)
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          TRUEHOST_USERNAME: ${{ secrets.TRUEHOST_USERNAME }}
+          TRUEHOST_PATH: ${{ secrets.TRUEHOST_PATH }}
+        run: |
+          echo "Setting up SSH..."
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H 102.212.247.154 >> ~/.ssh/known_hosts
+          
+          echo "Starting deployment to Truehost..."
+          rsync -avz --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" ./dist/ $TRUEHOST_USERNAME@102.212.247.154:$TRUEHOST_PATH/
+          
+          echo "Deployment completed successfully!"
