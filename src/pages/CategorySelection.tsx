@@ -34,7 +34,7 @@ const CategorySelection = () => {
         <p className="text-muted-foreground">Select a category to find sellers</p>
       </header>
       
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 mb-4">
         {categories.map(category => {
           const bgColorClass = `bg-${category.color}/10`;
           const textColorClass = `text-${category.color}`;

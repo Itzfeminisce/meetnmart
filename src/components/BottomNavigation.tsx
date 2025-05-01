@@ -15,8 +15,6 @@ const BottomNavigation = () => {
   };
 
   const handleProfileClick = () => {
-    console.log("[handleProfileClick]", { user, profile, userRole});
-    
     if (!user) {
       setShowAuthModal(true);
       return;

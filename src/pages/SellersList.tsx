@@ -10,7 +10,6 @@ import { sellers, categories } from '@/lib/mockData';
 import { Market, Seller } from '@/types';
 import { toast } from 'sonner';
 import { getInitials, toLivekitRoomName } from '@/lib/utils';
-import livekitService from '@/services/livekitService';
 
 const SellersList = () => {
   const location = useLocation();
@@ -79,7 +78,7 @@ const SellersList = () => {
         </div>
       </header>
       
-      <div className="space-y-4">
+      <div className="space-y-4 mb-4">
         <h2 className="text-lg font-medium flex items-center">
           <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
           Available Sellers

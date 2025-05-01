@@ -67,7 +67,7 @@ const EditBuyerProfile = () => {
       
       toast.success("Profile updated successfully!");
       await fetchUserProfile();
-      navigate('/seller-dashboard');
+      // navigate('/seller-dashboard');
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error("Failed to update profile. Please try again.");

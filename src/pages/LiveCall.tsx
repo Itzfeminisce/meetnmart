@@ -79,8 +79,6 @@ const LiveCall = () => {
         
         const newRoom = await livekitService.connectToRoom(roomName, participantName);
 
-        console.log("connectToRoom#[LiveCall]", newRoom);
-        
         
         if (newRoom) {
           setRoom(newRoom);
@@ -98,7 +96,7 @@ const LiveCall = () => {
           };
           
           // Set up initial remote participants
-          // setRemoteParticipants(Array.from(newRoom.remoteParticipants.values()));
+          setRemoteParticipants(Array.from(newRoom.remoteParticipants.values()));
           
           // Register event listeners
           newRoom.on(RoomEvent.ParticipantConnected, handleParticipantConnected);
@@ -111,9 +109,12 @@ const LiveCall = () => {
           // Enable audio and video
           await newRoom.localParticipant.setMicrophoneEnabled(true);
           await newRoom.localParticipant.setCameraEnabled(true);
-        setIsConnecting(false);
+
+          // Post outgoing call to notify seller
+          if(seller){}
           
           toast.success('Connected to call');
+          setIsConnecting(false);
         } else {
           toast.error('Failed to connect to call');
         }

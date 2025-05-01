@@ -200,21 +200,21 @@ const BuyerDashboard = () => {
         </TabsContent>
       </Tabs>
 
-      <Button
-        className="w-full mb-8 bg-market-orange hover:bg-market-orange/90"
-        onClick={handleEditProfile}
-      >
-        Edit Profile
-      </Button>
-      <Button
-        disabled={isLoading}
-        className="w-full mb-8 bg-destructive/10 hover:bg-destructive/90 hover:text-foreground text-destructive"
-        onClick={handleSignOut}
-      >
-        Log out
-      </Button>
-
-      <BottomNavigation />
+      <div className="mt-4">
+        <Button
+          className="w-full mb-8 bg-market-orange hover:bg-market-orange/90"
+          onClick={handleEditProfile}
+        >
+          Edit Profile
+        </Button>
+        <Button
+          disabled={isLoading}
+          className="w-full mb-8 bg-destructive/10 hover:bg-destructive/90 hover:text-foreground text-destructive"
+          onClick={handleSignOut}
+        >
+          Log out
+        </Button>
+      </div>
 
       <BottomNavigation />
     </div>
