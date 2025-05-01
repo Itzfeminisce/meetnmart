@@ -37,7 +37,7 @@ export const Participant = ({
     // Function to find active video track
     const findVideoTrack = () => {
       if (!participant) return null;
-      
+
       // Search through video publications for an active track
       for (const publication of Array.from(participant.videoTrackPublications.values())) {
         if (publication.track && !publication.isMuted) {
@@ -45,7 +45,7 @@ export const Participant = ({
           return publication.track;
         }
       }
-      
+
       setHasVideo(false);
       return null;
     };
@@ -109,7 +109,7 @@ export const Participant = ({
         videoTrack.detach(videoRef.current);
       };
     }
-  }, [videoTrack]);
+  }, [videoTrack, videoRef.current]);
 
   // Determine if camera is on based on props or track state
   const showVideo = isCameraOn !== undefined ? isCameraOn : hasVideo;
@@ -117,41 +117,91 @@ export const Participant = ({
   return (
     <div
       className={cn(
-        "relative rounded-lg overflow-hidden bg-secondary/30",
-        large ? "w-full h-full" : "w-full max-w-[180px]",
-        isSpeaking ? "ring-2 ring-primary" : ""
+        "relative rounded-lg overflow-hidden transition-all duration-300 aspect-video w-full h-full",
+        large ? "w-full h-full" : "w-full aspect-video max-w-[180px]",
+        isSpeaking ? "ring-2 ring-primary shadow-lg" : "",
+        showVideo ? "bg-black" : "bg-slate-100 dark:bg-slate-800"
       )}
     >
       {showVideo ? (
         <video
+          // width={1080}
+          // height={1920}
           ref={videoRef}
           autoPlay
           playsInline
           muted={isLocal}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover aspect-video"
         />
       ) : (
-        <div className="h-full w-full flex items-center justify-center bg-muted">
-          <Avatar className={large ? "h-24 w-24" : "h-12 w-12"}>
-            <AvatarFallback>{getInitials(name)}</AvatarFallback>
+        <div className="h-full w-full flex items-center justify-center bg-slate-800">
+          <Avatar className={cn(
+            "flex items-center justify-center text-center font-medium",
+            large ? "h-24 w-24 text-3xl" : "h-16 w-16 text-xl"
+          )}>
+            <AvatarFallback className="bg-primary/10 text-primary">
+              {getInitials(name)} 
+            </AvatarFallback>
           </Avatar>
         </div>
       )}
 
       {/* Status indicators */}
-      <div className="absolute bottom-2 left-2 flex gap-1">
+      <div className="absolute top-2 right-2 flex gap-1.5">
         {!isMicOn && (
-          <div className="bg-background/80 rounded-full p-1">
-            <MicOff size={large ? 16 : 12} className="text-destructive" />
+          <div className="bg-background/80 rounded-full p-1.5 backdrop-blur-sm shadow-sm">
+            <MicOff size={large ? 16 : 14} className="text-destructive" />
+          </div>
+        )}
+        {!showVideo && (
+          <div className="bg-background/80 rounded-full p-1.5 backdrop-blur-sm shadow-sm">
+            <VideoOff size={large ? 16 : 14} className="text-muted-foreground" />
           </div>
         )}
       </div>
 
       {/* Name tag */}
-      <div className="absolute bottom-2 right-2 bg-background/60 px-2 py-1 rounded-full text-xs">
+      <div className="absolute inset-x-0 bottom-0 px-2 bg-background/90 text-xs font-medium backdrop-blur-sm truncate">
         {name} {isLocal && "(You)"}
       </div>
     </div>
+    // <div
+    //   className={cn(
+    //     "relative rounded-lg overflow-hidden bg-secondary/30",
+    //     large ? "w-full h-full" : "w-full max-w-[180px]",
+    //     isSpeaking ? "ring-2 ring-primary" : ""
+    //   )}
+    // >
+    //   {showVideo ? (
+    //     <video
+    //       ref={videoRef}
+    //       autoPlay
+    //       playsInline
+    //       muted={isLocal}
+    //       className="h-full w-full object-cover"
+    //     />
+    //   ) : (
+    //     <div className="h-full w-full flex items-center justify-center bg-muted">
+    //       <Avatar className={large ? "h-24 w-24" : "h-12 w-12"}>
+    //         <AvatarFallback>{getInitials(name)}</AvatarFallback>
+    //       </Avatar>
+    //     </div>
+    //   )}
+
+    //   {/* Status indicators */}
+    //   <div className="absolute bottom-2 left-2 flex gap-1">
+    //     {!isMicOn && (
+    //       <div className="bg-background/80 rounded-full p-1">
+    //         <MicOff size={large ? 16 : 12} className="text-destructive" />
+    //       </div>
+    //     )}
+    //   </div>
+
+    //   {/* Name tag */}
+    //   <div className="absolute bottom-2 right-2 bg-background/60 px-2 py-1 rounded-full text-xs">
+    //     {name} {isLocal && "(You)"}
+    //   </div>
+    // </div>
   );
 };
 

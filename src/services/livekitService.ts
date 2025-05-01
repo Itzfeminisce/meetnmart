@@ -27,11 +27,11 @@ const livekitService = {
       //   body: { roomName, participantName, isHost }
       // });
 
-      const response = await axiosUtils.Post<{ token: string }>("/livekit/token", { roomName, participantName, isHost })
+      const response = await axiosUtils.Post<{ data: string }>("/livekit/token", { roomName, participantName, isHost })
 
       console.log("[getToken]", { response });
 
-      return response.token
+      return response.data
     } catch (error) {
       console.error('Error getting LiveKit token:', error);
       toast.error('Failed to get access token');
@@ -136,6 +136,8 @@ const livekitService = {
     try {
       // Get token
       const token = await this.getToken(roomName, participantName, isHost);
+      console.log("[connectToRoom]",{token});
+      
       if (!token) return null;
 
       // Create room

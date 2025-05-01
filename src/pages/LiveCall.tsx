@@ -78,6 +78,9 @@ const LiveCall = () => {
         const participantName = profile.name || user.id;
         
         const newRoom = await livekitService.connectToRoom(roomName, participantName);
+
+        console.log("connectToRoom#[LiveCall]", newRoom);
+        
         
         if (newRoom) {
           setRoom(newRoom);
@@ -95,7 +98,7 @@ const LiveCall = () => {
           };
           
           // Set up initial remote participants
-          setRemoteParticipants(Array.from(newRoom.remoteParticipants.values()));
+          // setRemoteParticipants(Array.from(newRoom.remoteParticipants.values()));
           
           // Register event listeners
           newRoom.on(RoomEvent.ParticipantConnected, handleParticipantConnected);
@@ -108,6 +111,7 @@ const LiveCall = () => {
           // Enable audio and video
           await newRoom.localParticipant.setMicrophoneEnabled(true);
           await newRoom.localParticipant.setCameraEnabled(true);
+        setIsConnecting(false);
           
           toast.success('Connected to call');
         } else {
@@ -117,7 +121,7 @@ const LiveCall = () => {
         console.error('Error connecting to LiveKit room:', error);
         toast.error('Failed to connect to call');
       } finally {
-        setIsConnecting(false);
+        // setIsConnecting(false);
       }
     };
     
@@ -210,49 +214,49 @@ const LiveCall = () => {
   // Handle participants for the UI
   const renderParticipants = () => {
     // For demo purposes, ensure there are always participants to display
-    if (remoteParticipants.length === 0 && !isConnecting) {
-      // Simulate a remote participant (seller)
-      return [
-        {
-          participant: localParticipant || { identity: profile?.name || 'You' } as any,
-          isLocal: true,
-          isCameraOn: isVideoOn,
-          isMicOn: !isMuted,
-          isSpeaking: false,
-        },
-        {
-          participant: { identity: seller.name } as any,
-          isLocal: false,
-          isCameraOn: true,
-          isMicOn: true,
-          isSpeaking: activeSpeaker === 'seller',
-        },
-        ...(deliveryAgent ? [{
-          participant: { identity: deliveryAgent.name } as any,
-          isLocal: false,
-          isCameraOn: true,
-          isMicOn: true,
-          isSpeaking: activeSpeaker === 'delivery',
-        }] : [])
-      ];
-    }
+    // if (remoteParticipants.length === 0 && !isConnecting) {
+    //   // Simulate a remote participant (seller)
+    //   return [
+    //     {
+    //       participant: localParticipant || { identity: profile?.name || 'You' } as any,
+    //       isLocal: true,
+    //       isCameraOn: isVideoOn,
+    //       isMicOn: !isMuted,
+    //       isSpeaking: false,
+    //     },
+    //     {
+    //       participant: { identity: seller.name } as any,
+    //       isLocal: false,
+    //       isCameraOn: true,
+    //       isMicOn: true,
+    //       isSpeaking: activeSpeaker === 'seller',
+    //     },
+    //     ...(deliveryAgent ? [{
+    //       participant: { identity: deliveryAgent.name } as any,
+    //       isLocal: false,
+    //       isCameraOn: true,
+    //       isMicOn: true,
+    //       isSpeaking: activeSpeaker === 'delivery',
+    //     }] : [])
+    //   ];
+    // }
     
     // Return actual participants when available
     return [
       {
-        participant: localParticipant || { identity: profile?.name || 'You' } as any,
+        participant: localParticipant, // || { identity: profile?.name || 'You' } as any,
         isLocal: true,
         isCameraOn: isVideoOn,
         isMicOn: !isMuted,
         isSpeaking: false,
       },
-      ...remoteParticipants.map(participant => ({
-        participant,
-        isLocal: false,
-        isCameraOn: true, // In a real app, you'd check if they have video tracks
-        isMicOn: true, // In a real app, you'd check if they have audio tracks
-        isSpeaking: activeSpeaker === participant.identity,
-      }))
+      // ...remoteParticipants.map(participant => ({
+      //   participant,
+      //   isLocal: false,
+      //   isCameraOn: true, // In a real app, you'd check if they have video tracks
+      //   isMicOn: true, // In a real app, you'd check if they have audio tracks
+      //   isSpeaking: activeSpeaker === participant.identity,
+      // }))
     ];
   };
 
@@ -284,7 +288,7 @@ const LiveCall = () => {
         {/* Main Video/Avatar Space */}
         <div 
           className={cn(
-            "flex-1 flex flex-col items-center justify-center p-4",
+            "flex-1 flex flex-col items-center justify-center",
             isMobile ? "pb-20" : "pb-24"
           )}
         >
@@ -294,9 +298,9 @@ const LiveCall = () => {
             </div>
           ) : renderParticipants().length <= 2 ? (
             // Two participant layout
-            <div className="relative max-w-lg w-full h-full flex flex-col items-center justify-center">
+            <div className="relative max-w-2xl w-full h-full flex flex-col items-center justify-center">
               {/* Main participant (remote) */}
-              <div className="aspect-video w-full max-h-[70vh] relative rounded-xl overflow-hidden bg-secondary/30 border-2 border-market-orange/50 flex items-center justify-center">
+              <div className="aspect-video w-full  h-[calc(100vh - 42rem)] relative rounded-xl overflow-hidden bg-secondary/30 border-2 border-market-orange/50 flex items-center justify-center">
                 {renderParticipants().find(p => !p.isLocal) && (
                   <Participant 
                     {...renderParticipants().find(p => !p.isLocal)!}
@@ -306,7 +310,7 @@ const LiveCall = () => {
               </div>
               
               {/* Self view (small) */}
-              <div className="absolute bottom-5 right-5 w-32 h-24 rounded-lg overflow-hidden border-2 border-background shadow-md">
+              <div className="absolute bottom-5 right-5 w-32 h-32 rounded-lg overflow-hidden border-2 border-background shadow-md">
                 {renderParticipants().find(p => p.isLocal) && (
                   <Participant 
                     {...renderParticipants().find(p => p.isLocal)!}
