@@ -1,4 +1,4 @@
-name: Deploy to Truehost via SFTP
+name: Deploy to Truehost via SFTP (SCP)
 
 on:
   push:
@@ -39,10 +39,11 @@ jobs:
           host: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT }}
+          port: 1624
           source: "dist/*"
           target: "/public_html/deployments"
           rm: true
+          strip_components: 1
 
       - name: Echo Step - Deployment Finished
         run: echo "Deployment via SFTP completed successfully!"
