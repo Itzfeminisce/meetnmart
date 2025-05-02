@@ -1,57 +1,47 @@
-name: Deploy MeetnMart Project
+name: Deploy to Truehost via FTP
 
 on:
   push:
     branches: [main]
   pull_request:
-    types: [closed]
     branches: [main]
 
 jobs:
-  build-and-deploy:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Echo Step - Checkout Code
+        run: echo "Checking out repository..."
+      - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
-      - name: Setup Bun
+      - name: Echo Step - Set up Bun
+        run: echo "Installing Bun..."
+      - name: Set up Bun
         uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
 
+      - name: Echo Step - Install dependencies
+        run: echo "Installing dependencies with --legacy-peer-deps..."
       - name: Install dependencies
-        run: |
-          echo "Installing dependencies with Bun..."
-          bun install --legacy-peer-deps
+        run: bun install --legacy-peer-deps
 
-      - name: Build project
-        run: |
-          echo "Building project with Bun..."
-          bun run build
-          echo "Build completed!"
+      - name: Echo Step - Build Project
+        run: echo "Building project with Bun..."
+      - name: Build
+        run: bun run build
 
-      - name: List build output (for debugging)
-        run: |
-          echo "Contents of dist directory:"
-          ls -la dist/
+      - name: Echo Step - Deploy via FTP
+        run: echo "Uploading dist/ folder to FTP host (clean slate)..."
+      - name: FTP Deploy (Clean Slate)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: dist
+          server-dir: /
+          dangerous-clean-slate: true
 
-      - name: Deploy using SSH (direct method)
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          TRUEHOST_USERNAME: ${{ secrets.TRUEHOST_USERNAME }}
-          TRUEHOST_PATH: ${{ secrets.TRUEHOST_PATH }}
-        run: |
-          echo "Setting up SSH..."
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H 102.212.247.154 >> ~/.ssh/known_hosts
-          
-          echo "Starting deployment to Truehost..."
-          rsync -avz --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" ./dist/ $TRUEHOST_USERNAME@102.212.247.154:$TRUEHOST_PATH/
-          
-          echo "Deployment completed successfully!"
+      - name: Echo Step - Deployment Finished
+        run: echo "Deployment completed successfully!"
