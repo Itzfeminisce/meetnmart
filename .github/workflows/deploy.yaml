@@ -1,4 +1,4 @@
-name: Deploy to Truehost via FTP
+name: Deploy to Truehost via SFTP
 
 on:
   push:
@@ -31,17 +31,18 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Echo Step - Deploy via FTP
-        run: echo "Uploading dist/ folder to /public_html/deployments (clean slate)..."
-      - name: FTP Deploy (Clean Slate)
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      - name: Echo Step - Upload via SFTP
+        run: echo "Uploading dist/ folder via SFTP to /public_html/deployments..."
+      - name: SFTP Deploy
+        uses: appleboy/scp-action@v0.1.7
         with:
-          server: ${{ secrets.FTP_HOST }}
+          host: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: dist/
-          server-dir: /public_html/deployments/
-          dangerous-clean-slate: true
+          port: ${{ secrets.FTP_PORT }}
+          source: "dist/*"
+          target: "/public_html/deployments"
+          rm: true
 
       - name: Echo Step - Deployment Finished
-        run: echo "Deployment completed successfully!"
+        run: echo "Deployment via SFTP completed successfully!"
