@@ -40,8 +40,8 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: dist
-          server-dir: /
-          dangerous-clean-slate: true
+          server-dir: /public_html/deployments
+          #dangerous-clean-slate: true
 
       - name: Echo Step - Deployment Finished
         run: echo "Deployment completed successfully!"
