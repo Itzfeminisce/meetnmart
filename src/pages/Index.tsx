@@ -101,7 +101,7 @@ const Index = () => {
       <main className="flex-grow flex flex-col items-center justify-center p-4 text-center animate-fade-in">
         <div className="glass-morphism max-w-md p-6 rounded-xl">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold tracking-tight mb-2">Sellerli
+            <h1 className="text-4xl font-bold tracking-tight mb-2">
               <span className="text-gradient">Meet'nMart Markets</span>
             </h1>
             <p className="text-xl text-muted-foreground">
