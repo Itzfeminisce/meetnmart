@@ -32,16 +32,16 @@ jobs:
         run: bun run build
 
       - name: Echo Step - Deploy via FTP
-        run: echo "Uploading dist/ folder to FTP host (clean slate)..."
+        run: echo "Uploading dist/ folder to /public_html/deployments (clean slate)..."
       - name: FTP Deploy (Clean Slate)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: dist
-          server-dir: /public_html/deployments/
-          #dangerous-clean-slate: true
+          local-dir: dist/
+          server-dir: /public_html/deployments
+          dangerous-clean-slate: true
 
       - name: Echo Step - Deployment Finished
         run: echo "Deployment completed successfully!"
