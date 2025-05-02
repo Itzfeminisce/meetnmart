@@ -54,12 +54,6 @@ const livekitService = {
 
       if (error) throw error;
       return data;
-
-      // For demo purposes, return a mock successful response
-      return {
-        success: true,
-        room: roomName,
-      };
     } catch (error) {
       console.error('Error creating LiveKit room:', error);
       return {
@@ -109,18 +103,9 @@ const livekitService = {
   /**
    * Accept a call request
    */
-  async acceptCallRequest(callRequestId: string): Promise<boolean> {
+  async acceptCallRequest(roomName: string, participantName: string): Promise<boolean> {
     try {
-      // In a real app, you'd update the call request status in your database
-      // const { error } = await supabase
-      //   .from('call_requests')
-      //   .update({ status: 'accepted' })
-      //   .eq('id', callRequestId);
-
-      console.log("[acceptCallRequest]", { callRequestId });
-
-      // if (error) throw error;
-
+     
       return true;
     } catch (error) {
       console.error('Error accepting call:', error);
@@ -136,8 +121,8 @@ const livekitService = {
     try {
       // Get token
       const token = await this.getToken(roomName, participantName, isHost);
-      console.log("[connectToRoom]",{token});
-      
+      console.log("[connectToRoom]", { token });
+
       if (!token) return null;
 
       // Create room

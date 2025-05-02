@@ -22,6 +22,7 @@ interface AuthContextType {
   verifyOTP: (phoneNumber: string, token: string) => Promise<{ error: any | null }>;
   signOut: () => Promise<void>;
   fetchUserProfile: (userId?: string) => Promise<{ profile: UserProfile, role: string; wallet: WalletInfo }>;
+  fetchUsersByRole: (role: Exclude<UserRole, null>) => Promise<Database['public']['Functions']['get_users_by_role']['Returns']>;
   fetchUserRole: (userId?: string) => Promise<string>;
   updateUserRole: (role: Exclude<UserRole, null>) => Promise<void>;
 }
@@ -112,6 +113,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setUserRole(roleData as UserRole);
     return roleData
+  };
+  /**
+   * Fetch user role data
+   */
+  const fetchUsersByRole = async (role: UserRole) => {
+    const { data: users, error: usersError } = await supabase
+      .rpc('get_users_by_role', { target_role: role });
+
+    if (usersError) {
+      console.error("UserByRole fetch error:", usersError);
+      return;
+    }
+    return users
   };
 
   /**
@@ -343,6 +357,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     verifyOTP,
     signOut,
     fetchUserProfile,
+    fetchUsersByRole,
     updateUserRole,
     fetchUserRole
   };

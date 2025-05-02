@@ -5,26 +5,31 @@ import { IncomingCall } from '@/components/IncomingCall'
 import { toast } from 'sonner'
 import { useSocket } from './SocketContext'
 import { CallAction } from '@/types/call'
+import livekitService from '@/services/livekitService'
 
 const AuthGaurd = () => {
     const { isAuthenticated, userRole } = useAuth()
-    const {isConnected, subscribe} = useSocket()
+    const { isConnected, subscribe } = useSocket()
     const [isIncomingCall, setIsIncomingCall] = useState(false)
+    const [incomingData, setIncomingData] = useState(null)
 
     useEffect(() => {
-        if(isAuthenticated && isConnected){
-           subscribe(CallAction.Incoming, () => {
-            setIsIncomingCall(true)
-
-            // TODO: implementation here
-           })
+        if (isAuthenticated && isConnected) {
+            subscribe(CallAction.Incoming, (data) => {
+                setIsIncomingCall(true)
+                setIncomingData(data)
+                console.log("[Incoming call]", data);
+            })
         }
     }, [])
 
 
-    const handleAcceptCall = () => {
+    const handleAcceptCall =async () => {
+       await livekitService.connectToRoom(incomingData.room, incomingData.receiver.name)
         toast.success("Call accepted")
     }
+
+    
     const handleRejectCall = () => {
         toast.error("Call rejected")
     }
@@ -42,15 +47,17 @@ const AuthGaurd = () => {
 
     return (
         <>
-            <IncomingCall
-                caller='James'
-                category='food'
-                location='Lagos'
-                onAccept={handleAcceptCall}
-                onReject={handleRejectCall}
-                onOpenChange={setIsIncomingCall}
-                open={isIncomingCall}
-            />
+            {isIncomingCall && (
+                <IncomingCall
+                    caller={incomingData.caller.name}
+                    category='food'
+                    location='Lagos'
+                    onAccept={handleAcceptCall}
+                    onReject={handleRejectCall}
+                    onOpenChange={setIsIncomingCall}
+                    open={isIncomingCall}
+                />
+            )}
             <Outlet />
 
         </>

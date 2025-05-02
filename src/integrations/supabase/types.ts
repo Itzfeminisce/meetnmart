@@ -154,6 +154,19 @@ export type Database = {
         Args: { uid: string }
         Returns: Json
       }
+      get_users_by_role: {
+        Args: {
+          target_role: string;
+        };
+        Returns: Array<{
+          id: string;
+          name: string | null;
+          avatar: string | null;
+          description: string | null;
+          is_online: boolean;
+        }>;
+      };
+      
     }
     Enums: {
       escrow_status:

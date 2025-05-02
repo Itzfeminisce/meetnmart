@@ -112,8 +112,14 @@ const LiveCall = () => {
           if(seller && socket.isConnected){
             socket.publish(CallAction.Outgoing, {
               room: roomName,
-              seller,
-              caller: profile.name
+              receiver: {
+                name: seller.name,
+                id: seller.id
+              },
+              caller: {
+                id: user.id,
+                name: profile.name
+              }
             })
           }
           
