@@ -131,9 +131,9 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
 
     socket.on('pong', (data) => {
       console.log('Received pong:', data);
-      setLastPong(data.timestamp);
+      setLastPong(data.timestamp); 
     });
-  }, []);
+  }, [socketRef]);
 
   // Disconnect function
   const disconnect = useCallback(() => {
@@ -143,7 +143,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
       socketRef.current = null;
       setIsConnected(false);
     }
-  }, []);
+  }, [socketRef]);
 
   // Ping server to check connection
   const ping = useCallback(() => {
@@ -174,13 +174,13 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
 
   // Publish an event
   const publish = useCallback((event: string, ...data: any[]) => {
-    if (socketRef.current && isConnected) {
+    if (socketRef.current.connected) {
       console.log(`Publishing an event: ${event}`);
       socketRef.current.emit(event, data);
     } else {
       console.warn(`Cannot publish to ${event}: socket not connected`);
     }
-  }, [isConnected]);
+  }, [isConnected, socketRef]);
 
   // Auto-connect on mount if enabled
   useEffect(() => {
@@ -213,7 +213,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
         clearInterval(pingInterval);
       };
     }
-  }, [isConnected, ping]);
+  }, [socketRef, isConnected, ping]);
 
   // Context value
   const contextValue: SocketContextState = {

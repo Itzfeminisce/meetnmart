@@ -36,10 +36,14 @@ export const Participant = ({
   useEffect(() => {
     // Function to find active video track
     const findVideoTrack = () => {
+      console.log("[Participant]", {participant});
+      
       if (!participant) return null;
 
       // Search through video publications for an active track
       for (const publication of Array.from(participant.videoTrackPublications.values())) {
+        console.log("[publication]",{publication});
+        
         if (publication.track && !publication.isMuted) {
           setHasVideo(true);
           return publication.track;
@@ -125,8 +129,8 @@ export const Participant = ({
     >
       {showVideo ? (
         <video
-          // width={1080}
-          // height={1920}
+          width={1080}
+          height={1920}
           ref={videoRef}
           autoPlay
           playsInline

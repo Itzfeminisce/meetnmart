@@ -6,6 +6,7 @@ import AuthModal from '@/components/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { SocialAuthButtons } from '@/components/SocialAuthButtons';
 
 const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -15,8 +16,6 @@ const Index = () => {
 
 
   const handleGetStarted = () => {
-    console.log({ user, signOut, profile, userRole, isAuthenticated });
-
     if (isAuthenticated) {
       if (!userRole) {
         navigate('/role-selection');
@@ -101,14 +100,15 @@ const Index = () => {
         <div className="glass-morphism max-w-md p-6 rounded-xl">
           <div className="mb-8">
             <h1 className="text-4xl font-bold tracking-tight mb-2">
-              <span className="text-gradient">Virtual Markets</span>
+              <span className="text-gradient">Meet'nMart Markets</span>
             </h1>
             <p className="text-xl text-muted-foreground">
-              Connect with local sellers through live video
+              Connect with local sellers through LIVE video
             </p>
           </div>
 
           <div className="grid gap-4">
+            {!isAuthenticated && <SocialAuthButtons flow='login' providers={['google']} />}
             <Button disabled={isLoading}
               size="lg"
               onClick={handleGetStarted}

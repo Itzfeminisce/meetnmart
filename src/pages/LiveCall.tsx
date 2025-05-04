@@ -16,6 +16,7 @@ import { Participant, CallControls } from '@/components/LiveKitComponents';
 import { CallTimer } from '@/components/CallTimer';
 import { useSocket } from '@/contexts/SocketContext';
 import { CallAction } from '@/types/call';
+import { useLiveCall } from '@/contexts/LiveCallContext';
 
 const LiveCall = () => {
   const location = useLocation();
@@ -23,7 +24,8 @@ const LiveCall = () => {
   const { user, profile, userRole } = useAuth();
   const { seller } = location.state as { seller: Seller };
   const [isSeller] = useState(userRole);
-  const socket = useSocket()
+  // const socket = useSocket()
+  const liveCall = useLiveCall()
   
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -42,8 +44,6 @@ const LiveCall = () => {
   const [isConnecting, setIsConnecting] = useState(true);
   const [localParticipant, setLocalParticipant] = useState<LocalParticipant | null>(null);
   const [remoteParticipants, setRemoteParticipants] = useState<RemoteParticipant[]>([]);
-  
-  console.log("rerendering...");
   
   // Update mobile status on window resize
   useEffect(() => {
@@ -84,12 +84,10 @@ const LiveCall = () => {
           
           // Handle room events for participant tracking
           const handleParticipantConnected = (participant: RemoteParticipant) => {
-            console.log('Remote participant connected:', participant.identity);
             setRemoteParticipants(prev => [...prev, participant]);
           };
           
           const handleParticipantDisconnected = (participant: RemoteParticipant) => {
-            console.log('Remote participant disconnected:', participant.identity);
             setRemoteParticipants(prev => prev.filter(p => p.sid !== participant.sid));
           };
           
@@ -107,21 +105,31 @@ const LiveCall = () => {
           // Enable audio and video
           await newRoom.localParticipant.setMicrophoneEnabled(true);
           await newRoom.localParticipant.setCameraEnabled(true);
-
+        
           // Post outgoing call to notify seller
-          if(seller && socket.isConnected){
-            socket.publish(CallAction.Outgoing, {
-              room: roomName,
-              seller,
-              caller: profile.name
-            })
+          if(seller){
+            liveCall.handlePublishOutgoingCall({
+                room: roomName,
+                receiver: {
+                  name: seller.name,
+                  id: seller.id
+                },
+                caller: {
+                  id: user.id,
+                  name: profile.name
+                }
+              })
+
+              
+              toast.success('Connected to call');
+              setIsConnecting(false);
           }
           
-          toast.success('Connected to call');
-          setIsConnecting(false);
         } else {
           toast.error('Failed to connect to call');
         }
+
+
       } catch (error) {
         console.error('Error connecting to LiveKit room:', error);
         toast.error('Failed to connect to call');
@@ -140,10 +148,24 @@ const LiveCall = () => {
     };
   }, [user, profile, seller]);
 
-  const handleEndCall = () => {
+
+  const handleEndCall = async () => {
+    console.log({room, name: room.name});
+    
     // Disconnect from the room
     if (room) {
-      room.disconnect();
+      liveCall.handlePublishCallEnded({
+            room: room.name,
+            receiver: {
+              name: seller.name,
+              id: seller.id
+            },
+            caller: {
+              id: user.id,
+              name: profile.name
+            }
+          })
+      await room.disconnect(true);
     }
     
     navigate('/rating', { state: { seller, callDuration, deliveryAgent } });
@@ -218,35 +240,6 @@ const LiveCall = () => {
 
   // Handle participants for the UI
   const renderParticipants = () => {
-    // For demo purposes, ensure there are always participants to display
-    // if (remoteParticipants.length === 0 && !isConnecting) {
-    //   // Simulate a remote participant (seller)
-    //   return [
-    //     {
-    //       participant: localParticipant || { identity: profile?.name || 'You' } as any,
-    //       isLocal: true,
-    //       isCameraOn: isVideoOn,
-    //       isMicOn: !isMuted,
-    //       isSpeaking: false,
-    //     },
-    //     {
-    //       participant: { identity: seller.name } as any,
-    //       isLocal: false,
-    //       isCameraOn: true,
-    //       isMicOn: true,
-    //       isSpeaking: activeSpeaker === 'seller',
-    //     },
-    //     ...(deliveryAgent ? [{
-    //       participant: { identity: deliveryAgent.name } as any,
-    //       isLocal: false,
-    //       isCameraOn: true,
-    //       isMicOn: true,
-    //       isSpeaking: activeSpeaker === 'delivery',
-    //     }] : [])
-    //   ];
-    // }
-    
-    // Return actual participants when available
     return [
       {
         participant: localParticipant, // || { identity: profile?.name || 'You' } as any,
@@ -255,13 +248,13 @@ const LiveCall = () => {
         isMicOn: !isMuted,
         isSpeaking: false,
       },
-      // ...remoteParticipants.map(participant => ({
-      //   participant,
-      //   isLocal: false,
-      //   isCameraOn: true, // In a real app, you'd check if they have video tracks
-      //   isMicOn: true, // In a real app, you'd check if they have audio tracks
-      //   isSpeaking: activeSpeaker === participant.identity,
-      // }))
+      ...remoteParticipants.map(participant => ({
+        participant,
+        isLocal: false,
+        isCameraOn: true, // In a real app, you'd check if they have video tracks
+        isMicOn: true, // In a real app, you'd check if they have audio tracks
+        isSpeaking: activeSpeaker === participant.identity,
+      }))
     ];
   };
 

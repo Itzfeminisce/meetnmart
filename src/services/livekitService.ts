@@ -29,8 +29,6 @@ const livekitService = {
 
       const response = await axiosUtils.Post<{ data: string }>("/api/livekit/token", { roomName, participantName, isHost })
 
-      console.log("[getToken]", { response });
-
       return response.data
     } catch (error) {
       console.error('Error getting LiveKit token:', error);
@@ -50,16 +48,8 @@ const livekitService = {
       });
 
 
-      console.log("[createRoom]", { data, error });
-
       if (error) throw error;
       return data;
-
-      // For demo purposes, return a mock successful response
-      return {
-        success: true,
-        room: roomName,
-      };
     } catch (error) {
       console.error('Error creating LiveKit room:', error);
       return {
@@ -80,7 +70,6 @@ const livekitService = {
       // Create the room in LiveKit
       const roomResult = await this.createRoom(roomName);
 
-      console.log("[requestCall]", { roomName, roomResult });
 
       if (!roomResult.success) {
         throw new Error(roomResult.error || 'Failed to create room');
@@ -109,18 +98,9 @@ const livekitService = {
   /**
    * Accept a call request
    */
-  async acceptCallRequest(callRequestId: string): Promise<boolean> {
+  async acceptCallRequest(roomName: string, participantName: string): Promise<boolean> {
     try {
-      // In a real app, you'd update the call request status in your database
-      // const { error } = await supabase
-      //   .from('call_requests')
-      //   .update({ status: 'accepted' })
-      //   .eq('id', callRequestId);
-
-      console.log("[acceptCallRequest]", { callRequestId });
-
-      // if (error) throw error;
-
+     
       return true;
     } catch (error) {
       console.error('Error accepting call:', error);
@@ -136,8 +116,7 @@ const livekitService = {
     try {
       // Get token
       const token = await this.getToken(roomName, participantName, isHost);
-      console.log("[connectToRoom]",{token});
-      
+
       if (!token) return null;
 
       // Create room
@@ -146,12 +125,9 @@ const livekitService = {
         dynacast: true,
       });
 
-      console.log("[connectToRoom]", { token, room, });
 
       // Connect to room
       await room.connect(LIVEKIT_URL, token);
-      console.log('Connected to LiveKit room:', roomName);
-
       return room;
     } catch (error) {
       console.error('Error connecting to LiveKit room:', error);

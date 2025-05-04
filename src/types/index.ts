@@ -18,7 +18,7 @@ export interface Seller {
   name: string;
   avatar?: string;
   category: string;
-  isOnline: boolean;
+  is_online: boolean;
   rating: number;
   description: string;
 

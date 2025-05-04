@@ -9,7 +9,7 @@ import RatingFeedback from "./pages/RatingFeedback";
 import SellerDashboard from "./pages/SellerDashboard";
 import BuyerDashboard from "./pages/BuyerDashboard";
 import RoleSelection from "./pages/RoleSelection";
-import EditSellerProfile from "./pages/EditBuyerProfile";
+import EditSellerProfile from "./pages/EditSellerProfile";
 import NotFound from "./pages/NotFound";
 import { RouteObject } from "react-router-dom";
 import AuthGaurd from "./contexts/AuthGaurd";
