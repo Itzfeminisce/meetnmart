@@ -51,6 +51,39 @@ export type Database = {
         }
         Relationships: []
       }
+      markets: {
+        Row: {
+          address: string
+          created_at: string | null
+          id: string
+          location: unknown | null
+          name: string
+          place_id: string
+          updated_at: string | null
+          user_count: number | null
+        }
+        Insert: {
+          address: string
+          created_at?: string | null
+          id?: string
+          location?: unknown | null
+          name: string
+          place_id: string
+          updated_at?: string | null
+          user_count?: number | null
+        }
+        Update: {
+          address?: string
+          created_at?: string | null
+          id?: string
+          location?: unknown | null
+          name?: string
+          place_id?: string
+          updated_at?: string | null
+          user_count?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar: string | null
@@ -61,7 +94,7 @@ export type Database = {
           is_online: boolean | null
           is_seller: boolean
           name: string | null
-          phone_number: string
+          phone_number: string | null
           updated_at: string
         }
         Insert: {
@@ -73,7 +106,7 @@ export type Database = {
           is_online?: boolean | null
           is_seller?: boolean
           name?: string | null
-          phone_number: string
+          phone_number?: string | null
           updated_at?: string
         }
         Update: {
@@ -85,7 +118,7 @@ export type Database = {
           is_online?: boolean | null
           is_seller?: boolean
           name?: string | null
-          phone_number?: string
+          phone_number?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -111,6 +144,27 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      waitlist: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          role?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          role?: string
         }
         Relationships: []
       }
@@ -155,18 +209,19 @@ export type Database = {
         Returns: Json
       }
       get_users_by_role: {
-        Args: {
-          target_role: string;
-        };
-        Returns: Array<{
-          id: string;
-          name: string | null;
-          avatar: string | null;
-          description: string | null;
-          is_online: boolean;
-        }>;
-      };
-      
+        Args: { target_role: Database["public"]["Enums"]["user_role"] }
+        Returns: {
+          id: string
+          name: string
+          avatar: string
+          description: string
+          is_online: boolean
+        }[]
+      }
+      increment_market_user_count: {
+        Args: { market_place_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       escrow_status:

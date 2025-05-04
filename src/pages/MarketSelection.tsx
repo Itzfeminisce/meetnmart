@@ -1,15 +1,21 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, ArrowRight, Search, List } from 'lucide-react';
+import { MapPin, ArrowRight, Search, List, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import BottomNavigation from '@/components/BottomNavigation';
-import { markets } from '@/lib/mockData';
-import { Market } from '@/types';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getInitials } from '@/lib/utils';
+import { 
+  debouncedSearchMarkets, 
+  getNearbyMarkets, 
+  joinMarket,
+  MarketSearchResult 
+} from '@/services/marketsService';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface Coordinates {
   latitude: number;
@@ -20,15 +26,14 @@ const MarketSelection = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDetecting, setIsDetecting] = useState(false);
   const [location, setLocation] = useState<Coordinates | null>(null);
+  const [nearbyMarkets, setNearbyMarkets] = useState<MarketSearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<MarketSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSearchPopoverOpen, setIsSearchPopoverOpen] = useState(false);
+  const [loadingNearby, setLoadingNearby] = useState(false);
   const navigate = useNavigate();
 
-  const filteredMarkets = searchQuery
-    ? markets.filter(market => 
-        market.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        market.location.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : markets;
-
+  // Function to detect user location
   const handleLocationDetection = () => {
     setIsDetecting(true);
     
@@ -39,7 +44,7 @@ const MarketSelection = () => {
     }
     
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const userCoordinates = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude
@@ -47,14 +52,18 @@ const MarketSelection = () => {
         
         setLocation(userCoordinates);
         
-        // For demo purposes, just show success message
-        setTimeout(() => {
-          setIsDetecting(false);
+        try {
+          setLoadingNearby(true);
+          const markets = await getNearbyMarkets(userCoordinates);
+          setNearbyMarkets(markets);
           toast.success("Location detected! Showing nearby markets.");
-          
-          // In a real app, we would sort markets based on distance from user location
-          // For now, we're just simulating this behavior
-        }, 1000);
+        } catch (error) {
+          console.error('Error fetching nearby markets:', error);
+          toast.error("Failed to fetch nearby markets.");
+        } finally {
+          setIsDetecting(false);
+          setLoadingNearby(false);
+        }
       },
       (error) => {
         setIsDetecting(false);
@@ -75,9 +84,46 @@ const MarketSelection = () => {
     );
   };
 
-  const handleSelectMarket = (market: Market) => {
-    navigate('/categories', { state: { market } });
+  // Handle search input changes
+  const handleSearchInputChange = (value: string) => {
+    setSearchQuery(value);
+    if (value.length >= 2) {
+      setIsSearching(true);
+      debouncedSearchMarkets(value, (results) => {
+        setSearchResults(results);
+        setIsSearching(false);
+      });
+    } else {
+      setSearchResults([]);
+    }
   };
+
+  // Handle market selection
+  const handleSelectMarket = async (market: MarketSearchResult) => {
+    try {
+      // Join the market (increment user count)
+      await joinMarket(market);
+      
+      // Navigate to categories page with the selected market
+      navigate('/categories', { 
+        state: { 
+          market: {
+            id: market.id,
+            name: market.name,
+            location: market.address
+          }
+        } 
+      });
+    } catch (error) {
+      console.error('Error selecting market:', error);
+      toast.error("Something went wrong. Please try again.");
+    }
+  };
+
+  // Load nearby markets on component mount
+  useEffect(() => {
+    handleLocationDetection();
+  }, []);
 
   return (
     <div className="app-container px-4 pt-6 animate-fade-in">
@@ -87,15 +133,61 @@ const MarketSelection = () => {
       </header>
       
       <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search markets..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-secondary/50 border-none"
-          />
-        </div>
+        <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
+          <PopoverTrigger asChild>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search markets..."
+                value={searchQuery}
+                onChange={(e) => handleSearchInputChange(e.target.value)}
+                className="pl-9 bg-secondary/50 border-none"
+                onFocus={() => searchQuery.length >= 2 && setIsSearchPopoverOpen(true)}
+              />
+              {isSearching && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
+          </PopoverTrigger>
+          <PopoverContent className="p-0 w-[var(--radix-popper-anchor-width)]" align="start">
+            <Command className="rounded-lg border shadow-md">
+              <CommandList>
+                <CommandGroup heading="Search Results">
+                  {searchResults.length === 0 && !isSearching ? (
+                    <CommandEmpty>No markets found</CommandEmpty>
+                  ) : (
+                    searchResults.map((market) => (
+                      <CommandItem
+                        key={market.id}
+                        onSelect={() => {
+                          handleSelectMarket(market);
+                          setIsSearchPopoverOpen(false);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <div>
+                            <p className="font-medium">{market.name}</p>
+                            <p className="text-xs text-muted-foreground">{market.address}</p>
+                          </div>
+                          <div className="text-xs text-market-blue">
+                            {market.user_count > 0 ? `${market.user_count} shoppers` : 'New'}
+                          </div>
+                        </div>
+                      </CommandItem>
+                    ))
+                  )}
+                  {isSearching && (
+                    <div className="py-6 text-center text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                      Searching...
+                    </div>
+                  )}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
       
       <div className="flex items-center mb-6">
@@ -105,7 +197,11 @@ const MarketSelection = () => {
           onClick={handleLocationDetection}
           disabled={isDetecting}
         >
-          <MapPin size={16} className="mr-2 text-market-blue" />
+          {isDetecting ? (
+            <Loader2 size={16} className="mr-2 animate-spin" />
+          ) : (
+            <MapPin size={16} className="mr-2 text-market-blue" />
+          )}
           {isDetecting ? 'Detecting...' : 'Detect location'}
         </Button>
         <Button
@@ -123,44 +219,47 @@ const MarketSelection = () => {
           Markets near you
         </h2>
         
-        <div className="space-y-3">
-          {filteredMarkets.map(market => (
-            <div
-              key={market.id}
-              className="glass-morphism rounded-lg p-3 flex items-center card-hover"
-              onClick={() => handleSelectMarket(market)}
-            >
-              <div className="h-16 w-16 rounded-md overflow-hidden mr-3 flex-shrink-0">
-                {/* <img
-                  src={market.image || 'https://images.unsplash.com/photo-1487958449943-2429e8be8625'}
-                  alt={market.name}
-                  className="h-full w-full object-cover"
-                /> */}
-                 <Avatar className="h-full w-full object-cover mr-4">
+        {loadingNearby ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-market-orange" />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {nearbyMarkets.length > 0 ? (
+              nearbyMarkets.map(market => (
+                <div
+                  key={market.id}
+                  className="glass-morphism rounded-lg p-3 flex items-center card-hover"
+                  onClick={() => handleSelectMarket(market)}
+                >
+                  <div className="h-16 w-16 rounded-md overflow-hidden mr-3 flex-shrink-0">
+                    <Avatar className="h-full w-full object-cover mr-4">
                       <AvatarImage src="" />
                       <AvatarFallback>{getInitials(market.name)}</AvatarFallback>
                     </Avatar>
-              </div>
-              <div className="flex-grow">
-                <h3 className="font-medium">{market.name}</h3>
-                <div className="flex items-center text-xs text-muted-foreground">
-                  <MapPin size={12} className="mr-1" />
-                  <span>{market.location}</span>
+                  </div>
+                  <div className="flex-grow">
+                    <h3 className="font-medium">{market.name}</h3>
+                    <div className="flex items-center text-xs text-muted-foreground">
+                      <MapPin size={12} className="mr-1" />
+                      <span>{market.address}</span>
+                    </div>
+                    {market.user_count > 0 && (
+                      <div className="text-xs text-market-blue mt-1">
+                        {market.user_count} {market.user_count === 1 ? 'shopper' : 'shoppers'}
+                      </div>
+                    )}
+                  </div>
+                  <ArrowRight size={18} className="text-muted-foreground" />
                 </div>
-                {market.distance && (
-                  <div className="text-xs text-market-blue mt-1">{market.distance}</div>
-                )}
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No markets found nearby. Try searching for a market.
               </div>
-              <ArrowRight size={18} className="text-muted-foreground" />
-            </div>
-          ))}
-          
-          {filteredMarkets.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              No markets found matching your search
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
       
       <BottomNavigation />
