@@ -171,8 +171,6 @@ const SellersList = () => {
         </div>
       </div>
 
-      <BottomNavigation />
-
       {selectedSeller && (
         <EscrowPaymentConfirmModal
           open={paymentConfirmModalOpen}

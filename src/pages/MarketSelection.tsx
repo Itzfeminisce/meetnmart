@@ -231,7 +231,7 @@ const MarketSelection = () => {
             nearbyMarkets.map(market => (
               <div
                 key={market.id}
-                className="glass-morphism rounded-lg p-3 flex items-center card-hover"
+                className="glass-morphism rounded-lg p-3 flex items-center card-hover cursor-pointer"
                 onClick={() => handleSelectMarket(market)}
               >
                 <Avatar className="w-14 h-14 mr-4">
@@ -267,8 +267,6 @@ const MarketSelection = () => {
         </div>
         )}
       </div>
-
-      <BottomNavigation />
     </div>
   );
 };

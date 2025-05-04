@@ -39,9 +39,9 @@ const Index = () => {
       <main className="flex-grow flex flex-col items-center justify-center p-4 text-center animate-fade-in">
         <div className="glass-morphism max-w-md p-6 rounded-xl">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold tracking-tight mb-2">
-              <span className="text-gradient">Meet'nMart Markets</span>
-            </h1>
+            <span className="font-bold text-5xl">
+              Meet<span className="text-market-orange">n’</span><span className="text-market-purple">Mart</span>
+            </span>
             <p className="text-xl text-muted-foreground">
               Connect with local sellers through LIVE video
             </p>

@@ -46,8 +46,6 @@ const Activity = () => {
           </div>
         </div>
       </div>
-      
-      <BottomNavigation />
     </div>
   );
 };

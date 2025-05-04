@@ -236,8 +236,6 @@ const SellerDashboard = () => {
         Log out
       </Button>
 
-      <BottomNavigation />
-
       <EscrowRequestModal
         open={escrowModalOpen}
         onOpenChange={setEscrowModalOpen}

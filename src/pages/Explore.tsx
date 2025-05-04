@@ -42,8 +42,6 @@ const Explore = () => {
                     </p>
                 </div>
             </div>
-
-            <BottomNavigation />
         </div>
     );
 };

@@ -45,6 +45,8 @@ const BottomNavigation = () => {
     }
   };
 
+  if(location.pathname == "/call") return null
+
   return (
     <>
       <div className="fixed bottom-0 left-0 right-0 h-16 bg-card glass-morphism border-t border-border shadow-lg z-50">
