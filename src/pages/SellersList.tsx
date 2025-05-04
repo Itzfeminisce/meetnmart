@@ -27,8 +27,6 @@ const SellersList = () => {
   const category = categories.find(cat => cat.id === categoryId);
   const filteredSellers = sellers //.filter(seller => seller.category === categoryId);
 
-  console.log({ sellers, filteredSellers });
-
 
   // This is for demo purposes to simulate a seller requesting payment
   // In a real app, this would come from a notification or a WebSocket

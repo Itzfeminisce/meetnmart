@@ -16,8 +16,6 @@ const Index = () => {
 
 
   const handleGetStarted = () => {
-    console.log({ user, signOut, profile, userRole, isAuthenticated });
-
     if (isAuthenticated) {
       if (!userRole) {
         navigate('/role-selection');

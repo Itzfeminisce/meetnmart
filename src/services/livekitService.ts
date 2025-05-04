@@ -29,8 +29,6 @@ const livekitService = {
 
       const response = await axiosUtils.Post<{ data: string }>("/api/livekit/token", { roomName, participantName, isHost })
 
-      console.log("[getToken]", { response });
-
       return response.data
     } catch (error) {
       console.error('Error getting LiveKit token:', error);
@@ -49,8 +47,6 @@ const livekitService = {
         body: { roomName }
       });
 
-
-      console.log("[createRoom]", { data, error });
 
       if (error) throw error;
       return data;
@@ -74,7 +70,6 @@ const livekitService = {
       // Create the room in LiveKit
       const roomResult = await this.createRoom(roomName);
 
-      console.log("[requestCall]", { roomName, roomResult });
 
       if (!roomResult.success) {
         throw new Error(roomResult.error || 'Failed to create room');
@@ -121,7 +116,6 @@ const livekitService = {
     try {
       // Get token
       const token = await this.getToken(roomName, participantName, isHost);
-      console.log("[connectToRoom]", { token });
 
       if (!token) return null;
 
@@ -131,12 +125,9 @@ const livekitService = {
         dynacast: true,
       });
 
-      console.log("[connectToRoom]", { token, room, });
 
       // Connect to room
       await room.connect(LIVEKIT_URL, token);
-      console.log('Connected to LiveKit room:', roomName);
-
       return room;
     } catch (error) {
       console.error('Error connecting to LiveKit room:', error);
