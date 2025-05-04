@@ -48,7 +48,7 @@ const Index = () => {
           </div>
 
           <div className="grid gap-4">
-            {!isAuthenticated && <SocialAuthButtons flow='login' providers={['google']} />}
+            {!isAuthenticated && <SocialAuthButtons redirectTo={window.location.origin} flow='login' providers={['google']} />}
             <Button disabled={isLoading}
               size="lg"
               onClick={handleGetStarted}

@@ -301,6 +301,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initializeAuth = async () => {
       try {
         setIsLoading(true)
+        
+
         const { data: { session }, } = await supabase.auth.getSession();
 
         await fetchUserProfile(session.user.id);
@@ -325,25 +327,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   }, []);
 
-  // let init = false;
-  // useEffect(() => {
-  //   const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-  //     setIsAuthenticated(!!session);
 
-  //     // if (!!session) {
-  //     if (event === "INITIAL_SESSION") {
-  //       init = true
-  //       await fetchUserProfile(session.user.id);
-  //       setUser(session?.user);
-  //     }
-  //   });
+  useEffect(() => {
+    const waitTime = user ? 1000 : 3000
+    const wait = async () => await new Promise((resolve) => setTimeout(resolve, waitTime)) 
 
-
-  //   // Cleanup function
-  //   return () => {
-  //     subscription.unsubscribe();
-  //   };
-  // }, [init])
+    wait()
+  }, [user])
 
   // Context value
   const contextValue: AuthContextType = {
@@ -361,8 +351,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateUserRole,
     fetchUserRole
   };
-
-
 
 
   return isLoading ? <SplashScreen /> : (

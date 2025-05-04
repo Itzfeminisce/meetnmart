@@ -1,82 +1,60 @@
-// components/splash-screen.tsx
-"use client";
+import React, { useState, useEffect } from 'react';
 
-import { useEffect, useState } from "react";
-import { Progress } from "@/components/ui/progress";
+const SplashScreen = () => {
+  const [currentTipIndex, setCurrentTipIndex] = useState(0);
 
-export const SplashScreen = () => {
-  const [progress, setProgress] = useState(0);
+  const helperTexts = [
+    "Analyzing market trends...",
+    "Optimizing your experience...",
+    "Connecting to real-time data...",
+    "Preparing your dashboard...",
+    "Almost ready..."
+  ];
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(timer);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 300);
+    const interval = setInterval(() => {
+      setCurrentTipIndex((prevIndex) =>
+        prevIndex === helperTexts.length - 1 ? 0 : prevIndex + 1
+      );
+    }, 900); // Change text every 3 seconds
 
-    return () => clearInterval(timer);
+    return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex h-screen w-full items-center justify-center bg-gradient-to-br from-market-orange via-market-purple to-market-pink">
-      {/* 3D floating elements */}
-      <div className="absolute inset-0 overflow-hidden perspective-1000">
-        {[...Array(12)].map((_, i) => {
-          const colors = ['market-orange', 'market-blue', 'market-green', 'market-purple', 'market-pink'];
-          const randomColor = colors[Math.floor(Math.random() * colors.length)];
-          return (
-            <div
-              key={i}
-              className={`absolute h-12 w-12 animate-market-float-3d opacity-50 bg-${randomColor} rounded-lg shadow-3d`}
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${i * 0.5}s`,
-                transformStyle: 'preserve-3d',
-              }}
-            />
-          );
-        })}
-      </div>
-
-      {/* Main content with 3D effect */}
-      <div className="relative z-10 flex flex-col items-center space-y-8 transform-style-preserve-3d">
-        {/* 3D Animated logo */}
-        <div className="animate-logo-3d">
-          <h1 className="text-6xl font-black text-transparent bg-gradient-to-r from-market-orange via-market-pink to-market-purple bg-clip-text [text-shadow:_0_4px_8px_rgba(249,115,22,0.3)]">
-            LiveMarket
-            <span className="block mt-2 text-2xl text-market-blue animate-pulse">
-              Escrow Protected
-            </span>
-          </h1>
-        </div>
-
-        {/* Pulsing Live Indicator */}
-        <div className="flex items-center gap-2 p-4 bg-market-blue/20 rounded-2xl backdrop-blur-sm">
-          <span className="relative flex h-3 w-3">
-            <span className="absolute inline-flex h-full w-full animate-live-pulse-3d rounded-full bg-market-pink opacity-75" />
-            <span className="relative inline-flex h-3 w-3 rounded-full bg-market-purple" />
+    <div className="dark bg-background text-foreground flex flex-col items-center justify-center h-screen w-full transition-colors duration-300">
+      <div className="max-w-md w-full mx-auto p-8 flex flex-col items-center gap-8">
+        {/* Logo/Product Name */}
+        <div className="flex flex-col items-center gap-2">
+          <span className="font-bold text-5xl">
+            Meet<span className="text-market-orange">n</span><span className="text-market-purple">Mart</span>
           </span>
-          <span className="font-semibold text-market-purple">LIVE TRANSACTIONS</span>
+          <p className="text-muted-foreground text-sm">Local Marketplace for Instant Buying & Selling</p>
         </div>
 
-        {/* 3D Progress Bar */}
-        <div className="space-y-4 transform-style-preserve-3d">
-          <Progress 
-            value={progress} 
-            className="h-4 w-96 bg-market-blue/30 rounded-full shadow-3d-progress"
-          />
-          <div className="flex justify-between px-2">
-            <span className="text-sm font-medium text-market-blue">$0.00</span>
-            <span className="text-sm font-medium text-market-green">{progress}% Loaded</span>
-            <span className="text-sm font-medium text-market-blue">$0.00 in escrow</span>
-          </div>
+        {/* Loader */}
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+          <div className="absolute inset-2 rounded-full border-4 border-primary border-t-transparent animate-spin animation-delay-200"></div>
+        </div>
+
+        {/* Animated Helper Text */}
+        <div className="h-12 flex items-center justify-center w-full relative overflow-hidden">
+          {helperTexts.map((text, index) => (
+            <p
+              key={index}
+              className={`absolute text-center text-muted-foreground text-sm transition-all duration-500 ${index === currentTipIndex
+                  ? 'opacity-100 translate-y-0'
+                  : 'opacity-0 translate-y-4'
+                }`}
+            >
+              {text}
+            </p>
+          ))}
         </div>
       </div>
     </div>
   );
 };
+
+export { SplashScreen };
