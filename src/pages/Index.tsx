@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { redirect, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -22,7 +23,7 @@ const Index = () => {
       } else if (profile?.is_seller) {
         navigate('/seller-dashboard');
       } else {
-        navigate('/buyer-dashboard');
+        navigate('/markets');  // Changed from buyer-dashboard to markets
       }
     } else {
       setShowAuthModal(true);
@@ -30,69 +31,8 @@ const Index = () => {
   };
 
   const handleAuthSuccess = async () => {
-    //   setIsLoading(true)
-
-
-    //   const { data: { user }, error } = await supabase.auth.getUser();
-
-    //   console.log({ user, error });
-
-
-    //   if (error) {
-    //     await signOut()
-    //     navigate("/")
-    //   }
-
-
-    //  const userData =  await fetchUserProfile(user.id)
-
-    //  console.log({userData});
-
     window.location.reload()
-
-    //   if (!userData.role) {
-    //     navigate('/role-selection');
-    //   } else if (profile?.is_seller) {
-    //     console.log("to seller dashboard", userData.role);
-
-    //     navigate('/seller-dashboard');
-    //   } else {
-    //     console.log("to buyer dashboard", userData.role);
-    //     navigate('/buyer-dashboard');
-    //   }
   };
-
-//   useEffect(() => {
-//     async function initUserData() {
-// console.log({location});
-
-//       const { data: { user }, error } = await supabase.auth.getUser();
-
-//       if (error) {
-//         await signOut()
-//         if (location.pathname !== "/") {
-//           navigate("/")
-//         }
-//       }
-
-
-//       const userData = await fetchUserProfile(user.id)
-
-
-//       if (!userData.role) {
-//         navigate('/role-selection');
-//       } else if (profile?.is_seller) {
-//         console.log("to seller dashboard", userData.role);
-
-//         navigate('/seller-dashboard');
-//       } else {
-//         console.log("to buyer dashboard", userData.role);
-//         navigate('/buyer-dashboard');
-//       }
-//     }
-
-//     initUserData()
-//   }, [])
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-background to-background/80">
@@ -115,7 +55,7 @@ const Index = () => {
               className="bg-market-orange hover:bg-market-orange/90"
             >
               <ShoppingBasket className="mr-2 h-4 w-4" />
-              {user ? 'Go to Dashboard' : 'Get Started'}
+              {user ? 'Browse Markets' : 'Get Started'}  {/* Updated text */}
             </Button>
 
             {isAuthenticated ? (

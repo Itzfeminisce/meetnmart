@@ -16,6 +16,7 @@ import {
 } from '@/services/marketsService';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { MarketPlaceholder } from '@/components/MarketPlaceholder';
 
 interface Coordinates {
   latitude: number;
@@ -254,9 +255,7 @@ const MarketSelection = () => {
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No markets found nearby. Try searching for a market.
-              </div>
+              <MarketPlaceholder message="No markets found nearby. Try searching for a market." />
             )}
           </div>
         )}

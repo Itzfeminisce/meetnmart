@@ -24,6 +24,9 @@ serve(async (req) => {
   }
 
   try {
+    // Get request body
+    const { query, nearby, lat, lng } = await req.json();
+    
     // Get the API key from environment variables
     const googleMapsApiKey = Deno.env.get('GOOGLE_MAPS_API_KEY')
     if (!googleMapsApiKey) {
@@ -33,14 +36,8 @@ serve(async (req) => {
       )
     }
 
-    const url = new URL(req.url)
-    const query = url.searchParams.get('query') || ''
-    const lat = url.searchParams.get('lat')
-    const lng = url.searchParams.get('lng')
-    const nearby = url.searchParams.get('nearby') === 'true'
-
     // Return early if query is too short and not looking for nearby places
-    if (query.length < 2 && !nearby) {
+    if (!query && query?.length < 2 && !nearby) {
       return new Response(
         JSON.stringify({ markets: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

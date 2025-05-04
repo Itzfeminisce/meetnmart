@@ -8,6 +8,7 @@ export interface MarketSearchResult {
   name: string;
   address: string;
   user_count: number;
+  location?: string; // Added location property
   photos?: Array<{
     reference: string;
     width: number;
