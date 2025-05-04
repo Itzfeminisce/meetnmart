@@ -67,7 +67,7 @@ serve(async (req) => {
       searchParams.append('radius', '5000')  // 5km radius
       searchParams.append('type', 'supermarket|market|grocery_or_supermarket|store|shopping_mall')
     } else {
-      searchParams.append('query', `${query} market`)
+      searchParams.append('query', `${query} market, nigeria`)
     }
     searchParams.append('key', googleMapsApiKey)
 
@@ -101,7 +101,7 @@ serve(async (req) => {
     }
 
     // Format results (max 7 results)
-    const results = places.slice(0, 7).map(place => {
+    const results = places.slice(0, 10).map(place => {
       const userCount = existingMarketsMap.get(place.place_id) || 0
       return {
         id: place.place_id,

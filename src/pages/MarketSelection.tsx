@@ -8,15 +8,16 @@ import BottomNavigation from '@/components/BottomNavigation';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getInitials } from '@/lib/utils';
-import { 
-  debouncedSearchMarkets, 
-  getNearbyMarkets, 
+import {
+  debouncedSearchMarkets,
+  getNearbyMarkets,
   joinMarket,
-  MarketSearchResult 
+  MarketSearchResult
 } from '@/services/marketsService';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { MarketPlaceholder } from '@/components/MarketPlaceholder';
+import MarketIcon from '@/components/ui/svg/market-icon.svg';
 
 interface Coordinates {
   latitude: number;
@@ -37,22 +38,22 @@ const MarketSelection = () => {
   // Function to detect user location
   const handleLocationDetection = () => {
     setIsDetecting(true);
-    
+
     if (!navigator.geolocation) {
       toast.error("Geolocation is not supported by your browser");
       setIsDetecting(false);
       return;
     }
-    
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const userCoordinates = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude
         };
-        
+
         setLocation(userCoordinates);
-        
+
         try {
           setLoadingNearby(true);
           const markets = await getNearbyMarkets(userCoordinates);
@@ -68,7 +69,7 @@ const MarketSelection = () => {
       },
       (error) => {
         setIsDetecting(false);
-        switch(error.code) {
+        switch (error.code) {
           case error.PERMISSION_DENIED:
             toast.error("Location access denied. Please enable location services.");
             break;
@@ -104,16 +105,16 @@ const MarketSelection = () => {
     try {
       // Join the market (increment user count)
       await joinMarket(market);
-      
+
       // Navigate to categories page with the selected market
-      navigate('/categories', { 
-        state: { 
+      navigate('/categories', {
+        state: {
           market: {
             id: market.id,
             name: market.name,
             location: market.address
           }
-        } 
+        }
       });
     } catch (error) {
       console.error('Error selecting market:', error);
@@ -132,7 +133,7 @@ const MarketSelection = () => {
         <h1 className="text-2xl font-bold text-gradient">Select a Market</h1>
         <p className="text-muted-foreground">Choose a market near you or search</p>
       </header>
-      
+
       <div className="mb-6">
         <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
           <PopoverTrigger asChild>
@@ -190,7 +191,7 @@ const MarketSelection = () => {
           </PopoverContent>
         </Popover>
       </div>
-      
+
       <div className="flex items-center mb-6">
         <Button
           variant="outline"
@@ -213,54 +214,60 @@ const MarketSelection = () => {
           View all markets
         </Button>
       </div>
-      
+
       <div className="space-y-4 mb-4">
         <h2 className="text-lg font-medium flex items-center">
           <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
           Markets near you
         </h2>
-        
+
         {loadingNearby ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-market-orange" />
           </div>
         ) : (
           <div className="space-y-3">
-            {nearbyMarkets.length > 0 ? (
-              nearbyMarkets.map(market => (
-                <div
-                  key={market.id}
-                  className="glass-morphism rounded-lg p-3 flex items-center card-hover"
-                  onClick={() => handleSelectMarket(market)}
-                >
-                  <div className="h-16 w-16 rounded-md overflow-hidden mr-3 flex-shrink-0">
-                    <Avatar className="h-full w-full object-cover mr-4">
-                      <AvatarImage src="" />
-                      <AvatarFallback>{getInitials(market.name)}</AvatarFallback>
-                    </Avatar>
+          {nearbyMarkets.length > 0 ? (
+            nearbyMarkets.map(market => (
+              <div
+                key={market.id}
+                className="glass-morphism rounded-lg p-3 flex items-center card-hover"
+                onClick={() => handleSelectMarket(market)}
+              >
+                <Avatar className="w-14 h-14 mr-4">
+                  <AvatarImage src={MarketIcon} alt="Market Icon" className="w-full h-full object-cover" />
+                  <AvatarFallback>{getInitials(market.name)}</AvatarFallback>
+                </Avatar>
+                <div className="flex-grow overflow-hidden mr-2">
+                  <h3 className="font-medium truncate whitespace-nowrap text-ellipsis">
+                    {market.name}
+                  </h3>
+                  <div className="flex items-start text-xs text-muted-foreground">
+                    <span className="flex-shrink-0 mr-1 mt-[2px]">
+                      <MapPin size={12} />
+                    </span>
+                    <span className="line-clamp-2 leading-snug">
+                      {market.address}
+                    </span>
                   </div>
-                  <div className="flex-grow">
-                    <h3 className="font-medium">{market.name}</h3>
-                    <div className="flex items-center text-xs text-muted-foreground">
-                      <MapPin size={12} className="mr-1" />
-                      <span>{market.address}</span>
+                  {market.user_count > 0 && (
+                    <div className="text-xs text-market-blue mt-1">
+                      {market.user_count} {market.user_count === 1 ? 'shopper' : 'shoppers'}
                     </div>
-                    {market.user_count > 0 && (
-                      <div className="text-xs text-market-blue mt-1">
-                        {market.user_count} {market.user_count === 1 ? 'shopper' : 'shoppers'}
-                      </div>
-                    )}
-                  </div>
-                  <ArrowRight size={18} className="text-muted-foreground" />
+                  )}
                 </div>
-              ))
-            ) : (
-              <MarketPlaceholder message="No markets found nearby. Try searching for a market." />
-            )}
-          </div>
+                <div className="flex-shrink-0">
+                  <ArrowRight size={18} className="text-muted-foreground ml-2" />
+                </div>
+              </div>
+            ))
+          ) : (
+            <MarketPlaceholder message="No markets found nearby. Try searching for a market." />
+          )}
+        </div>
         )}
       </div>
-      
+
       <BottomNavigation />
     </div>
   );
