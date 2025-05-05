@@ -232,34 +232,34 @@ export const CallControls = ({
         {isVideoOn ? (
           <Video size={isMobile ? 20 : 24} className="text-foreground" />
         ) : (
-          <VideoOff size={iMobile ? 20 : 24} className="text-destructive" />
+          <VideoOff size={isMobile ? 20 : 24} className="text-destructive" />
         )}
       </Button>
 
       {showInviteDelivery && onInviteDelivery && (
         <Button
           variant="outline"
-          size={iMobile ? "default" : "icon"}
+          size={isMobile ? "default" : "icon"}
           className={cn(
             "bg-secondary border-none",
-            iMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
+            isMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
           )}
           onClick={onInviteDelivery}
         >
-          <Truck size={iMobile ? 20 : 24} className="text-foreground" />
+          <Truck size={isMobile ? 20 : 24} className="text-foreground" />
         </Button>
       )}
 
       <Button
         variant="destructive"
-        size={iMobile ? "default" : "icon"}
+        size={isMobile ? "default" : "icon"}
         className={cn(
           "bg-destructive border-none",
-          iMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
+          isMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
         )}
         onClick={onEndCall}
       >
-        <PhoneCall size={iMobile ? 20 : 24} className="rotate-[135deg]" />
+        <PhoneCall size={isMobile ? 20 : 24} className="rotate-[135deg]" />
       </Button>
     </div>
   );

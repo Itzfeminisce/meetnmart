@@ -18,25 +18,31 @@ import Explore from "./pages/Explore";
 import Activity from "./pages/Activity";
 import BottomNavigation from "./components/BottomNavigation";
 import RecentVisits from "./pages/RecentVisits";
+import { RoomProvider } from "./contexts/RoomContext";
 
 export const appRoutes: RouteObject[] = [
-
   // Guest Routes
   { path: "/", element: <Index /> },
-  { path: "/role-selection", element: <RoleSelection /> },
+  
+  // Role Selection Route (protected but no role check)
+  {
+    path: "/role-selection",
+    element: <AuthGaurd requiresRole={false}><RoleSelection /></AuthGaurd>
+  },
 
-  // Protected Routes
+  // Protected Routes (requires auth AND role)
   {
     element: <>
-      <AuthGaurd />
+      <AuthGaurd requiresRole={true} />
       <BottomNavigation />
-    </>, children: [
+    </>, 
+    children: [
       { path: "/markets", element: <MarketSelection /> },
       { path: "/categories", element: <CategorySelection /> },
       { path: "/sellers", element: <SellersList /> },
       { path: "/explore", element: <Explore /> },
       { path: "/activity", element: <Activity /> },
-      { path: "/call", element: <LiveCall /> },
+      { path: "/call", element: <RoomProvider><LiveCall /></RoomProvider> },
       { path: "/rating", element: <RatingFeedback /> },
       { path: "/seller-dashboard", element: <SellerDashboard /> },
       { path: "/buyer-dashboard", element: <BuyerDashboard /> },
