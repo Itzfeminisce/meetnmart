@@ -42,7 +42,7 @@ const CategorySelection = () => {
           return (
             <div
               key={category.id}
-              className="glass-morphism rounded-xl p-4 flex flex-col items-center text-center card-hover"
+              className="cursor-pointer glass-morphism rounded-xl p-4 flex flex-col items-center text-center card-hover"
               onClick={() => handleCategorySelect(category.id)}
             >
               <div className={`w-16 h-16 ${bgColorClass} rounded-full flex items-center justify-center mb-3`}>
@@ -54,7 +54,6 @@ const CategorySelection = () => {
         })}
       </div>
       
-      <BottomNavigation />
     </div>
   );
 };

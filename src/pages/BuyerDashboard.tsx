@@ -215,8 +215,6 @@ const BuyerDashboard = () => {
           Log out
         </Button>
       </div>
-
-      <BottomNavigation />
     </div>
   );
 };

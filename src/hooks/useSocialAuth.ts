@@ -19,7 +19,7 @@ export function useSocialAuth({
       await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/?${new URLSearchParams({
+          redirectTo: `${redirectTo || window.location.origin}/?${new URLSearchParams({
             provider,
             flow,
           }).toString()}`,

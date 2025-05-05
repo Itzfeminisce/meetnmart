@@ -14,6 +14,9 @@ import NotFound from "./pages/NotFound";
 import { RouteObject } from "react-router-dom";
 import AuthGaurd from "./contexts/AuthGaurd";
 import EditBuyerProfile from "./pages/EditBuyerProfile";
+import Explore from "./pages/Explore";
+import Activity from "./pages/Activity";
+import BottomNavigation from "./components/BottomNavigation";
 
 export const appRoutes: RouteObject[] = [
 
@@ -24,10 +27,15 @@ export const appRoutes: RouteObject[] = [
 
   // Protected Routes
   {
-    element: <AuthGaurd />, children: [
+    element: <>
+      <AuthGaurd />
+      <BottomNavigation />
+    </>, children: [
       { path: "/markets", element: <MarketSelection /> },
       { path: "/categories", element: <CategorySelection /> },
       { path: "/sellers", element: <SellersList /> },
+      { path: "/explore", element: <Explore /> },
+      { path: "/activity", element: <Activity /> },
       { path: "/call", element: <LiveCall /> },
       { path: "/rating", element: <RatingFeedback /> },
       { path: "/seller-dashboard", element: <SellerDashboard /> },
