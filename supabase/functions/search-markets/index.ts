@@ -25,7 +25,7 @@ serve(async (req) => {
 
   try {
     // Get request body
-    const { query, nearby, lat, lng } = await req.json();
+    const { query, nearby, lat, lng, page = 1, pageSize = 10 } = await req.json();
     
     // Get the API key from environment variables
     const googleMapsApiKey = Deno.env.get('GOOGLE_MAPS_API_KEY')
@@ -45,7 +45,7 @@ serve(async (req) => {
     }
 
     // Check cache first for this query
-    const cacheKey = `${query}-${lat}-${lng}-${nearby}`
+    const cacheKey = `${query}-${lat}-${lng}-${nearby}-${page}-${pageSize}`
     const cachedResult = searchCache.get(cacheKey)
     if (cachedResult && (Date.now() - cachedResult.timestamp < CACHE_TTL)) {
       console.log("Cache hit for:", cacheKey)
@@ -66,6 +66,13 @@ serve(async (req) => {
       searchParams.append('location', `${lat},${lng}`)
       searchParams.append('radius', '5000')  // 5km radius
       searchParams.append('type', 'supermarket|market|grocery_or_supermarket|store|shopping_mall')
+      // Add pagination for nearby requests (using Google's nextPageToken system)
+      if (page > 1 && searchCache.has(`${query}-${lat}-${lng}-${nearby}-${page-1}-${pageSize}`)) {
+        const prevPageResult = searchCache.get(`${query}-${lat}-${lng}-${nearby}-${page-1}-${pageSize}`)
+        if (prevPageResult && prevPageResult.nextPageToken) {
+          searchParams.append('pagetoken', prevPageResult.nextPageToken)
+        }
+      }
     } else {
       searchParams.append('query', `${query} market, nigeria`)
     }
@@ -100,8 +107,12 @@ serve(async (req) => {
       })
     }
 
-    // Format results (max 7 results)
-    const results = places.slice(0, 10).map(place => {
+    // Format results with appropriate pagination
+    const startIdx = nearby ? 0 : (page - 1) * pageSize
+    const endIdx = nearby ? places.length : startIdx + pageSize
+    const paginatedPlaces = places.slice(startIdx, endIdx)
+
+    const results = paginatedPlaces.map(place => {
       const userCount = existingMarketsMap.get(place.place_id) || 0
       return {
         id: place.place_id,
@@ -125,7 +136,8 @@ serve(async (req) => {
     // Cache the results
     searchCache.set(cacheKey, {
       timestamp: Date.now(),
-      data: results
+      data: results,
+      nextPageToken: data.next_page_token || null
     })
 
     // Limit cache size to prevent memory issues
@@ -136,7 +148,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ markets: results }),
+      JSON.stringify({ markets: results, nextPageToken: data.next_page_token || null }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

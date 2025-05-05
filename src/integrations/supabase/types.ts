@@ -123,6 +123,33 @@ export type Database = {
         }
         Relationships: []
       }
+      recent_visits: {
+        Row: {
+          id: string
+          market_address: string
+          market_name: string
+          place_id: string
+          user_id: string
+          visited_at: string | null
+        }
+        Insert: {
+          id?: string
+          market_address: string
+          market_name: string
+          place_id: string
+          user_id: string
+          visited_at?: string | null
+        }
+        Update: {
+          id?: string
+          market_address?: string
+          market_name?: string
+          place_id?: string
+          user_id?: string
+          visited_at?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

@@ -44,14 +44,20 @@ export const debouncedSearchMarkets = debounce(async (
   }
 }, 300);
 
-// Function to get nearby markets based on coordinates
-export const getNearbyMarkets = async (coordinates: Coordinates): Promise<MarketSearchResult[]> => {
+// Function to get nearby markets based on coordinates with pagination
+export const getNearbyMarkets = async (
+  coordinates: Coordinates,
+  page: number = 1,
+  pageSize: number = 7
+): Promise<MarketSearchResult[]> => {
   try {
     const { data, error } = await supabase.functions.invoke("search-markets", {
       body: {
         nearby: true,
         lat: coordinates.latitude,
-        lng: coordinates.longitude
+        lng: coordinates.longitude,
+        page,
+        pageSize
       }
     });
 
@@ -99,5 +105,64 @@ export const joinMarket = async (market: MarketSearchResult) => {
   } catch (error) {
     console.error("Error joining market:", error);
     return false;
+  }
+};
+
+// Function to save a recently visited market
+export const saveRecentVisit = async (market: MarketSearchResult) => {
+  try {
+    if (!supabase.auth.getUser()) {
+      console.log("User not logged in, can't save recent visit");
+      return false;
+    }
+
+    const { data, error } = await supabase
+      .from('recent_visits')
+      .upsert({
+        place_id: market.place_id,
+        market_name: market.name,
+        market_address: market.address,
+        visited_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id,place_id'
+      });
+
+    if (error) {
+      console.error("Error saving recent visit:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error saving recent visit:", error);
+    return false;
+  }
+};
+
+// Function to get recently visited markets
+export const getRecentVisits = async (): Promise<MarketSearchResult[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('recent_visits')
+      .select('*')
+      .order('visited_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error("Error fetching recent visits:", error);
+      return [];
+    }
+
+    // Convert to MarketSearchResult format
+    return (data || []).map(item => ({
+      id: item.place_id,
+      place_id: item.place_id,
+      name: item.market_name,
+      address: item.market_address,
+      user_count: 0 // We don't have this info from recent_visits table
+    }));
+  } catch (error) {
+    console.error("Error fetching recent visits:", error);
+    return [];
   }
 };
