@@ -2,12 +2,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { PhoneCall, ShoppingBasket, MapPin, Clock } from 'lucide-react';
+import { PhoneCall, ShoppingBasket, MapPin } from 'lucide-react';
 import AuthModal from '@/components/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { SocialAuthButtons } from '@/components/SocialAuthButtons';
-import { getRecentVisits, getNearbyMarkets, MarketSearchResult } from '@/services/marketsService';
+import { getNearbyMarkets, MarketSearchResult } from '@/services/marketsService';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getInitials } from '@/lib/utils';
 import MarketIcon from '@/components/ui/svg/market-icon.svg';
@@ -17,7 +17,6 @@ const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { user, signOut, profile, userRole, isAuthenticated, fetchUserProfile } = useAuth();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [recentVisits, setRecentVisits] = useState<MarketSearchResult[]>([]);
   const [nearbyMarkets, setNearbyMarkets] = useState<MarketSearchResult[]>([]);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [coordinates, setCoordinates] = useState<{latitude: number, longitude: number} | null>(null);
@@ -45,13 +44,6 @@ const Index = () => {
     window.location.reload()
   };
 
-  // Load recent visits
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchRecentVisits();
-    }
-  }, [isAuthenticated]);
-
   // Attempt to get location and load nearby markets on component mount
   useEffect(() => {
     if (navigator.geolocation) {
@@ -78,15 +70,6 @@ const Index = () => {
       fetchNearbyMarkets();
     }
   }, [coordinates]);
-
-  const fetchRecentVisits = async () => {
-    try {
-      const visits = await getRecentVisits();
-      setRecentVisits(visits);
-    } catch (error) {
-      console.error("Error fetching recent visits:", error);
-    }
-  };
 
   const fetchNearbyMarkets = async (loadMore = false) => {
     if (!coordinates) return;
@@ -129,37 +112,6 @@ const Index = () => {
     }
   };
 
-  const renderMarketItem = (market: MarketSearchResult) => (
-    <div
-      key={market.id}
-      className="glass-morphism rounded-lg p-3 flex items-center card-hover cursor-pointer"
-      onClick={() => handleMarketSelect(market)}
-    >
-      <Avatar className="w-14 h-14 mr-4">
-        <AvatarImage src={MarketIcon} alt="Market Icon" className="w-full h-full object-cover" />
-        <AvatarFallback>{getInitials(market.name)}</AvatarFallback>
-      </Avatar>
-      <div className="flex-grow overflow-hidden mr-2">
-        <h3 className="font-medium truncate whitespace-nowrap text-ellipsis">
-          {market.name}
-        </h3>
-        <div className="flex items-start text-xs text-muted-foreground">
-          <span className="flex-shrink-0 mr-1 mt-[2px]">
-            <MapPin size={12} />
-          </span>
-          <span className="line-clamp-2 leading-snug">
-            {market.address}
-          </span>
-        </div>
-        {market.user_count > 0 && (
-          <div className="text-xs text-market-blue mt-1">
-            {market.user_count} {market.user_count === 1 ? 'shopper' : 'shoppers'}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-background to-background/80">
       <main className="flex-grow flex flex-col p-4 animate-fade-in">
@@ -181,7 +133,7 @@ const Index = () => {
               className="bg-market-orange hover:bg-market-orange/90"
             >
               <ShoppingBasket className="mr-2 h-4 w-4" />
-              {user ? 'Browse Markets' : 'Get Started'}  {/* Updated text */}
+              {user ? 'Browse Markets' : 'Get Started'}
             </Button>
 
             {isAuthenticated ? (
@@ -212,28 +164,6 @@ const Index = () => {
 {/*  We dont need this here */}
         {/* {isAuthenticated && (
           <div className="max-w-md mx-auto w-full">
-            {recentVisits.length > 0 && (
-              <div className="mb-8">
-                <h2 className="text-lg font-medium flex items-center mb-4">
-                  <span className="bg-market-blue/20 w-1 h-5 mr-2"></span>
-                  <Clock className="w-4 h-4 mr-2" />
-                  Recently visited
-                </h2>
-                <div className="space-y-3">
-                  {recentVisits.slice(0, 3).map(renderMarketItem)}
-                  {recentVisits.length > 3 && (
-                    <Button
-                      variant="ghost"
-                      className="w-full text-market-blue"
-                      onClick={() => navigate('/markets')}
-                    >
-                      View all recent markets
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-
             <div className="mb-8">
               <h2 className="text-lg font-medium flex items-center mb-4">
                 <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
@@ -257,27 +187,13 @@ const Index = () => {
               )}
               
               {nearbyMarkets.length > 0 && (
-                <div className="space-y-3">
-                  {nearbyMarkets.map(renderMarketItem)}
-                  
-                  {hasMoreNearby && (
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={handleLoadMore}
-                      disabled={loadingMore}
-                    >
-                      {loadingMore ? (
-                        <>
-                          <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
-                          Loading...
-                        </>
-                      ) : (
-                        'Load more markets'
-                      )}
-                    </Button>
-                  )}
-                </div>
+                <Button 
+                  variant="outline" 
+                  className="w-full mt-2"
+                  onClick={() => navigate('/markets')}
+                >
+                  View All Markets
+                </Button>
               )}
             </div>
           </div>

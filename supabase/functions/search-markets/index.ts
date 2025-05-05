@@ -17,6 +17,28 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 const searchCache = new Map()
 const CACHE_TTL = 60 * 60 * 1000 // 1 hour cache
 
+// Cache for nearby market results
+const nearbyCache = new Map()
+
+// Helper function to get market information from the database to avoid API calls
+async function getMarketDataFromDb(placeIds: string[]) {
+  if (!placeIds.length) return {};
+  
+  const { data } = await supabase
+    .from('markets')
+    .select('place_id, user_count')
+    .in('place_id', placeIds);
+    
+  const marketMap = {};
+  if (data) {
+    data.forEach(market => {
+      marketMap[market.place_id] = market;
+    });
+  }
+  
+  return marketMap;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -45,14 +67,40 @@ serve(async (req) => {
     }
 
     // Check cache first for this query
-    const cacheKey = `${query}-${lat}-${lng}-${nearby}-${page}-${pageSize}`
-    const cachedResult = searchCache.get(cacheKey)
-    if (cachedResult && (Date.now() - cachedResult.timestamp < CACHE_TTL)) {
-      console.log("Cache hit for:", cacheKey)
-      return new Response(
-        JSON.stringify({ markets: cachedResult.data }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    let cacheKey;
+    if (nearby) {
+      // For nearby searches, use lat/lng/page as the cache key
+      cacheKey = `nearby-${lat?.toFixed(4)}-${lng?.toFixed(4)}-${page}-${pageSize}`;
+      const cachedResult = nearbyCache.get(cacheKey);
+      if (cachedResult && (Date.now() - cachedResult.timestamp < CACHE_TTL)) {
+        console.log("Cache hit for nearby:", cacheKey);
+        return new Response(
+          JSON.stringify({ markets: cachedResult.data }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else {
+      // For text searches, use query as cache key
+      cacheKey = `search-${query}`;
+      const cachedResult = searchCache.get(cacheKey);
+      if (cachedResult && (Date.now() - cachedResult.timestamp < CACHE_TTL)) {
+        console.log("Cache hit for search:", cacheKey);
+        return new Response(
+          JSON.stringify({ markets: cachedResult.data }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // If not in cache, we need to call the API
+    // First, check if we have pagination token from previous request
+    let nextPageToken = null;
+    if (nearby && page > 1) {
+      const prevPageKey = `nearby-${lat?.toFixed(4)}-${lng?.toFixed(4)}-${page-1}-${pageSize}`;
+      const prevPageData = nearbyCache.get(prevPageKey);
+      if (prevPageData) {
+        nextPageToken = prevPageData.nextPageToken;
+      }
     }
 
     // Different endpoints based on the search type
@@ -66,12 +114,9 @@ serve(async (req) => {
       searchParams.append('location', `${lat},${lng}`)
       searchParams.append('radius', '5000')  // 5km radius
       searchParams.append('type', 'supermarket|market|grocery_or_supermarket|store|shopping_mall')
-      // Add pagination for nearby requests (using Google's nextPageToken system)
-      if (page > 1 && searchCache.has(`${query}-${lat}-${lng}-${nearby}-${page-1}-${pageSize}`)) {
-        const prevPageResult = searchCache.get(`${query}-${lat}-${lng}-${nearby}-${page-1}-${pageSize}`)
-        if (prevPageResult && prevPageResult.nextPageToken) {
-          searchParams.append('pagetoken', prevPageResult.nextPageToken)
-        }
+      // Add pagination token if we have one
+      if (nextPageToken) {
+        searchParams.append('pagetoken', nextPageToken)
       }
     } else {
       searchParams.append('query', `${query} market, nigeria`)
@@ -95,25 +140,17 @@ serve(async (req) => {
     const placeIds = places.map(place => place.place_id)
     
     // Get existing markets from our database
-    const { data: existingMarkets } = await supabase
-      .from('markets')
-      .select('place_id, user_count')
-      .in('place_id', placeIds)
+    const existingMarketsMap = await getMarketDataFromDb(placeIds);
     
-    const existingMarketsMap = new Map()
-    if (existingMarkets) {
-      existingMarkets.forEach(market => {
-        existingMarketsMap.set(market.place_id, market.user_count)
-      })
-    }
-
     // Format results with appropriate pagination
     const startIdx = nearby ? 0 : (page - 1) * pageSize
     const endIdx = nearby ? places.length : startIdx + pageSize
     const paginatedPlaces = places.slice(startIdx, endIdx)
 
     const results = paginatedPlaces.map(place => {
-      const userCount = existingMarketsMap.get(place.place_id) || 0
+      const existingMarket = existingMarketsMap[place.place_id];
+      const userCount = existingMarket ? existingMarket.user_count : 0;
+      
       return {
         id: place.place_id,
         place_id: place.place_id,
@@ -131,24 +168,40 @@ serve(async (req) => {
             }))
           : []
       }
-    })
+    });
 
     // Cache the results
-    searchCache.set(cacheKey, {
-      timestamp: Date.now(),
-      data: results,
-      nextPageToken: data.next_page_token || null
-    })
+    if (nearby) {
+      nearbyCache.set(cacheKey, {
+        timestamp: Date.now(),
+        data: results,
+        nextPageToken: data.next_page_token || null
+      });
+    } else {
+      searchCache.set(cacheKey, {
+        timestamp: Date.now(),
+        data: results
+      });
+    }
 
     // Limit cache size to prevent memory issues
-    if (searchCache.size > 100) {
+    if (searchCache.size > 200) {
       // Delete oldest entries
-      const keys = [...searchCache.keys()]
-      keys.slice(0, 20).forEach(k => searchCache.delete(k))
+      const keys = [...searchCache.keys()];
+      keys.slice(0, 50).forEach(k => searchCache.delete(k));
+    }
+    if (nearbyCache.size > 200) {
+      // Delete oldest entries
+      const keys = [...nearbyCache.keys()];
+      keys.slice(0, 50).forEach(k => nearbyCache.delete(k));
     }
 
     return new Response(
-      JSON.stringify({ markets: results, nextPageToken: data.next_page_token || null }),
+      JSON.stringify({ 
+        markets: results,
+        nextPageToken: data.next_page_token || null,
+        cached: false
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

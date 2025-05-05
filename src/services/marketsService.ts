@@ -21,12 +21,39 @@ interface Coordinates {
   longitude: number;
 }
 
+// Improved cache management
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour cache
+const searchCache = new Map();
+
+// Helper to prune old cache entries
+const pruneCache = () => {
+  const now = Date.now();
+  const oldEntries = [...searchCache.entries()]
+    .filter(([_, value]) => now - value.timestamp > CACHE_TTL)
+    .map(([key]) => key);
+  
+  oldEntries.forEach(key => searchCache.delete(key));
+};
+
+// Periodically clean cache
+setInterval(pruneCache, 5 * 60 * 1000); // Clean every 5 minutes
+
 // Debounced search function
 export const debouncedSearchMarkets = debounce(async (
   query: string,
   callback: (results: MarketSearchResult[]) => void
 ) => {
   try {
+    // Check cache first (with pruning old entries)
+    const cacheKey = `search-${query}`;
+    const cachedResult = searchCache.get(cacheKey);
+    
+    if (cachedResult && (Date.now() - cachedResult.timestamp < CACHE_TTL)) {
+      console.log("Using cached search results for:", query);
+      callback(cachedResult.data);
+      return;
+    }
+    
     const { data, error } = await supabase.functions.invoke("search-markets", {
       body: { query }
     });
@@ -36,7 +63,13 @@ export const debouncedSearchMarkets = debounce(async (
       callback([]);
       return;
     }
-
+    
+    // Update cache with new results
+    searchCache.set(cacheKey, {
+      timestamp: Date.now(),
+      data: data.markets || []
+    });
+    
     callback(data.markets || []);
   } catch (error) {
     console.error("Error searching markets:", error);
@@ -51,6 +84,15 @@ export const getNearbyMarkets = async (
   pageSize: number = 7
 ): Promise<MarketSearchResult[]> => {
   try {
+    // Check cache first
+    const cacheKey = `nearby-${coordinates.latitude.toFixed(4)}-${coordinates.longitude.toFixed(4)}-${page}-${pageSize}`;
+    const cachedResult = searchCache.get(cacheKey);
+    
+    if (cachedResult && (Date.now() - cachedResult.timestamp < CACHE_TTL)) {
+      console.log("Using cached nearby markets for:", cacheKey);
+      return cachedResult.data;
+    }
+    
     const { data, error } = await supabase.functions.invoke("search-markets", {
       body: {
         nearby: true,
@@ -65,8 +107,15 @@ export const getNearbyMarkets = async (
       console.error("Error fetching nearby markets:", error);
       return [];
     }
-
-    return data.markets || [];
+    
+    // Cache the results
+    const markets = data.markets || [];
+    searchCache.set(cacheKey, {
+      timestamp: Date.now(),
+      data: markets
+    });
+    
+    return markets;
   } catch (error) {
     console.error("Error fetching nearby markets:", error);
     return [];
@@ -84,13 +133,27 @@ export const joinMarket = async (market: MarketSearchResult) => {
       .single();
 
     if (existingMarket) {
-      // Market exists, increment user count
-      await supabase.rpc('increment_market_user_count', {
+      // Market exists, increment user count using the RPC function
+      const { error } = await supabase.rpc('increment_market_user_count', {
         market_place_id: market.place_id
       });
+      
+      if (error) {
+        console.error("Error incrementing market user count:", error);
+        return false;
+      }
+      
+      // Clear any cache entries that might have this market to ensure fresh data
+      const cacheKeys = [...searchCache.keys()];
+      cacheKeys.forEach(key => {
+        if (key.startsWith('nearby-') || key === `search-${market.name}`) {
+          searchCache.delete(key);
+        }
+      });
+      
     } else {
       // Market doesn't exist, insert new record
-      await supabase
+      const { error } = await supabase
         .from('markets')
         .insert({
           place_id: market.place_id,
@@ -99,6 +162,11 @@ export const joinMarket = async (market: MarketSearchResult) => {
           // Convert to PostgreSQL point format
           location: market.location
         });
+        
+      if (error) {
+        console.error("Error inserting market:", error);
+        return false;
+      }
     }
     
     return true;
