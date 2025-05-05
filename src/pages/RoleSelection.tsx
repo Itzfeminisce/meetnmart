@@ -5,7 +5,6 @@ import { User, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const RoleSelection = () => {
@@ -29,24 +28,8 @@ const RoleSelection = () => {
       setIsLoading(true);
 
       // Update user role in the database
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .upsert({
-          user_id: user.id,
-          role
-        });
-
-      if (roleError) throw roleError;
-
-      // Update profile with is_seller flag
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          is_seller: role === 'seller'
-        })
-        .eq('id', user.id);
-
-      if (profileError) throw profileError;
+      const { updateUserRole } = useAuth();
+      await updateUserRole(role);
 
       // Refresh the user profile
       await fetchUserProfile();
