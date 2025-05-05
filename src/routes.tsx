@@ -17,13 +17,13 @@ import EditBuyerProfile from "./pages/EditBuyerProfile";
 import Explore from "./pages/Explore";
 import Activity from "./pages/Activity";
 import BottomNavigation from "./components/BottomNavigation";
+import RecentVisits from "./pages/RecentVisits";
 
 export const appRoutes: RouteObject[] = [
 
   // Guest Routes
   { path: "/", element: <Index /> },
   { path: "/role-selection", element: <RoleSelection /> },
-
 
   // Protected Routes
   {
@@ -42,6 +42,7 @@ export const appRoutes: RouteObject[] = [
       { path: "/buyer-dashboard", element: <BuyerDashboard /> },
       { path: "/edit-seller-profile", element: <EditSellerProfile /> },
       { path: "/edit-buyer-profile", element: <EditBuyerProfile /> },
+      { path: "/recent-visits", element: <RecentVisits /> },
     ]
   },
 

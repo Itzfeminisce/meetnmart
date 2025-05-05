@@ -111,14 +111,18 @@ export const joinMarket = async (market: MarketSearchResult) => {
 // Function to save a recently visited market
 export const saveRecentVisit = async (market: MarketSearchResult) => {
   try {
-    if (!supabase.auth.getUser()) {
+    const user = supabase.auth.getUser();
+    if (!user || !(await user).data.user) {
       console.log("User not logged in, can't save recent visit");
       return false;
     }
 
+    const userId = (await user).data.user.id;
+
     const { data, error } = await supabase
       .from('recent_visits')
       .upsert({
+        user_id: userId,
         place_id: market.place_id,
         market_name: market.name,
         market_address: market.address,
@@ -140,13 +144,19 @@ export const saveRecentVisit = async (market: MarketSearchResult) => {
 };
 
 // Function to get recently visited markets
-export const getRecentVisits = async (): Promise<MarketSearchResult[]> => {
+export const getRecentVisits = async (limit: number = 10): Promise<MarketSearchResult[]> => {
   try {
+    const user = await supabase.auth.getUser();
+    if (!user?.data?.user?.id) {
+      return [];
+    }
+    
     const { data, error } = await supabase
       .from('recent_visits')
       .select('*')
+      .eq('user_id', user.data.user.id)
       .order('visited_at', { ascending: false })
-      .limit(10);
+      .limit(limit);
 
     if (error) {
       console.error("Error fetching recent visits:", error);

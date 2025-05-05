@@ -1,8 +1,9 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Room, LocalParticipant, RemoteParticipant, Track, TrackPublication, ConnectionState } from 'livekit-client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Video, VideoOff, Mic, MicOff, PhoneCall } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, PhoneCall, Truck } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -36,15 +37,19 @@ export const Participant = ({
   useEffect(() => {
     // Function to find active video track
     const findVideoTrack = () => {
-      console.log("[Participant]", {participant});
-      
       if (!participant) return null;
-
+      
+      // Type guard to check if we're dealing with LocalParticipant or RemoteParticipant
+      let publications: TrackPublication[];
+      if (participant instanceof LocalParticipant) {
+        publications = Array.from(participant.videoTrackPublications.values());
+      } else {
+        publications = Array.from(participant.videoTrackPublications.values());
+      }
+      
       // Search through video publications for an active track
-      for (const publication of Array.from(participant.videoTrackPublications.values())) {
-        console.log("[publication]",{publication});
-        
-        if (publication.track){ // && !publication.isMuted) {
+      for (const publication of publications) {
+        if (publication.track) {
           setHasVideo(true);
           return publication.track;
         }
@@ -169,43 +174,6 @@ export const Participant = ({
         {name} {isLocal && "(You)"}
       </div>
     </div>
-    // <div
-    //   className={cn(
-    //     "relative rounded-lg overflow-hidden bg-secondary/30",
-    //     large ? "w-full h-full" : "w-full max-w-[180px]",
-    //     isSpeaking ? "ring-2 ring-primary" : ""
-    //   )}
-    // >
-    //   {showVideo ? (
-    //     <video
-    //       ref={videoRef}
-    //       autoPlay
-    //       playsInline
-    //       muted={isLocal}
-    //       className="h-full w-full object-cover"
-    //     />
-    //   ) : (
-    //     <div className="h-full w-full flex items-center justify-center bg-muted">
-    //       <Avatar className={large ? "h-24 w-24" : "h-12 w-12"}>
-    //         <AvatarFallback>{getInitials(name)}</AvatarFallback>
-    //       </Avatar>
-    //     </div>
-    //   )}
-
-    //   {/* Status indicators */}
-    //   <div className="absolute bottom-2 left-2 flex gap-1">
-    //     {!isMicOn && (
-    //       <div className="bg-background/80 rounded-full p-1">
-    //         <MicOff size={large ? 16 : 12} className="text-destructive" />
-    //       </div>
-    //     )}
-    //   </div>
-
-    //   {/* Name tag */}
-    //   <div className="absolute bottom-2 right-2 bg-background/60 px-2 py-1 rounded-full text-xs">
-    //     {name} {isLocal && "(You)"}
-    //   </div>
-    // </div>
   );
 };
 
@@ -264,213 +232,35 @@ export const CallControls = ({
         {isVideoOn ? (
           <Video size={isMobile ? 20 : 24} className="text-foreground" />
         ) : (
-          <VideoOff size={isMobile ? 20 : 24} className="text-destructive" />
+          <VideoOff size={iMobile ? 20 : 24} className="text-destructive" />
         )}
       </Button>
 
-      {/* Additional controls can go here */}
+      {showInviteDelivery && onInviteDelivery && (
+        <Button
+          variant="outline"
+          size={iMobile ? "default" : "icon"}
+          className={cn(
+            "bg-secondary border-none",
+            iMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
+          )}
+          onClick={onInviteDelivery}
+        >
+          <Truck size={iMobile ? 20 : 24} className="text-foreground" />
+        </Button>
+      )}
 
       <Button
         variant="destructive"
-        size={isMobile ? "default" : "icon"}
+        size={iMobile ? "default" : "icon"}
         className={cn(
           "bg-destructive border-none",
-          isMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
+          iMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
         )}
         onClick={onEndCall}
       >
-        <PhoneCall size={isMobile ? 20 : 24} className="rotate-[135deg]" />
+        <PhoneCall size={iMobile ? 20 : 24} className="rotate-[135deg]" />
       </Button>
     </div>
   );
 };
-// import { useState, useEffect, useRef } from 'react';
-// import { Room, LocalParticipant, RemoteParticipant, Track, TrackPublication, ConnectionState } from 'livekit-client';
-// import { Button } from '@/components/ui/button';
-// import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-// import { Video, VideoOff, Mic, MicOff, PhoneCall } from 'lucide-react';
-// import { getInitials } from '@/lib/utils';
-// import { toast } from 'sonner';
-// import { cn } from '@/lib/utils';
-
-// // Participant Component
-// interface ParticipantProps {
-//   // participant: LocalParticipant;
-//   // participant: RemoteParticipant;
-//   participant: LocalParticipant | RemoteParticipant;
-//   isSpeaking?: boolean;
-//   isCameraOn?: boolean;
-//   isMicOn?: boolean;
-//   isLocal?: boolean;
-//   large?: boolean;
-// }
-
-// export const Participant = ({
-//   participant,
-//   isSpeaking = false,
-//   isCameraOn = false,
-//   isMicOn = true,
-//   isLocal = false,
-//   large = false
-// }: ParticipantProps) => {
-//   console.log("[Participant]", {
-//     participant,
-//     isSpeaking,
-//     isCameraOn,
-//     isMicOn,
-//     isLocal,
-//     large,
-
-//   });
-
-//   // const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
-//   const videoElement = useRef<HTMLVideoElement | null>(null) // useState<HTMLVideoElement | null>(null);
-
-//   const name = participant.identity || 'Unknown';
-
-//   // useEffect(() => {
-//   //   if (!videoElement.current) return;
-
-//   //   // In a real implementation, you would attach the video track to the video element
-//   //   // This would use LiveKit's APIs to get and attach the track
-
-//   //   // For demonstration purposes, we're just showing a placeholder
-
-//   //   return () => {
-//   //     // Cleanup
-//   //   };
-//   // }, [participant, videoElement.current]);
-
-
-
-//   useEffect(() => {
-//     const videoTrack = Array.from(participant.videoTrackPublications.values())
-//       .find((pub) => pub.track !== undefined)?.track;
-
-//     if (videoElement.current && videoTrack) {
-//       videoTrack.attach(videoElement.current);
-//     }
-
-//     return () => {
-//       if (videoElement.current && videoTrack) {
-//         videoTrack.detach(videoElement.current);
-//       }
-//     };
-//   }, [participant]);
-
-//   return (
-//     <div
-//       className={cn(
-//         "relative rounded-lg overflow-hidden bg-secondary/30",
-//         large ? "w-full h-full" : "w-full max-w-[180px]",
-//         isSpeaking ? "ring-2 ring-primary" : ""
-//       )}
-//     >
-//       {isCameraOn ? (
-//         <video
-//           ref={videoElement}
-//           autoPlay
-//           playsInline
-//           muted={isLocal}
-//           className="h-full w-full object-cover"
-//         />
-//       ) : (
-//         <div className="h-full w-full flex items-center justify-center bg-muted">
-//           <Avatar className={large ? "h-24 w-24" : "h-12 w-12"}>
-//             <AvatarFallback>{getInitials(name)}</AvatarFallback>
-//           </Avatar>
-//         </div>
-//       )}
-
-//       {/* Status indicators */}
-//       <div className="absolute bottom-2 left-2 flex gap-1">
-//         {!isMicOn && (
-//           <div className="bg-background/80 rounded-full p-1">
-//             <MicOff size={large ? 16 : 12} className="text-destructive" />
-//           </div>
-//         )}
-//       </div>
-
-//       {/* Name tag */}
-//       <div className="absolute bottom-2 right-2 bg-background/60 px-2 py-1 rounded-full text-xs">
-//         {name} {isLocal && "(You)"}
-//       </div>
-//     </div>
-//   );
-// };
-
-// // Call Controls
-// interface CallControlsProps {
-//   isMuted: boolean;
-//   isVideoOn: boolean;
-//   onToggleMute: () => void;
-//   onToggleVideo: () => void;
-//   onEndCall: () => void;
-//   onInviteDelivery?: () => void;
-//   showInviteDelivery?: boolean;
-//   isMobile?: boolean;
-// }
-
-// export const CallControls = ({
-//   isMuted,
-//   isVideoOn,
-//   onToggleMute,
-//   onToggleVideo,
-//   onEndCall,
-//   onInviteDelivery,
-//   showInviteDelivery = false,
-//   isMobile = false
-// }: CallControlsProps) => {
-//   return (
-//     <div className={cn(
-//       "glass-morphism p-3 flex justify-center items-center space-x-2 md:space-x-4",
-//       isMobile ? "pb-safe" : ""
-//     )}>
-//       <Button
-//         variant="outline"
-//         size={isMobile ? "default" : "icon"}
-//         className={cn(
-//           "bg-secondary border-none",
-//           isMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
-//         )}
-//         onClick={onToggleMute}
-//       >
-//         {isMuted ? (
-//           <MicOff size={isMobile ? 20 : 24} className="text-destructive" />
-//         ) : (
-//           <Mic size={isMobile ? 20 : 24} className="text-foreground" />
-//         )}
-//       </Button>
-
-//       <Button
-//         variant="outline"
-//         size={isMobile ? "default" : "icon"}
-//         className={cn(
-//           "bg-secondary border-none",
-//           isMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
-//         )}
-//         onClick={onToggleVideo}
-//       >
-//         {isVideoOn ? (
-//           <Video size={isMobile ? 20 : 24} className="text-foreground" />
-//         ) : (
-//           <VideoOff size={isMobile ? 20 : 24} className="text-destructive" />
-//         )}
-//       </Button>
-
-//       {/* Additional controls can go here */}
-
-//       <Button
-//         variant="destructive"
-//         size={isMobile ? "default" : "icon"}
-//         className={cn(
-//           "bg-destructive border-none",
-//           isMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
-//         )}
-//         onClick={onEndCall}
-//       >
-//         <PhoneCall size={isMobile ? 20 : 24} className="rotate-[135deg]" />
-//       </Button>
-//     </div>
-//   );
-// };

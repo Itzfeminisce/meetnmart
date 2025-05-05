@@ -1,6 +1,7 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, ArrowRight, Search, List, Loader2 } from 'lucide-react';
+import { MapPin, ArrowRight, Search, List, Loader2, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -11,6 +12,7 @@ import {
   getNearbyMarkets,
   joinMarket,
   saveRecentVisit,
+  getRecentVisits,
   MarketSearchResult
 } from '@/services/marketsService';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -36,6 +38,8 @@ const MarketSelection = () => {
   const [nearbyPage, setNearbyPage] = useState(1);
   const [hasMoreNearby, setHasMoreNearby] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [recentVisits, setRecentVisits] = useState<MarketSearchResult[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -108,6 +112,7 @@ const MarketSelection = () => {
       });
     } else {
       setSearchResults([]);
+      setIsSearchPopoverOpen(false);
     }
   };
 
@@ -120,6 +125,8 @@ const MarketSelection = () => {
       // Save to recent visits if authenticated
       if (isAuthenticated) {
         await saveRecentVisit(market);
+        // Refresh recent visits
+        loadRecentVisits();
       }
 
       // Navigate to categories page with the selected market
@@ -161,10 +168,31 @@ const MarketSelection = () => {
     }
   };
 
-  // Load nearby markets on component mount
+  // Function to load recent visits
+  const loadRecentVisits = async () => {
+    if (!isAuthenticated) return;
+    
+    setLoadingRecent(true);
+    try {
+      const visits = await getRecentVisits(3); // Get only 3 most recent visits
+      setRecentVisits(visits);
+    } catch (error) {
+      console.error('Error loading recent visits:', error);
+    } finally {
+      setLoadingRecent(false);
+    }
+  };
+
+  // Navigate to all recent visits page
+  const handleSeeAllRecentVisits = () => {
+    navigate('/recent-visits');
+  };
+
+  // Load nearby markets and recent visits on component mount
   useEffect(() => {
     handleLocationDetection();
-  }, []);
+    loadRecentVisits();
+  }, [isAuthenticated]);
 
   return (
     <div className="app-container px-4 pt-6 animate-fade-in">
@@ -177,10 +205,7 @@ const MarketSelection = () => {
         <Popover 
           open={isSearchPopoverOpen} 
           onOpenChange={(open) => {
-            // Only allow closing if not typing or has no results
-            if (!open && (!isSearching || searchResults.length === 0)) {
-              setIsSearchPopoverOpen(false);
-            }
+            setIsSearchPopoverOpen(open && searchQuery.length >= 2);
           }}
         >
           <PopoverTrigger asChild>
@@ -267,6 +292,63 @@ const MarketSelection = () => {
         </Button>
       </div>
 
+      {/* Recent Visits Section */}
+      {isAuthenticated && recentVisits.length > 0 && (
+        <div className="space-y-4 mb-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-medium flex items-center">
+              <span className="bg-market-blue/20 w-1 h-5 mr-2"></span>
+              Recently Visited
+            </h2>
+            <Button 
+              variant="ghost" 
+              className="text-xs text-market-blue"
+              onClick={handleSeeAllRecentVisits}
+            >
+              See All
+            </Button>
+          </div>
+
+          {loadingRecent ? (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-market-blue" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentVisits.map(market => (
+                <div
+                  key={market.id}
+                  className="glass-morphism rounded-lg p-3 flex items-center card-hover cursor-pointer"
+                  onClick={() => handleSelectMarket(market)}
+                >
+                  <Avatar className="w-14 h-14 mr-4">
+                    <AvatarImage src={MarketIcon} alt="Market Icon" className="w-full h-full object-cover" />
+                    <AvatarFallback>{getInitials(market.name)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-grow overflow-hidden mr-2">
+                    <h3 className="font-medium truncate whitespace-nowrap text-ellipsis">
+                      {market.name}
+                    </h3>
+                    <div className="flex items-start text-xs text-muted-foreground">
+                      <span className="flex-shrink-0 mr-1 mt-[2px]">
+                        <MapPin size={12} />
+                      </span>
+                      <span className="line-clamp-2 leading-snug">
+                        {market.address}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <History size={16} className="text-market-blue mr-1" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Nearby Markets Section */}
       <div className="space-y-4 mb-4">
         <h2 className="text-lg font-medium flex items-center">
           <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>

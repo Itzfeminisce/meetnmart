@@ -1,27 +1,31 @@
-import { Room } from 'livekit-client';
-import React, { PropsWithChildren, useEffect, useState } from 'react'
-import { RoomContext } from '@livekit/components-react';
-import { getEnvVar } from '@/lib/utils';
-import livekitService from '@/services/livekitService';
+import React, { createContext, useContext, useState } from 'react';
 
-
-
-const MeetnMartRoomProvider: React.FC<PropsWithChildren> = ({ children }) => {
-    const [room] = useState(() => new Room({}));
-
-    // You can manage room connection lifecycle here
-    useEffect(() => {
-        livekitService.connectToRoom()
-        return () => {
-            room.disconnect();
-        };
-    }, [room]);
-
-    return (
-        <RoomContext.Provider value={room}>
-            {children}
-        </RoomContext.Provider>
-    )
+interface RoomContextType {
+  roomId: string;
+  setRoomId: (roomId: string) => void;
 }
 
-export { MeetnMartRoomProvider }
+const RoomContext = createContext<RoomContextType | undefined>(undefined);
+
+export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [roomId, setRoomId] = useState<string>('');
+
+  const value: RoomContextType = {
+    roomId,
+    setRoomId,
+  };
+
+  return (
+    <RoomContext.Provider value={value}>
+      {children}
+    </RoomContext.Provider>
+  );
+};
+
+export const useRoom = () => {
+  const context = useContext(RoomContext);
+  if (!context) {
+    throw new Error("useRoom must be used within a RoomProvider");
+  }
+  return context;
+};

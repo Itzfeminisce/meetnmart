@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { Navigate, redirect, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { User, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,9 +9,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const RoleSelection = () => {
-  const { user, fetchUserProfile,isAuthenticated, userRole} = useAuth();
+  const { user, fetchUserProfile, isAuthenticated, userRole} = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<'buyer' | 'seller'>('seller'); // Default to seller
 
   if(!isAuthenticated){
     return <Navigate to={"/"} />
@@ -28,13 +29,12 @@ const RoleSelection = () => {
       setIsLoading(true);
 
       // Update user role in the database
-      const { error: roleError, ...rest } = await supabase
+      const { error: roleError } = await supabase
         .from('user_roles')
         .upsert({
           user_id: user.id,
           role
-        })
-        // .eq('user_id', user.id);
+        });
 
       if (roleError) throw roleError;
 
@@ -64,6 +64,16 @@ const RoleSelection = () => {
     }
   };
 
+  // Function to handle card click to visually select role before confirming
+  const handleCardSelect = (role: 'buyer' | 'seller') => {
+    setSelectedRole(role);
+  };
+
+  // Function to confirm role selection
+  const handleConfirmSelection = () => {
+    handleRoleSelect(selectedRole);
+  };
+
   return (
     <div className="app-container px-4 pt-12 animate-fade-in flex flex-col items-center">
       <div className="text-center mb-12 max-w-sm">
@@ -73,10 +83,12 @@ const RoleSelection = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl mb-8">
         <Card
-          className="glass-morphism hover:border-market-blue cursor-pointer transition-all"
-          onClick={() => !isLoading && handleRoleSelect('buyer')}
+          className={`glass-morphism hover:border-market-blue cursor-pointer transition-all ${
+            selectedRole === 'buyer' ? 'border-2 border-market-blue' : ''
+          }`}
+          onClick={() => handleCardSelect('buyer')}
         >
           <CardContent className="p-8 flex flex-col items-center text-center">
             <div className="w-20 h-20 rounded-full bg-market-blue/20 flex items-center justify-center mb-4">
@@ -90,8 +102,10 @@ const RoleSelection = () => {
         </Card>
 
         <Card
-          className="glass-morphism hover:border-market-orange cursor-pointer transition-all"
-          onClick={() => !isLoading && handleRoleSelect('seller')}
+          className={`glass-morphism hover:border-market-orange cursor-pointer transition-all ${
+            selectedRole === 'seller' ? 'border-2 border-market-orange' : ''
+          }`}
+          onClick={() => handleCardSelect('seller')}
         >
           <CardContent className="p-8 flex flex-col items-center text-center">
             <div className="w-20 h-20 rounded-full bg-market-orange/20 flex items-center justify-center mb-4">
@@ -104,6 +118,15 @@ const RoleSelection = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Button 
+        className="w-full max-w-md" 
+        size="lg"
+        disabled={isLoading} 
+        onClick={handleConfirmSelection}
+      >
+        {isLoading ? 'Setting up your account...' : 'Continue'}
+      </Button>
     </div>
   );
 };
