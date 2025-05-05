@@ -209,7 +209,8 @@ const Index = () => {
           </div>
         </div>
 
-        {isAuthenticated && (
+{/*  We dont need this here */}
+        {/* {isAuthenticated && (
           <div className="max-w-md mx-auto w-full">
             {recentVisits.length > 0 && (
               <div className="mb-8">
@@ -280,7 +281,7 @@ const Index = () => {
               )}
             </div>
           </div>
-        )}
+        )} */}
       </main>
 
       <AuthModal
