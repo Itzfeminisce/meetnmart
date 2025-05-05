@@ -44,7 +44,7 @@ export const Participant = ({
       for (const publication of Array.from(participant.videoTrackPublications.values())) {
         console.log("[publication]",{publication});
         
-        if (publication.track && !publication.isMuted) {
+        if (publication.track){ // && !publication.isMuted) {
           setHasVideo(true);
           return publication.track;
         }
