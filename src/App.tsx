@@ -2,16 +2,37 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, useRoutes } from "react-router-dom";
+import { BrowserRouter, useLocation, useNavigate, useRoutes } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { appRoutes } from "./routes";
 import { SocketProvider } from "./contexts/SocketContext";
 import { getEnvVar } from "./lib/utils";
 import { LiveCallPovider } from "./contexts/LiveCallContext";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
-const Router = () => useRoutes(appRoutes);
+// const Router = () => useRoutes(appRoutes);
+
+const Router = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // This effect runs only on initial load
+    const { pathname, search, hash } = location;
+    
+    // Combine the full URL path
+    const fullPath = pathname + search + hash;
+    
+    // Only correct if the current location doesn't match
+    if (fullPath !== '/' && fullPath !== location.pathname + location.search + location.hash) {
+      navigate(fullPath, { replace: true });
+    }
+  }, []); // Empty dependency array means this runs once on mount
+
+  return useRoutes(appRoutes);
+};
 
 
 // Socket provider wrapper that gets token from auth context
