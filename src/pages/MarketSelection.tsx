@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, ArrowRight, Search, List, Loader2, History } from 'lucide-react';
@@ -13,7 +12,9 @@ import {
   joinMarket,
   saveRecentVisit,
   getRecentVisits,
-  MarketSearchResult
+  MarketSearchResult,
+  MarketResult,
+  useJoinMarket
 } from '@/services/marketsService';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -30,19 +31,38 @@ const MarketSelection = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDetecting, setIsDetecting] = useState(false);
   const [location, setLocation] = useState<Coordinates | null>(null);
-  const [nearbyMarkets, setNearbyMarkets] = useState<MarketSearchResult[]>([]);
-  const [searchResults, setSearchResults] = useState<MarketSearchResult[]>([]);
+  const [nearbyMarkets, setNearbyMarkets] = useState<MarketResult[]>([]);
+  const [searchResults, setSearchResults] = useState<MarketResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchPopoverOpen, setIsSearchPopoverOpen] = useState(false);
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [nearbyPage, setNearbyPage] = useState(1);
   const [hasMoreNearby, setHasMoreNearby] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [recentVisits, setRecentVisits] = useState<MarketSearchResult[]>([]);
+  const [recentVisits, setRecentVisits] = useState<MarketResult[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { isAuthenticated } = useAuth();
+  // const  {mutate, isLoading } = useJoinMarket()
   const navigate = useNavigate();
+
+  // Create the debounced search function once when component mounts
+  const performDebouncedSearch = useRef(
+    debouncedSearchMarkets((response) => {
+      // Handle the possibility that response could be in different formats
+      // Check if response is an array directly or has a markets property
+      const results = Array.isArray(response) ? response : 
+                     (response && response.markets ? response.markets : []);
+      
+      console.log("Search results received:", results);
+      setSearchResults(results);
+      setIsSearching(false);
+      // Keep the popover open while results are available
+      if (searchQuery.length >= 2) {
+        setIsSearchPopoverOpen(true);
+      }
+    })
+  ).current;
 
   // Function to detect user location
   const handleLocationDetection = () => {
@@ -65,10 +85,10 @@ const MarketSelection = () => {
 
         try {
           setLoadingNearby(true);
-          const markets = await getNearbyMarkets(userCoordinates);
-          setNearbyMarkets(markets);
+          const response = await getNearbyMarkets(userCoordinates);
+          setNearbyMarkets(response.markets);
           setNearbyPage(1);
-          setHasMoreNearby(markets.length >= 7); // If we got exactly 7 results, there might be more
+          setHasMoreNearby(response.markets.length >= 7); // If we got exactly 7 results, there might be more
           toast.success("Location detected! Showing nearby markets.");
         } catch (error) {
           console.error('Error fetching nearby markets:', error);
@@ -100,35 +120,26 @@ const MarketSelection = () => {
   // Handle search input changes
   const handleSearchInputChange = (value: string) => {
     setSearchQuery(value);
+    
     if (value.length >= 2) {
       setIsSearching(true);
-      debouncedSearchMarkets(value, (results) => {
-        setSearchResults(results);
-        setIsSearching(false);
-        // Keep the popover open while typing and results are available
-        if (value.length >= 2) {
-          setIsSearchPopoverOpen(true);
-        }
-      });
+      // Use the already created debounced function
+      performDebouncedSearch(value);
     } else {
       setSearchResults([]);
       setIsSearchPopoverOpen(false);
+      setIsSearching(false);
     }
   };
 
   // Handle market selection
-  const handleSelectMarket = async (market: MarketSearchResult) => {
+  const handleSelectMarket = async (market: MarketResult) => {
+    console.log("handleSelectMarket", {market});
+    
     try {
       // Join the market (increment user count)
       await joinMarket(market);
       
-      // Save to recent visits if authenticated
-      if (isAuthenticated) {
-        await saveRecentVisit(market);
-        // Refresh recent visits
-        loadRecentVisits();
-      }
-
       // Navigate to categories page with the selected market
       navigate('/categories', {
         state: {
@@ -153,12 +164,12 @@ const MarketSelection = () => {
       const nextPage = nearbyPage + 1;
       const moreMarkets = await getNearbyMarkets(location, nextPage);
       
-      if (moreMarkets.length === 0) {
+      if (moreMarkets.markets.length === 0) {
         setHasMoreNearby(false);
       } else {
-        setNearbyMarkets(prev => [...prev, ...moreMarkets]);
+        setNearbyMarkets(prev => [...prev, ...moreMarkets.markets]);
         setNearbyPage(nextPage);
-        setHasMoreNearby(moreMarkets.length >= 7); // Check if there might be more
+        setHasMoreNearby(moreMarkets.markets.length >= 7); // Check if there might be more
       }
     } catch (error) {
       console.error('Error loading more markets:', error);
@@ -174,7 +185,7 @@ const MarketSelection = () => {
     
     setLoadingRecent(true);
     try {
-      const visits = await getRecentVisits(3); // Get only 3 most recent visits
+      const visits = await getRecentVisits(3); // Get only to 3 most recent visits
       setRecentVisits(visits);
     } catch (error) {
       console.error('Error loading recent visits:', error);
@@ -232,9 +243,12 @@ const MarketSelection = () => {
             <Command className="rounded-lg border shadow-md">
               <CommandList>
                 <CommandGroup heading="Search Results">
-                  {searchResults.length === 0 && !isSearching ? (
-                    <CommandEmpty>No markets found</CommandEmpty>
-                  ) : (
+                  {isSearching ? (
+                    <div className="py-6 text-center text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                      Searching...
+                    </div>
+                  ) : searchResults && searchResults.length > 0 ? (
                     searchResults.map((market) => (
                       <CommandItem
                         key={market.id}
@@ -255,13 +269,10 @@ const MarketSelection = () => {
                         </div>
                       </CommandItem>
                     ))
+                  ) : (
+                    <CommandEmpty>No markets found</CommandEmpty>
                   )}
-                  {isSearching && (
-                    <div className="py-6 text-center text-sm">
-                      <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                      Searching...
-                    </div>
-                  )}
+
                 </CommandGroup>
               </CommandList>
             </Command>

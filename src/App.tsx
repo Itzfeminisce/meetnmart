@@ -8,7 +8,6 @@ import { appRoutes } from "./routes";
 import { SocketProvider } from "./contexts/SocketContext";
 import { getEnvVar } from "./lib/utils";
 import { LiveCallPovider } from "./contexts/LiveCallContext";
-import BottomNavigation from "./components/BottomNavigation";
 
 const queryClient = new QueryClient();
 

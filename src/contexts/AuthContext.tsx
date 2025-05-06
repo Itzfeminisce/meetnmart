@@ -80,23 +80,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // Set default names if not already set
-    if (profileData && !profileData.name) {
-      const { data: roleData } = await supabase
-        .rpc('get_user_role', { uid: userId });
+    // if (profileData && !profileData.name) {
+    //   const { data: roleData } = await supabase
+    //     .rpc('get_user_role', { uid: userId });
         
-      const defaultName = roleData === 'seller' ? 'MeetnMart Seller' : 'MeetnMart Buyer';
+    //   const defaultName = roleData === 'seller' ? 'MeetnMart Seller' : 'MeetnMart Buyer';
 
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ name: defaultName })
-        .eq('id', userId);
+    //   const { error: updateError } = await supabase
+    //     .from('profiles')
+    //     .update({ name: defaultName })
+    //     .eq('id', userId);
 
-      if (updateError) {
-        console.error("Error updating default name:", updateError);
-      } else {
-        profileData.name = defaultName;
-      }
-    }
+    //   if (updateError) {
+    //     console.error("Error updating default name:", updateError);
+    //   } else {
+    //     profileData.name = defaultName;
+    //   }
+    // }
 
     setProfile(profileData);
     return profileData
