@@ -80,20 +80,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // Set default names if not already set
-    if (profileData && !profileData.name) {
-      const defaultName = profileData.is_seller ? 'MeetnMart Seller' : 'MeetnMart Buyer';
+    // if (profileData && !profileData.name) {
+    //   const { data: roleData } = await supabase
+    //     .rpc('get_user_role', { uid: userId });
+        
+    //   const defaultName = roleData === 'seller' ? 'MeetnMart Seller' : 'MeetnMart Buyer';
 
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ name: defaultName })
-        .eq('id', userId);
+    //   const { error: updateError } = await supabase
+    //     .from('profiles')
+    //     .update({ name: defaultName })
+    //     .eq('id', userId);
 
-      if (updateError) {
-        console.error("Error updating default name:", updateError);
-      } else {
-        profileData.name = defaultName;
-      }
-    }
+    //   if (updateError) {
+    //     console.error("Error updating default name:", updateError);
+    //   } else {
+    //     profileData.name = defaultName;
+    //   }
+    // }
 
     setProfile(profileData);
     return profileData
@@ -256,31 +259,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw roleError;
       }
 
-      // Update profile with is_seller flag
-      const isSeller = role === 'seller' || role === 'admin' || role === 'moderator';
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          is_seller: isSeller
-        })
-        .eq('id', user.id);
-
-      if (profileError) {
-        console.error("Profile update error:", profileError);
-        toast.error('Failed to update profile');
-        throw profileError;
-      }
-
       // Update local state
       setUserRole(role);
-
-      if (profile) {
-        setProfile({
-          ...profile,
-          is_seller: isSeller
-        });
-      }
-
       console.log("User role updated successfully");
       toast.success(`Role updated to ${role} successfully`);
     } catch (error: any) {
@@ -292,8 +272,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-
-
   /**
    * Initialize auth and set up auth state listeners
    */
@@ -302,31 +280,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         setIsLoading(true)
         
-
         const { data: { session }, } = await supabase.auth.getSession();
 
-        await fetchUserProfile(session.user.id);
-
-
-        setIsAuthenticated(!!session);
-        setUser(session.user);
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+          setIsAuthenticated(!!session);
+          setUser(session.user);
+        }
       } catch (error) {
         console.log("initializeAuth", { error });
-
       } finally {
         setIsLoading(false)
       }
-
     };
-
-
-
 
     // Initialize auth immediately
     initializeAuth();
-
   }, []);
-
 
   useEffect(() => {
     const waitTime = user ? 1000 : 3000
@@ -352,7 +322,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchUserRole
   };
 
-
   return isLoading ? <SplashScreen /> : (
     <AuthContext.Provider value={contextValue}>
       {children}
@@ -370,4 +339,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

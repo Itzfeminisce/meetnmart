@@ -18,7 +18,6 @@ import Explore from "./pages/Explore";
 import Activity from "./pages/Activity";
 import BottomNavigation from "./components/BottomNavigation";
 import RecentVisits from "./pages/RecentVisits";
-import { RoomProvider } from "./contexts/RoomContext";
 
 export const appRoutes: RouteObject[] = [
   // Guest Routes
@@ -42,7 +41,7 @@ export const appRoutes: RouteObject[] = [
       { path: "/sellers", element: <SellersList /> },
       { path: "/explore", element: <Explore /> },
       { path: "/activity", element: <Activity /> },
-      { path: "/call", element: <RoomProvider><LiveCall /></RoomProvider> },
+      { path: "/call", element: <LiveCall />},
       { path: "/rating", element: <RatingFeedback /> },
       { path: "/seller-dashboard", element: <SellerDashboard /> },
       { path: "/buyer-dashboard", element: <BuyerDashboard /> },

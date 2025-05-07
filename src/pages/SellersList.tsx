@@ -11,6 +11,8 @@ import { Market, Seller } from '@/types';
 import { toast } from 'sonner';
 import { getInitials, toLivekitRoomName } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSocket } from '@/contexts/SocketContext';
+import { AppEvent } from '@/types/call';
 
 const SellersList = () => {
   const { fetchUsersByRole } = useAuth()
@@ -23,35 +25,10 @@ const SellersList = () => {
   const [requestAmount, setRequestAmount] = useState(0);
   const [sellers, setSellers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const  {subscribe} = useSocket()
 
   const category = categories.find(cat => cat.id === categoryId);
   const filteredSellers = sellers //.filter(seller => seller.category === categoryId);
-
-
-  // This is for demo purposes to simulate a seller requesting payment
-  // In a real app, this would come from a notification or a WebSocket
-  // const simulatePaymentRequest = (seller: Seller) => {
-  //   setSelectedSeller(seller);
-  //   setRequestAmount(Math.floor(Math.random() * 50) + 10); // Random amount between 10 and 60
-  //   setPaymentConfirmModalOpen(true);
-  // };
-
-  // In a real app, this would happen randomly or after a call
-  // For demo purposes, we'll just show a button to simulate it
-  // const simulateRandomPaymentRequest = () => {
-  //   const onlineSellers = filteredSellers.filter(s => s.is_online);
-  //   if (onlineSellers.length > 0) {
-  //     const randomSeller = onlineSellers[Math.floor(Math.random() * onlineSellers.length)];
-  //     setTimeout(() => {
-  //       simulatePaymentRequest(randomSeller);
-  //     }, 5000); // Simulate payment request after 5 seconds
-  //   }
-  // };
-
-  // Trigger a random payment request for demo purposes
-  // useState(() => {
-  //   simulateRandomPaymentRequest();
-  // });
 
   // Get Availabke sellers
   useEffect(() => {
@@ -76,9 +53,10 @@ const SellersList = () => {
       return;
     }
     setSelectedSeller(seller);
-    navigate('/call', { state: { seller } });
+    navigate('/call', { state: {name: seller.name, id: seller.id} });
   };
 
+  
   return (
     <div className="app-container px-4 pt-6 animate-fade-in">
       <header className="mb-6">

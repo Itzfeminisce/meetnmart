@@ -28,7 +28,7 @@ const UserAvatar = ({ size = 'md', showSignIn = true }: UserAvatarProps) => {
     // Check user role to determine where to navigate
     if (!userRole) {
       navigate('/role-selection');
-    } else if (profile?.is_seller) {
+    } else if (userRole === 'seller') {
       navigate('/seller-dashboard');
     } else {
       navigate('/buyer-dashboard');
@@ -39,7 +39,7 @@ const UserAvatar = ({ size = 'md', showSignIn = true }: UserAvatarProps) => {
     if (user) {
       if (!userRole) {
         navigate('/role-selection');
-      } else if (profile?.is_seller) {
+      } else if (userRole === 'seller') {
         navigate('/seller-dashboard');
       } else {
         navigate('/buyer-dashboard');

@@ -1,12 +1,7 @@
 
-import React, { useEffect } from 'react'
+import React from 'react'
 import { useAuth } from './AuthContext'
 import { Navigate, Outlet } from 'react-router-dom'
-import { IncomingCall } from '@/components/IncomingCall'
-import { toast } from 'sonner'
-import { useSocket } from './SocketContext'
-import { CallAction } from '@/types/call'
-import livekitService from '@/services/livekitService'
 
 interface AuthGaurdProps {
   children?: React.ReactNode;
@@ -14,7 +9,7 @@ interface AuthGaurdProps {
 }
 
 const AuthGaurd: React.FC<AuthGaurdProps> = ({ children, requiresRole = true }) => {
-    const { isAuthenticated, userRole, user } = useAuth()
+    const { isAuthenticated, userRole } = useAuth()
 
     // If not authenticated, redirect to login page
     if (!isAuthenticated) {

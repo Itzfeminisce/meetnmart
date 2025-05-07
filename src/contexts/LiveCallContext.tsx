@@ -1,10 +1,11 @@
 import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useState } from 'react'
 import { useSocket } from './SocketContext'
 import { useAuth } from './AuthContext'
-import { CallAction } from '@/types/call'
+import { AppEvent, CallAction } from '@/types/call'
 import { toast } from 'sonner'
 import livekitService from '@/services/livekitService'
 import { IncomingCall } from '@/components/IncomingCall'
+import { useNavigate } from 'react-router-dom'
 
 interface CallParticipant {
     name: string;
@@ -43,8 +44,9 @@ export const useLiveCall = () => {
 }
 
 const LiveCallPovider: React.FC<PropsWithChildren> = ({ children }) => {
+    const navigate = useNavigate()
     const { isAuthenticated, } = useAuth()
-    const { isConnected, subscribe, publish,socket } = useSocket()
+    const { isConnected, subscribe, publish, socket } = useSocket()
     const [isIncomingCall, setIsIncomingCall] = useState(false)
     const [callData, setIncomingData] = useState(null)
     const [isCallRejected, setIsCallRejected] = useState(false)
@@ -87,20 +89,22 @@ const LiveCallPovider: React.FC<PropsWithChildren> = ({ children }) => {
 
 
     const handlePublishAcceptCall = useCallback(async (_callData: CallData) => {
-            publish(CallAction.Accepted, {
-                room: _callData.room,
-                receiver: {
-                    name: _callData.receiver.name,
-                    id: _callData.receiver.id
-                },
-                caller: {
-                    id: _callData.caller.id,
-                    name: _callData.caller.name
-                }
-            })
-          
-            setIsIncomingCall(false)
-            toast.success("Call accepted")
+        publish(CallAction.Accepted, {
+            room: _callData.room,
+            receiver: {
+                name: _callData.receiver.name,
+                id: _callData.receiver.id
+            },
+            caller: {
+                id: _callData.caller.id,
+                name: _callData.caller.name
+            }
+        })
+        navigate("/call", {
+            state: {name: _callData.receiver.name, id: _callData.receiver.id, room: _callData.room}
+        })
+        setIsIncomingCall(false)
+        toast.success("Call accepted")
     }, [])
 
 
@@ -129,34 +133,35 @@ const LiveCallPovider: React.FC<PropsWithChildren> = ({ children }) => {
             subscribe(CallAction.Accepted, async (data) => {
                 setIncomingData(data)
                 await livekitService.connectToRoom(data.room, data.receiver.name)
-                toast.error("Your call was acccepted")
-                console.log("[Ended call]", data);
+                toast.success("Your call was acccepted")
             })
 
 
-            subscribe(CallAction.Ended, (data) => {
+            subscribe(CallAction.Ended, ({data}) => {
                 setIsIncomingCall(false)
                 setIncomingData(null)
-                console.log("[Ended call]", data);
             })
 
             subscribe(CallAction.Incoming, (data) => {
                 setIsIncomingCall(true)
                 setIncomingData(data)
                 setIsCallRejected(false)
-                console.log("[Incoming call]", data);
             })
 
             subscribe(CallAction.Rejected, (data) => {
-                console.log("[CallAction.Rejected]", { callData, data });
-
                 // setIsIncomingCall(false)
                 setIncomingData(null)
                 // setIsCallRejected(true)
 
                 toast.error("Your call was rejected")
-                console.log("[Rejected call]", data);
             })
+
+            // TODO: Real-time update for user online status on SellerList.tsx
+            // subscribe(AppEvent.DISCONNECT, ({ userId }) => {
+            //     const button = document.querySelector(`[data-user-id="socket-${userId}"]`)?.closest("button");
+            //     if (button) button.disabled = true;
+            // });
+
         }
     }, [subscribe, socket, isAuthenticated, isConnected])
 

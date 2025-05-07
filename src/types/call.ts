@@ -6,6 +6,11 @@ export enum CallAction {
   Ended = "CALL_ENDED",
   TimedOut = "CALL_TIMED_OUT",
 }
+
+export enum AppEvent {
+  DISCONNECT = "logout"
+}
+
 export interface CallRequest {
   id: string;
   buyer_id: string;
