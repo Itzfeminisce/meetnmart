@@ -134,7 +134,6 @@ const MarketSelection = () => {
 
   // Handle market selection
   const handleSelectMarket = async (market: MarketResult) => {
-    console.log("handleSelectMarket", {market});
     
     try {
       // Join the market (increment user count)

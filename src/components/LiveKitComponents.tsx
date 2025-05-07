@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Room, LocalParticipant, RemoteParticipant, Track, TrackPublication, ConnectionState } from 'livekit-client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Video, VideoOff, Mic, MicOff, PhoneCall, Truck } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, PhoneCall, Truck, DollarSign, BanknoteIcon } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,7 @@ export const Participant = ({
   isLocal = false,
   large = false
 }: ParticipantProps) => {
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoTrack, setVideoTrack] = useState<Track | null>(null);
   const [hasVideo, setHasVideo] = useState<boolean>(false);
@@ -38,16 +39,14 @@ export const Participant = ({
     // Function to find active video track
     const findVideoTrack = () => {
       if (!participant) return null;
-      
-      // Type guard to check if we're dealing with LocalParticipant or RemoteParticipant
-      let publications: TrackPublication[];
-      if (participant instanceof LocalParticipant) {
-        publications = Array.from(participant.videoTrackPublications.values());
-      } else {
-        publications = Array.from(participant.videoTrackPublications.values());
-      }
-      
-      // Search through video publications for an active track
+
+      // Get video publications regardless of participant type
+      const publications = Array.from(participant.videoTrackPublications.values());
+
+      console.log("{publications}", publications);
+
+
+      // Search for first active track
       for (const publication of publications) {
         if (publication.track) {
           setHasVideo(true);
@@ -149,7 +148,7 @@ export const Participant = ({
             large ? "h-24 w-24 text-3xl" : "h-16 w-16 text-xl"
           )}>
             <AvatarFallback className="bg-primary/10 text-primary">
-              {getInitials(name)} 
+              {getInitials(name)}
             </AvatarFallback>
           </Avatar>
         </div>
@@ -185,7 +184,9 @@ interface CallControlsProps {
   onToggleVideo: () => void;
   onEndCall: () => void;
   onInviteDelivery?: () => void;
+  onPaymentRequest?: () => void;
   showInviteDelivery?: boolean;
+  showRequestPayment?: boolean;
   isMobile?: boolean;
 }
 
@@ -196,6 +197,8 @@ export const CallControls = ({
   onToggleVideo,
   onEndCall,
   onInviteDelivery,
+  onPaymentRequest,
+  showRequestPayment = false,
   showInviteDelivery = false,
   isMobile = false
 }: CallControlsProps) => {
@@ -238,6 +241,7 @@ export const CallControls = ({
 
       {showInviteDelivery && onInviteDelivery && (
         <Button
+          title='Request Delivery'
           variant="outline"
           size={isMobile ? "default" : "icon"}
           className={cn(
@@ -247,6 +251,22 @@ export const CallControls = ({
           onClick={onInviteDelivery}
         >
           <Truck size={isMobile ? 20 : 24} className="text-foreground" />
+        </Button>
+      )}
+
+
+      {showRequestPayment && onPaymentRequest && (
+        <Button
+          title='Request Payment'
+          variant="outline"
+          size={isMobile ? "default" : "icon"}
+          className={cn(
+            "bg-secondary border-none",
+            isMobile ? "rounded-full h-12 w-12 p-0" : "rounded-full h-14 w-14"
+          )}
+          onClick={onPaymentRequest}
+        >
+          <BanknoteIcon size={isMobile ? 20 : 24} className="text-market-green" />
         </Button>
       )}
 

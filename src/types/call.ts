@@ -8,7 +8,7 @@ export enum CallAction {
 }
 
 export enum AppEvent {
-  DISCONNECT = "disconnect"
+  DISCONNECT = "logout"
 }
 
 export interface CallRequest {

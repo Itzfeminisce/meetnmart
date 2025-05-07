@@ -53,7 +53,7 @@ const SellersList = () => {
       return;
     }
     setSelectedSeller(seller);
-    navigate('/call', { state: { seller } });
+    navigate('/call', { state: {name: seller.name, id: seller.id} });
   };
 
   

@@ -121,13 +121,25 @@ const livekitService = {
 
       // Create room
       const room = new Room({
+        stopLocalTrackOnUnpublish: true,
         adaptiveStream: true,
         dynacast: true,
+        audioCaptureDefaults: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        videoCaptureDefaults: {
+          resolution: { width: 640, height: 480, frameRate: 30 },
+        },
+        disconnectOnPageLeave: true,
       });
-
+      
 
       // Connect to room
-      await room.connect(LIVEKIT_URL, token);
+      await room.connect(LIVEKIT_URL, token, {
+        autoSubscribe: true,
+      });
       return room;
     } catch (error) {
       console.error('Error connecting to LiveKit room:', error);

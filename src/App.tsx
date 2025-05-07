@@ -58,11 +58,11 @@ const App = () => (
       <Sonner />
       <AuthProvider>
         <SocketProviderWithAuth>
-          <LiveCallPovider>
             <BrowserRouter>
+          <LiveCallPovider>
               <Router />
-            </BrowserRouter>
           </LiveCallPovider>
+            </BrowserRouter>
         </SocketProviderWithAuth>
       </AuthProvider>
     </TooltipProvider>

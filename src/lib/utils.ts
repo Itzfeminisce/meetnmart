@@ -28,7 +28,10 @@ export function getInitials(name: string): string {
  * @param seconds - Total seconds
  * @returns Formatted string in MM:SS
  */
+
 export function formatDuration(seconds: number): string {
+  if (typeof seconds === "string" && (seconds as string).includes(":")) return seconds;
+  if (+seconds < 0) return "0:00";
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
@@ -37,7 +40,7 @@ export function formatDuration(seconds: number): string {
 export const getEnvVar = (key: string): string => {
   const value = import.meta.env[`${key.startsWith("VITE_") ? key : `VITE_${key}`}`];
   if (!value) {
-      throw new Error(`Missing environment variable: ${key}`);
+    throw new Error(`Missing environment variable: ${key}`);
   }
   return value;
 };

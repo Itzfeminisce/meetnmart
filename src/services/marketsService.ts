@@ -138,10 +138,6 @@ export const getNearbyMarkets = async (
       console.error("Error searching markets:", error);
     }
 
-
-    console.log("Markets found:", data);
-    // Process the returned markets data
-
     return data
   } catch (error) {
     console.error('Error in getNearbyMarkets:', error);
