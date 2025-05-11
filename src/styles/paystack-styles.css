@@ -1,0 +1,46 @@
+/* @/styles/paystack-styles.css */
+
+/* Ensure Paystack iframes are centered and positioned properly */
+iframe[src*="paystack.co"],
+iframe[src*="paystack"],
+iframe[name*="paystack"] {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  z-index: 9999 !important;
+  max-width: 100vw !important;
+  max-height: 90vh !important;
+}
+
+/* Fix for embedded frames */
+div[id^='paystack-embed-container-'] {
+  position: static !important;
+  height: 400px !important;
+  width: 100% !important;
+}
+
+/* Ensure dialog contents are centered on mobile */
+@media (max-width: 640px) {
+  [role="dialog"] > [role="document"] {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    max-height: 85vh !important;
+    margin: 0 !important;
+    width: calc(100% - 2rem) !important;
+  }
+}
+
+/* Ensure overlay covers entire screen */
+[role="dialog"][aria-modal="true"]::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 50;
+}

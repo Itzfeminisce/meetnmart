@@ -207,7 +207,7 @@ export const CallControls = ({
       "glass-morphism p-3 flex justify-center items-center space-x-2 md:space-x-4",
       isMobile ? "pb-safe" : ""
     )}>
-      <Button
+      <Button type='button'
         variant="outline"
         size={isMobile ? "default" : "icon"}
         className={cn(
@@ -223,7 +223,7 @@ export const CallControls = ({
         )}
       </Button>
 
-      <Button
+      <Button type='button'
         variant="outline"
         size={isMobile ? "default" : "icon"}
         className={cn(
@@ -240,7 +240,7 @@ export const CallControls = ({
       </Button>
 
       {showInviteDelivery && onInviteDelivery && (
-        <Button
+        <Button type='button'
           title='Request Delivery'
           variant="outline"
           size={isMobile ? "default" : "icon"}
@@ -256,7 +256,7 @@ export const CallControls = ({
 
 
       {showRequestPayment && onPaymentRequest && (
-        <Button
+        <Button type='button'
           title='Request Payment'
           variant="outline"
           size={isMobile ? "default" : "icon"}
@@ -270,7 +270,7 @@ export const CallControls = ({
         </Button>
       )}
 
-      <Button
+      <Button type='button'
         variant="destructive"
         size={isMobile ? "default" : "icon"}
         className={cn(

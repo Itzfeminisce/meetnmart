@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Users, Maximize, Minimize } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,26 +8,24 @@ import EscrowRequestModal from '@/components/EscrowRequestModal';
 import InviteDeliveryModal from '@/components/InviteDeliveryModal';
 import DeliveryOrderSheet from '@/components/DeliveryOrderSheet';
 import DeliveryEscrowModal from '@/components/DeliveryEscrowModal';
-import { cn, formatDuration, toLivekitRoomName } from '@/lib/utils';
+import { cn, formatDuration } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import livekitService from '@/services/livekitService';
-import { Room, RoomEvent, LocalParticipant, RemoteParticipant } from 'livekit-client';
 import { Participant, CallControls } from '@/components/LiveKitComponents';
 import { CallTimer, CallTimerHandle } from '@/components/CallTimer';
-import { useLiveCall } from '@/contexts/LiveCallContext';
+import { useLiveKit } from '@/hooks/use-livekit';
+import { CallData, useLiveCall } from '@/contexts/live-call-context';
+import { AppData } from '@/types/call';
 
 const LiveCall = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile, userRole } = useAuth();
-  const timerRef = useRef<CallTimerHandle>()
+  const timerRef = useRef<CallTimerHandle>(null);
 
-  const visitor = location.state as { name: string; id: string, room?: string }
+  const callData = location.state as CallData<never>
   const [isSeller] = useState(userRole === "seller");
-  const liveCall = useLiveCall()
+  const liveCall = useLiveCall();
 
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOn, setIsVideoOn] = useState(true);
   const [escrowModalOpen, setEscrowModalOpen] = useState(false);
   const [deliveryEscrowModalOpen, setDeliveryEscrowModalOpen] = useState(false);
   const [inviteDeliveryModalOpen, setInviteDeliveryModalOpen] = useState(false);
@@ -35,13 +33,41 @@ const LiveCall = () => {
   const [deliveryAgent, setDeliveryAgent] = useState<DeliveryAgent | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
-  const [activeSpeaker, setActiveSpeaker] = useState('seller'); // 'seller' or 'delivery'
+  const [manualActiveSpeaker, setManualActiveSpeaker] = useState<string | null>(null);
+  const [waitingForSeller, setWaitingForSeller] = useState<boolean>(true);
 
-  // LiveKit integration
-  const [room, setRoom] = useState<Room | null>(null);
-  const [isConnecting, setIsConnecting] = useState(true);
-  const [localParticipant, setLocalParticipant] = useState<LocalParticipant | null>(null);
-  const [remoteParticipants, setRemoteParticipants] = useState<RemoteParticipant[]>([]);
+  // Use our LiveKit hook
+  const {
+    room,
+    localParticipant,
+    remoteParticipants,
+    activeSpeakers,
+    isConnecting,
+    isConnected,
+    connect,
+    disconnect,
+    toggleMicrophone,
+    toggleCamera
+  } = useLiveKit({
+    onParticipantConnected: (participant) => {
+      toast.info(`${participant.identity} joined the call`);
+      setWaitingForSeller(false)
+    },
+    onParticipantDisconnected: (participant) => {
+      toast.info(`${participant.identity} left the call`);
+    },
+    onError: (error) => {
+      toast.error(`Call error: ${error.message}`);
+    }
+  });
+
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOn, setIsVideoOn] = useState(true);
+
+
+  const roomName = callData.room;
+  const participantName = profile.name || user.id;
+
 
   // Update mobile status on window resize
   useEffect(() => {
@@ -50,155 +76,116 @@ const LiveCall = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-
-  // Simulate active speaker changes (for demo purposes)
+  // Connect to the LiveKit room when component mounts
   useEffect(() => {
-    if (deliveryAgent) {
-      const speakerInterval = setInterval(() => {
-        setActiveSpeaker(prev => prev === 'seller' ? 'delivery' : 'seller');
-      }, 8000);
-      return () => clearInterval(speakerInterval);
-    }
-  }, [deliveryAgent]);
-
-
-  // Handle room events for participant tracking
-  const handleParticipantConnected = (participant: RemoteParticipant) => {
-    setRemoteParticipants(prev => [...prev, participant]);
-  };
-
-  const handleParticipantDisconnected = (participant: RemoteParticipant) => {
-    setRemoteParticipants(prev => prev.filter(p => p.sid !== participant.sid));
-  };
-
-
-  const connectToRoom = useCallback(async () => {
     if (!user || !profile) return;
 
-
-    setIsConnecting(true);
-    try {
-      // Create a room name from the call data
-      const roomName = visitor.room || toLivekitRoomName(`call_${Date.now()}_${visitor.id}_${user.id}`);
-      const participantName = profile.name || user.id;
-
-      const newRoom = await livekitService.connectToRoom(roomName, participantName);
-
-
-      if (newRoom) {
-        setRoom(newRoom);
-        setLocalParticipant(newRoom.localParticipant);
-
-
-        // Set up initial remote participants
-        setRemoteParticipants(Array.from(newRoom.remoteParticipants.values()));
-
-        // Register event listeners
-        newRoom.on(RoomEvent.ParticipantConnected, handleParticipantConnected);
-        newRoom.on(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected);
-
-        // Set initial track states
-        setIsMuted(false);
-        setIsVideoOn(true);
-
-        // Enable audio and video
-        await newRoom.localParticipant.setMicrophoneEnabled(true);
-        await newRoom.localParticipant.setCameraEnabled(true);
-
-        // Post outgoing call to notify seller
-        if (visitor && !isSeller) {
-          liveCall.handlePublishOutgoingCall({
-            room: roomName,
-            receiver: {
-              name: visitor.name,
-              id: visitor.id
-            },
-            caller: {
-              id: user.id,
-              name: profile.name
-            }
-          })
-
-
-          toast.success('Connected to call');
+    connect(roomName, participantName)
+      .then(newRoom => {
+        if (newRoom && !isSeller) {
+          // Notify seller about the call if we're the buyer
+          liveCall.handlePublishOutgoingCall(callData);
         }
+      });
 
-        setIsConnecting(false);
-      } else {
-        toast.error('Failed to connect to call');
-      }
-
-
-    } catch (error) {
-      console.error('Error connecting to LiveKit room:', error);
-      toast.error('Failed to connect to call');
-    }
-  }, [localParticipant, remoteParticipants]);
-
-  // LiveKit room connection
-  useEffect(() => {
-
-    connectToRoom();
-
-    // Cleanup when leaving the page
     return () => {
-      if (room) {
-        room.disconnect();
-      }
+      disconnect();
     };
-  }, []);
+  }, [user, profile]);
 
+  // Get current active speaker - with manual override support
+  const getActiveSpeaker = useCallback(() => {
+    // If manually selected, use that
+    if (manualActiveSpeaker) {
+      const manualSpeaker = [...remoteParticipants, localParticipant].find(
+        p => p && p.identity === manualActiveSpeaker
+      );
+      if (manualSpeaker) {
+        return manualSpeaker.identity;
+      }
+    }
+
+    // Otherwise use real active speakers
+    if (activeSpeakers.length > 0) {
+      return activeSpeakers[0].identity;
+    }
+
+    // Default to a remote participant if available
+    if (remoteParticipants.length > 0) {
+      return remoteParticipants[0].identity;
+    }
+
+    // Fall back to local
+    return localParticipant?.identity || '';
+  }, [activeSpeakers, remoteParticipants, localParticipant, manualActiveSpeaker]);
 
   const handleEndCall = async () => {
-    // Disconnect from the room
-    if (room) {
-      liveCall.handlePublishCallEnded({
-        room: room.name,
-        receiver: {
-          name: visitor.name,
-          id: visitor.id
-        },
-        caller: {
-          id: user.id,
-          name: profile.name
-        }
-      })
-      await room.disconnect(true);
+    // Notify about call ending
+    if (room && user && profile) {
+      liveCall.handlePublishCallEnded(callData);
     }
 
+    // Disconnect from LiveKit
+    await disconnect();
+
+    // Navigate based on role
     if (isSeller) {
-      navigate(-1)
+      navigate(-1);
     } else {
-      navigate('/rating', { state: { seller: { avatar: "", name: visitor.name, descripition: "Great work" }, deliveryAgent, callDuration: timerRef.current?.getTimer() } });
+      navigate('/rating', {
+        state: {
+          seller: { avatar: "", name: callData.receiver.name, descripition: "Great work" },
+          deliveryAgent,
+          callDuration: timerRef.current?.getTimer()
+        }
+      });
     }
   };
 
-  const handlePaymentRequest = (amount: number) => {
-    // In a real app, this would send the payment request to the buyer
-    toast.success(`Payment request of $${amount.toFixed(2)} sent to buyer!`);
+  const handleToggleMute = async () => {
+    const newState = await toggleMicrophone();
+    setIsMuted(!newState);
+    toast.success(newState ? 'Microphone unmuted' : 'Microphone muted');
+  };
+
+  const handleToggleVideo = async () => {
+    const newState = await toggleCamera();
+    setIsVideoOn(newState);
+    toast.success(newState ? 'Camera turned on' : 'Camera turned off');
+  };
+
+  const handlePaymentRequest = (payload: {
+    amount: number,
+    itemTitle: string;
+    itemDescription: string;
+  }) => {
+    liveCall.handlePublishEscrowRequested({
+      ...callData,
+      data: { 
+        amount: payload.amount,
+        itemDescription: payload.itemDescription,
+        itemTitle: payload.itemTitle
+       }
+    })
+    toast.success(`Payment request of ${AppData.CurrencySymbol}${payload.amount.toFixed(2)} sent to buyer!`);
   };
 
   const handleDeliveryPaymentRequest = (amount: number) => {
-    toast.success(`Delivery escrow of $${amount.toFixed(2)} created successfully!`);
+    toast.success(`Delivery escrow of ${AppData.CurrencySymbol}${amount.toFixed(2)} created successfully!`);
   };
 
   const handleInviteDelivery = () => {
-    // First open the delivery order sheet to collect address info
     setDeliveryOrderSheetOpen(true);
   };
 
   const handleDeliveryOrderSubmit = (orderDetails: any) => {
     setDeliveryOrderSheetOpen(false);
-    // Now open the invite delivery modal with the order details
     setInviteDeliveryModalOpen(true);
   };
 
   const handleDeliveryAgentSelected = (agent: DeliveryAgent) => {
     setInviteDeliveryModalOpen(false);
     setDeliveryAgent(agent);
-
-    // In a real app, you'd invite the delivery agent to the LiveKit room here
-    // For this demo, we'll simulate adding them to the participants list
     toast.success(`${agent.name} has been invited and will join the call shortly!`);
   };
 
@@ -206,48 +193,32 @@ const LiveCall = () => {
     setIsFullscreenMode(!isFullscreenMode);
   };
 
-  const handleToggleMute = async () => {
-    try {
-      await localParticipant.setMicrophoneEnabled(isMuted);
-      setIsMuted(!isMuted);
-      toast.success(isMuted ? 'Microphone unmuted' : 'Microphone muted');
-    } catch (error) {
-      console.error('Error toggling microphone:', error);
-      toast.error('Failed to toggle microphone');
-    }
-  };
+  // Format participants for the UI
+  const renderParticipants = useCallback(() => {
+    if (!localParticipant) return [];
 
-  const handleToggleVideo = async () => {
-    try {
-      await localParticipant.setCameraEnabled(!isVideoOn);
-      setIsVideoOn(!isVideoOn);
-      toast.success(isVideoOn ? 'Camera turned off' : 'Camera turned on');
-    } catch (error) {
-      console.error('Error toggling camera:', error);
-      toast.error('Failed to toggle camera');
-    }
-  };
+    const activeSpeakerId = getActiveSpeaker();
 
-  // Handle participants for the UI
-  const renderParticipants = useCallback(
-    () => {
-      return [
-        {
-          participant: localParticipant, // || { identity: profile?.name || 'You' } as any,
-          isLocal: true,
-          isCameraOn: isVideoOn,
-          isMicOn: !isMuted,
-          isSpeaking: false,
-        },
-        ...remoteParticipants.map(participant => ({
-          participant,
-          isLocal: false,
-          isCameraOn: true, // In a real app, you'd check if they have video tracks
-          isMicOn: true, // In a real app, you'd check if they have audio tracks
-          isSpeaking: activeSpeaker === participant.identity,
-        }))
-      ];
-    }, [localParticipant, remoteParticipants]);
+    return [
+      {
+        participant: localParticipant,
+        isLocal: true,
+        isCameraOn: isVideoOn,
+        isMicOn: !isMuted,
+        isSpeaking: localParticipant.identity === activeSpeakerId,
+      },
+      ...remoteParticipants.map(participant => ({
+        participant,
+        isLocal: false,
+        isCameraOn: participant.isCameraEnabled,
+        isMicOn: participant.isMicrophoneEnabled,
+        isSpeaking: participant.identity === activeSpeakerId,
+      }))
+    ];
+  }, [localParticipant, remoteParticipants, isVideoOn, isMuted, getActiveSpeaker]);
+
+  // Participant count, including local participant
+  const participantCount = localParticipant ? remoteParticipants.length + 1 : 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -256,11 +227,10 @@ const LiveCall = () => {
         <div className="flex items-center gap-2">
           <Users size={20} />
           <span className="font-medium">
-            {deliveryAgent ? '3 participants' : '2 participants'}
+            {`${participantCount} participants`}
           </span>
         </div>
         <div className="glass-morphism px-3 py-1 rounded-full text-sm font-medium">
-          {/* <CallTimer ref={timerRef} /> */}
           <CallTimer
             ref={timerRef}
             formatDuration={formatDuration}
@@ -289,16 +259,18 @@ const LiveCall = () => {
             <div className="text-center">
               <p>Connecting to the call...</p>
             </div>
-          ) : renderParticipants().length <= 2 ? (
+          ) : participantCount <= 2 ? (
             // Two participant layout
             <div className="relative max-w-2xl w-full h-full flex flex-col items-center justify-center">
               {/* Main participant (remote) */}
-              <div className="aspect-video w-full  h-[calc(100vh - 42rem)] relative rounded-xl overflow-hidden bg-secondary/30 border-2 border-market-orange/50 flex items-center justify-center">
-                {renderParticipants().find(p => !p.isLocal) && (
-                  <Participant
-                    {...renderParticipants().find(p => !p.isLocal)!}
-                    large={true}
-                  />
+              <div className="aspect-video w-full h-[calc(100vh - 42rem)] relative rounded-xl overflow-hidden bg-secondary/30 border-2 border-market-orange/50 flex items-center justify-center">
+                {!isConnecting && waitingForSeller && !isSeller ? (<p>Waiting for seller</p>) : (
+                  renderParticipants().find(p => !p.isLocal) && (
+                    <Participant
+                      {...renderParticipants().find(p => !p.isLocal)!}
+                      large={true}
+                    />
+                  )
                 )}
               </div>
 
@@ -341,7 +313,10 @@ const LiveCall = () => {
                         "relative rounded-lg overflow-hidden bg-secondary/30 border-2 cursor-pointer hover:border-primary/50 transition-colors",
                         isMobile ? "h-24 w-24" : "aspect-video w-full"
                       )}
-                      onClick={() => setActiveSpeaker(p.participant.identity || '')}
+                      onClick={() => {
+                        // Manually set active speaker for UI purposes
+                        setManualActiveSpeaker(p.participant.identity || null);
+                      }}
                     >
                       <Participant {...p} />
                     </div>
@@ -368,56 +343,12 @@ const LiveCall = () => {
         />
       </div>
 
-      {/* Action buttons */}
-
-      {/* 
-            <div className={cn(
-        "absolute left-0 right-0 bottom-20 flex justify-center gap-2",
-        isMobile ? "pb-4" : "pb-2"
-      )}>
-        {!isSeller && !deliveryAgent && (
-          <Button
-            variant="outline" 
-            size="sm"
-            className="bg-primary/20 border-none"
-            onClick={handleInviteDelivery}
-          >
-            <Truck size={16} className="text-primary mr-2" />
-            Invite Delivery
-          </Button>
-        )}
-       {!isSeller && deliveryAgent && (
-          <Button
-            variant="outline" 
-            size="sm"
-            className="bg-market-green/20 border-none"
-            onClick={() => setDeliveryEscrowModalOpen(true)}
-          >
-            <DollarSign size={16} className="text-market-green mr-2" />
-            Pay for Delivery
-          </Button>
-        )}
-        
-        {isSeller && (
-          <Button
-            variant="outline" 
-            size="sm"
-            className="bg-market-green/20 border-none"
-            onClick={() => setEscrowModalOpen(true)}
-          >
-            <DollarSign size={16} className="text-market-green mr-2" />
-            Request Payment
-          </Button>
-        )} 
-    </div>
-     */}
       {/* Modals */}
       {
         isSeller && (
           <EscrowRequestModal
             open={escrowModalOpen}
             onOpenChange={setEscrowModalOpen}
-            sellerName={visitor.name}
             onSuccess={handlePaymentRequest}
           />
         )
@@ -449,8 +380,8 @@ const LiveCall = () => {
           />
         )
       }
-    </div >
+    </div>
   );
 };
 
-export default LiveCall;
+export { LiveCall as LiveCall_V2 };

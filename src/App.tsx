@@ -7,8 +7,10 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { appRoutes } from "./routes";
 import { SocketProvider } from "./contexts/SocketContext";
 import { getEnvVar } from "./lib/utils";
-import { LiveCallPovider } from "./contexts/LiveCallContext";
+// import { LiveCallPovider } from "./contexts/LiveCallContext";
 import { useEffect } from "react";
+import { LiveCallProvider as LiveCallProvider_V2 } from "./contexts/live-call-context";
+import { PaystackProvider } from "./contexts/paystack-context";
 
 const queryClient = new QueryClient();
 
@@ -21,10 +23,10 @@ const Router = () => {
   useEffect(() => {
     // This effect runs only on initial load
     const { pathname, search, hash } = location;
-    
+
     // Combine the full URL path
     const fullPath = pathname + search + hash;
-    
+
     // Only correct if the current location doesn't match
     if (fullPath !== '/' && fullPath !== location.pathname + location.search + location.hash) {
       navigate(fullPath, { replace: true });
@@ -58,11 +60,15 @@ const App = () => (
       <Sonner />
       <AuthProvider>
         <SocketProviderWithAuth>
-            <BrowserRouter>
-          <LiveCallPovider>
-              <Router />
-          </LiveCallPovider>
-            </BrowserRouter>
+          <BrowserRouter>
+            {/* <LiveCallPovider> */}
+            <PaystackProvider>
+              <LiveCallProvider_V2>
+                <Router />
+                {/* </LiveCallPovider> */}
+              </LiveCallProvider_V2>
+            </PaystackProvider>
+          </BrowserRouter>
         </SocketProviderWithAuth>
       </AuthProvider>
     </TooltipProvider>

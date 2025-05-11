@@ -4,7 +4,6 @@ import Index from "./pages/Index";
 import MarketSelection from "./pages/MarketSelection";
 import CategorySelection from "./pages/CategorySelection";
 import SellersList from "./pages/SellersList";
-import LiveCall from "./pages/LiveCall";
 import RatingFeedback from "./pages/RatingFeedback";
 import SellerDashboard from "./pages/SellerDashboard";
 import BuyerDashboard from "./pages/BuyerDashboard";
@@ -18,6 +17,7 @@ import Explore from "./pages/Explore";
 import Activity from "./pages/Activity";
 import BottomNavigation from "./components/BottomNavigation";
 import RecentVisits from "./pages/RecentVisits";
+import { LiveCall_V2 } from "./pages/LiveCall";
 
 export const appRoutes: RouteObject[] = [
   // Guest Routes
@@ -41,7 +41,8 @@ export const appRoutes: RouteObject[] = [
       { path: "/sellers", element: <SellersList /> },
       { path: "/explore", element: <Explore /> },
       { path: "/activity", element: <Activity /> },
-      { path: "/call", element: <LiveCall />},
+      { path: "/call", element: <LiveCall_V2 />},
+      // { path: "/call", element: <LiveCall />},
       { path: "/rating", element: <RatingFeedback /> },
       { path: "/seller-dashboard", element: <SellerDashboard /> },
       { path: "/buyer-dashboard", element: <BuyerDashboard /> },

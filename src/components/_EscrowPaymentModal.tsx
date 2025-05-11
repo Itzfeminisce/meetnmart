@@ -10,7 +10,7 @@ interface EscrowPaymentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sellerName: string;
-  onSuccess: () => void;
+  onSuccess: (amount: number) => void;
 }
 
 const EscrowPaymentModal = ({ open, onOpenChange, sellerName, onSuccess }: EscrowPaymentModalProps) => {
@@ -27,7 +27,7 @@ const EscrowPaymentModal = ({ open, onOpenChange, sellerName, onSuccess }: Escro
     toast.success(`Escrow payment of $${amount} created successfully!`);
     onOpenChange(false);
     setAmount('');
-    onSuccess();
+    onSuccess(parseFloat(amount));
   };
 
   return (

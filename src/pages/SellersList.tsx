@@ -13,9 +13,10 @@ import { getInitials, toLivekitRoomName } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSocket } from '@/contexts/SocketContext';
 import { AppEvent } from '@/types/call';
+import { CallData } from '@/contexts/live-call-context';
 
 const SellersList = () => {
-  const { fetchUsersByRole } = useAuth()
+  const { fetchUsersByRole, profile } = useAuth()
   const location = useLocation();
   const navigate = useNavigate();
   const { market, categoryId } = location.state as { market: Market; categoryId: string };
@@ -25,7 +26,7 @@ const SellersList = () => {
   const [requestAmount, setRequestAmount] = useState(0);
   const [sellers, setSellers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const  {subscribe} = useSocket()
+  const { subscribe } = useSocket()
 
   const category = categories.find(cat => cat.id === categoryId);
   const filteredSellers = sellers //.filter(seller => seller.category === categoryId);
@@ -53,10 +54,18 @@ const SellersList = () => {
       return;
     }
     setSelectedSeller(seller);
-    navigate('/call', { state: {name: seller.name, id: seller.id} });
+    // name: seller.name, id: seller.id
+    navigate('/call', {
+      state: {
+        caller: { id: profile.id, name: profile.name },
+        room: toLivekitRoomName(`call_${Date.now()}_${seller.id}`),
+        receiver: { name: seller.name, id: seller.id }
+      } as CallData,
+      replace: true,
+    });
   };
 
-  
+
   return (
     <div className="app-container px-4 pt-6 animate-fade-in">
       <header className="mb-6">

@@ -1,92 +1,56 @@
 {
-  "name": "MeetnMart",
-  "short_name": "MnM",
-  "description": "Instant local marketplace for buying and selling",
-  "start_url": "/",
-  "scope": "/",
-  "display": "standalone",
-  "orientation": "portrait-primary",
-  "theme_color": "#020122",
-  "background_color": "#020122",
-  "icons": [
-    {
-      "src": "/android-chrome-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/android-chrome-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-180x180.png",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "apple touch icon"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/app-markets-preview.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Browse Local Listings"
-    },
-    {
-      "src": "/app-confirm-escrow-preview.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Browse Local Listings"
-    },
-    {
-      "src": "/app-request-escrow-preview.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Browse Local Listings"
-    },
-    {
-      "src": "/app-request-feedback-preview.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Browse Local Listings"
-    }
-  ],
-  "categories": ["business", "shopping", "social"],
-  "launch_handler": {
-    "client_mode": "auto"
-  },
-  "edge_side_panel": {
-    "preferred_width": 360
-  },
-  "file_handlers": [
-    {
-      "action": "/upload",
-      "accept": {
-        "image/*": [".jpg", ".jpeg", ".png", ".webp"]
+    "name": "MeetnMart",
+    "short_name": "MeetnMart",
+    "description": "Instant local marketplace for buying and selling",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "theme_color": "#020122",
+    "background_color": "#020122",
+    "icons": [
+      {
+       "src": "/android-icon-36x36.png",
+       "sizes": "36x36",
+       "type": "image/png",
+       "density": "0.75"
+      },
+      {
+       "src": "/android-icon-48x48.png",
+       "sizes": "48x48",
+       "type": "image/png",
+       "density": "1.0"
+      },
+      {
+       "src": "/android-icon-72x72.png",
+       "sizes": "72x72",
+       "type": "image/png",
+       "density": "1.5"
+      },
+      {
+       "src": "/android-icon-96x96.png",
+       "sizes": "96x96",
+       "type": "image/png",
+       "density": "2.0"
+      },
+      {
+       "src": "/android-icon-144x144.png",
+       "sizes": "144x144",
+       "type": "image/png",
+       "density": "3.0"
+      },
+      {
+       "src": "/android-icon-192x192.png",
+       "sizes": "192x192",
+       "type": "image/png",
+       "density": "4.0"
       }
-    }
-  ],
-  "share_target": {
-    "action": "/share",
-    "method": "POST",
-    "enctype": "multipart/form-data",
-    "params": {
-      "title": "name",
-      "text": "description",
-      "url": "link",
-      "files": [
-        {
-          "name": "images",
-          "accept": ["image/*"]
-        }
-      ]
+     ],
+    "categories": ["business", "shopping", "social"],
+    "launch_handler": {
+      "client_mode": "auto"
+    },
+    "edge_side_panel": {
+      "preferred_width": 360
     }
   }
-}
