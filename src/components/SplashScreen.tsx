@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Logo from './Logo';
 
 const SplashScreen = () => {
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
@@ -26,9 +27,10 @@ const SplashScreen = () => {
       <div className="max-w-md w-full mx-auto p-8 flex flex-col items-center gap-8">
         {/* Logo/Product Name */}
         <div className="flex flex-col items-center gap-2">
-          <span className="font-bold text-5xl">
+          {/* <span className="font-bold text-5xl">
             Meet<span className="text-market-orange">n</span><span className="text-market-purple">Mart</span>
-          </span>
+          </span> */}
+          <Logo />
           <p className="text-muted-foreground text-sm">Local Marketplace for Instant Buying & Selling</p>
         </div>
 

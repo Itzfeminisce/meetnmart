@@ -130,7 +130,7 @@ class LiveKitService {
      */
     private async getToken(roomName: string, participantName: string): Promise<string> {
         try {
-            const response = await axiosUtils.Post<{ data: string }>("/api/livekit/token", { roomName, participantName })
+            const response = await axiosUtils.Post<{ data: string }>("/livekit/token", { roomName, participantName })
 
             return response.data
         } catch (error) {

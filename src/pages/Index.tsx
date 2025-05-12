@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SocialAuthButtons } from '@/components/SocialAuthButtons';
 import SEO from '@/components/SEO';
 import { Card, CardContent } from '@/components/ui/card';
+import Logo from '@/components/Logo';
 
 const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -34,61 +35,6 @@ const Index = () => {
     window.location.reload()
   };
 
-  // <div className="flex flex-col min-h-screen bg-gradient-to-b from-background to-background/80">
-  //   <main className="flex-grow flex flex-col p-4 animate-fade-in items-center justify-center">
-  //     <div className="glass-morphism max-w-md w-full p-6 rounded-xl mb-8">
-  //       <div className="mb-8 text-center">
-  //         <span className="font-bold text-5xl">
-  //           Meet<span className="text-market-orange">n'</span><span className="text-market-purple">Mart</span>
-  //         </span>
-  //         <p className="text-xl text-muted-foreground">
-  //           Connect with local sellers through LIVE video
-  //         </p>
-  //       </div>
-
-  //       <div className="grid gap-4">
-  //         {!isAuthenticated && <SocialAuthButtons redirectTo={window.location.origin} flow='login' providers={['google']} />}
-  //         <Button disabled={isLoading}
-  //           size="lg"
-  //           onClick={handleGetStarted}
-  //           className="bg-market-orange hover:bg-market-orange/90"
-  //         >
-  //           <ShoppingBasket className="mr-2 h-4 w-4" />
-  //           {user ? 'Browse Markets' : 'Get Started'}
-  //         </Button>
-
-  //         {isAuthenticated ? (
-  //           <Button disabled={isLoading}
-  //             variant="outline"
-  //             onClick={signOut}
-  //             className="bg-secondary/50 border-none"
-  //           >
-  //             Sign Out
-  //           </Button>
-  //         ) : (
-  //           <Button disabled={isLoading}
-  //             variant="outline"
-  //             onClick={() => setShowAuthModal(true)}
-  //             className="bg-secondary/50 border-none"
-  //           >
-  //             <PhoneCall className="mr-2 h-4 w-4" />
-  //             Continue with Phone
-  //           </Button>
-  //         )}
-  //       </div>
-
-  //       <div className="mt-8 text-sm text-muted-foreground text-center">
-  //         <p>Test credentials: +15086842093, OTP: 123456</p>
-  //       </div>
-  //     </div>
-  //   </main>
-
-  //   <AuthModal
-  //     open={showAuthModal}
-  //     onOpenChange={setShowAuthModal}
-  //     onSuccess={handleAuthSuccess}
-  //   />
-  // </div>
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <SEO
@@ -100,60 +46,18 @@ const Index = () => {
       <main className="flex-grow flex flex-col animate-fade-in">
         <div className="px-4 pt-8 pb-12 md:pt-12 md:pb-16 max-w-md mx-auto w-full text-center">
           <div className="mb-6 relative">
-            <span className="font-bold text-5xl inline-block">
-              Meet<span className="text-market-orange">n'</span><span className="text-market-purple">Mart</span>
-            </span>
+           <div className="w-full flex items-center justify-center">
+           <Logo />
+           </div>
             <Badge className="ml-2 bg-background/50 absolute top-0 right-0 border-market-orange">Beta</Badge>
           </div>
 
-          {/* Hero Tagline */}
-          <h1 className="text-2xl font-bold mb-3">
-            See It, Buy It, Meet Them
-          </h1>
 
           {/* Value Proposition */}
           <p className="text-lg text-muted-foreground mb-8">
             Connect with local sellers through live video calls before you buy
           </p>
 
-          {/* Main CTA */}
-          {/* <div className="glass-morphism p-6 rounded-xl mb-8">
-            <div className="grid gap-4">
-              {!isAuthenticated && <SocialAuthButtons redirectTo={window.location.origin} flow='login' providers={['google']} />}
-              <Button 
-                size="lg"
-                onClick={handleGetStarted}
-                className="bg-market-orange hover:bg-market-orange/90 text-white"
-              >
-                <ShoppingBasket className="mr-2 h-5 w-5" />
-                {user ? 'Browse Markets' : 'Get Started Now'}
-                {!user && <ArrowRight className="ml-2 h-4 w-4" />}
-              </Button>
-
-              {isAuthenticated ? (
-                <Button
-                  variant="outline"
-                  onClick={signOut}
-                  className="bg-secondary/50 border-none"
-                >
-                  Sign Out
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={() => setShowAuthModal(true)}
-                  className="bg-secondary/50 border-none"
-                >
-                  <PhoneCall className="mr-2 h-4 w-4" />
-                  Continue with Phone
-                </Button>
-              )}
-            </div>
-
-            <div className="mt-4 text-xs text-muted-foreground text-center">
-              <p>Test credentials: +15086842093, OTP: 123456</p>
-            </div>
-          </div> */}
           <div className="glass-morphism p-6 rounded-xl mb-8">
             <div className="grid gap-4">
               {!isAuthenticated &&
@@ -289,6 +193,12 @@ const Index = () => {
             {user ? 'Browse Markets Now' : 'Join MeetnMart Today'}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
+
+          
+          {/* Hero Tagline */}
+          <h1 className="text-2xl font-bold pt-4">
+          Meet Them, See It, Buy It
+          </h1>
         </div>
       </main >
 

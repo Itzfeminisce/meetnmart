@@ -16,12 +16,14 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function getInitials(name: string): string {
   if (!name) return "";
+
   return name
-    .split(' ')
-    .slice(2)
-    .map(part => part[0])
-    .join('')
-    .toUpperCase();
+    .replace(/[^\p{L}\s]/gu, '') // remove non-letter characters, including emojis
+    .split(/\s+/) // split by spaces
+    .filter(Boolean) // remove empty strings
+    .slice(0, 2) // get first two name parts
+    .map(part => part[0].toUpperCase())
+    .join('');
 }
 
 /**

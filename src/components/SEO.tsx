@@ -7,9 +7,9 @@ type SEOProps = {
 };
 
 export default function SEO({
-  title = "MeetNMart - Local Marketplace",
+  title = "MeetnMart - Local Marketplace",
   description = "Instant buying and selling in your community",
-  image = "/social/preview.jpg"
+  image = "/logo.png"
 }: SEOProps) {
   return (
     <Helmet>
