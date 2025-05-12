@@ -1,62 +1,38 @@
 import React from 'react';
-import { PaystackInlinePayment } from '@/components/PaystackInlinePayment';
-import { Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { PaystackInlinePayment } from './PaystackInlinePayment';
 
-interface PayNowButtonProps {
-    amount?: number;
-    email?: string;
-    reference?: string;
-    metadata?: Record<string, any>;
-    onSuccess?: (response: any) => void;
-    buttonText?: string;
-    className?: string;
-    onPaymentStart?: () => void;
-    disabled: boolean;
-}
+export type PayNowButtonProps = {
+  amount: number;
+  email: string;
+  onSuccess: (response: any) => void;
+  onPaymentStart?: () => void;
+  className?: string;
+  buttonText?: string;
+  disabled?: boolean;
+  metadata?: Record<string, any>;
+};
 
-export const PayNowButton: React.FC<PayNowButtonProps> = ({
-    amount = 5000, // Default amount
-    email = "customer@example.com",
-    reference,
-    metadata = {
-        custom_fields: [
-            {
-                display_name: "Order ID",
-                variable_name: "order_id",
-                value: "12345"
-            }
-        ]
-    },
-    onSuccess,
-    buttonText = "Pay Now",
-    className = "",
-    disabled = true,
-    onPaymentStart
-}) => {
-    const handlePaymentSuccess = (response: any) => {
-        console.log('Payment successful:', response);
-        // Handle successful payment
-        if (onSuccess) {
-            onSuccess(response);
-        }
-    };
-
-    return (
-        <PaystackInlinePayment
-            disabled={disabled}
-            amount={amount}
-            email={email}
-            reference={reference}
-            metadata={metadata}
-            onSuccess={handlePaymentSuccess}
-            onPaymentStart={onPaymentStart}
-            buttonText={
-                <>
-                    <Check size={18} className="mr-2" />
-                    {buttonText}
-                </>
-            }
-            className={className}
-        />
-    );
+export const PayNowButton = ({
+  amount,
+  email,
+  onSuccess,
+  onPaymentStart,
+  className = '',
+  buttonText = 'Pay Now',
+  disabled = false,
+  metadata,
+}: PayNowButtonProps) => {
+  return (
+    <PaystackInlinePayment
+      amount={amount}
+      email={email}
+      onSuccess={onSuccess}
+      onPaymentStart={onPaymentStart}
+      className={className}
+      buttonText={buttonText}
+      disabled={disabled}
+      metadata={metadata}
+    />
+  );
 };
