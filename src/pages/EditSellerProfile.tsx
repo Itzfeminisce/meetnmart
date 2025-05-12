@@ -109,63 +109,48 @@ const EditSellerProfile = () => {
       toast.error("You must be logged in to upload an avatar");
       return;
     }
-
-    if (!event.target.files || event.target.files.length === 0) {
-      return;
-    }
-
-    const file = event.target.files[0];
+  
+    const file = event.target.files?.[0];
+    if (!file) return;
+  
     const fileExt = file.name.split('.').pop();
     const filePath = `${user.id}-${Math.random()}.${fileExt}`;
-
+  
     setUploading(true);
-
+  
     try {
-      // Check if storage bucket exists, if not, we can't upload
-      const { data: bucketExists } = await supabase
-        .storage
-        .getBucket('avatars');
-
-      if (!bucketExists) {
-        toast.error("Storage not configured. Please contact support.");
-        setUploading(false);
-        return;
-      }
-
-      // Upload the avatar to Supabase Storage
       const { error: uploadError } = await supabase
         .storage
         .from('avatars')
         .upload(filePath, file);
-
+  
       if (uploadError) throw uploadError;
-
-      // Get public URL for the avatar
+  
       const { data } = supabase
         .storage
         .from('avatars')
         .getPublicUrl(filePath);
-
+  
       const avatarUrl = data.publicUrl;
-
-      // Update the user's profile with the new avatar URL
+  
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar: avatarUrl })
         .eq('id', user.id);
-
+  
       if (updateError) throw updateError;
-
+  
       setAvatarUrl(avatarUrl);
       toast.success("Avatar updated successfully!");
       await fetchUserProfile();
-    } catch (error) {
-      console.error('Error uploading avatar:', error);
+    } catch (error: any) {
+      console.error('Upload error:', error.message || error);
       toast.error("Failed to upload avatar. Please try again.");
     } finally {
       setUploading(false);
     }
   };
+  
 
   if (!user) {
     navigate('/');

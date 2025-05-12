@@ -134,7 +134,7 @@ const LiveCall = () => {
     } else {
       navigate('/rating', {
         state: {
-          seller: { avatar: "", name: callData.receiver.name, descripition: "Great work" },
+          seller: callData.receiver,
           deliveryAgent,
           callDuration: timerRef.current?.getTimer()
         }
@@ -161,11 +161,11 @@ const LiveCall = () => {
   }) => {
     liveCall.handlePublishEscrowRequested({
       ...callData,
-      data: { 
+      data: {
         amount: payload.amount,
         itemDescription: payload.itemDescription,
         itemTitle: payload.itemTitle
-       }
+      }
     })
     toast.success(`Payment request of ${AppData.CurrencySymbol}${payload.amount.toFixed(2)} sent to buyer!`);
   };
@@ -234,6 +234,7 @@ const LiveCall = () => {
           <CallTimer
             ref={timerRef}
             formatDuration={formatDuration}
+            shouldStart={!isConnecting && participantCount > 1}
           />
         </div>
         <Button

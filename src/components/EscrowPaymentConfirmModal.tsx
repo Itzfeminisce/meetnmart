@@ -19,8 +19,8 @@ interface EscrowPaymentConfirmModalProps {
   onOpenChange: (open: boolean) => void;
   sellerName: string;
   payload: EscrowData
-  onAccept: () => void;
-  onReject: () => void;
+  onAccept: (callData: EscrowData) => void;
+  onReject: (callData: EscrowData) => void;
 }
 
 const EscrowPaymentConfirmModal = ({
@@ -56,7 +56,13 @@ const EscrowPaymentConfirmModal = ({
 
     // Wait a moment to let the Paystack popup close
     setTimeout(() => {
-      onAccept(); // Process the acceptance logic
+      onAccept({
+        ...payload,
+        data: {
+          ...payload.data,
+          reference: response.reference
+        }
+      }); // Process the acceptance logic
 
       // If we still want to show a success in the modal
       if (response.reference) {
@@ -70,7 +76,13 @@ const EscrowPaymentConfirmModal = ({
   };
 
   const handleReject = () => {
-    onReject();
+    onReject({
+      ...payload,
+      data: {
+        ...payload.data,
+        "escrow-rejected": true
+      }
+    });
     onOpenChange(false);
     toast.info(`Payment request rejected`);
   };
@@ -104,7 +116,7 @@ const EscrowPaymentConfirmModal = ({
                 <ShieldCheck className="text-market-green w-8 h-8" />
               </div>
               <DialogTitle className="text-gradient text-xl font-bold">
-                Payment Successfully Moved to Escrow!
+                Payment Successful!
               </DialogTitle>
               <div className="text-xl font-bold text-market-green my-4">
                 ${payload.data.amount.toFixed(2)}

@@ -56,3 +56,14 @@ export function toLivekitRoomName(input: string): string {
     .replace(/-{2,}/g, '-')         // collapse multiple hyphens
     .slice(0, 512);                 // enforce max length
 }
+
+
+
+  // Format currency
+export  const formatCurrency = (amount: number, currency: string = 'NGN') => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency
+    }).format(amount);
+  };
+  

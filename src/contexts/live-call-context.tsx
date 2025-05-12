@@ -5,8 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import { IncomingCall } from '@/components/IncomingCall';
 import { toast } from 'sonner';
 import EscrowPaymentConfirmModal from '@/components/EscrowPaymentConfirmModal';
+import { SellerPaymentFeedbackModal } from '@/components/SellerPaymentFeedbackModal';
+import { SellerPaymentRejectionFeedbackModal } from '@/components/SellerPaymentRejectionFeedbackModal';
 
-interface CallParticipant {
+export interface CallParticipant {
   id: string;
   name: string;
 }
@@ -22,6 +24,7 @@ export type EscrowData = CallData<{
   amount: number,
   itemTitle: string;
   itemDescription: string;
+  [key: string]: any;
 }>
 
 
@@ -54,6 +57,7 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
   // Payment (escrow) request handles
   const [isPaymentRequestActive, setIsPaymentRequestActive] = useState(false);
   const [escrowPayment, setEscrowPayment] = useState<EscrowData | null>(null);
+  const [escrowPaymentFeedback, setEscrowPaymentFeedback] = useState<EscrowData | null>(null);
 
 
 
@@ -70,9 +74,15 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, []);
 
   // Accept payment request
-  const acceptPaymentRequest = useCallback(() => { }, [])
+  const acceptPaymentRequest = useCallback((callData: EscrowData) => {
+    publish(CallAction.EscrowAccepted, callData)
+  }, [])
+
+
   // Reject payment request
-  const rejectPaymentRequest = useCallback(() => { }, [])
+  const rejectPaymentRequest = useCallback((callData: EscrowData) => {
+    publish(CallAction.EscrowRejected, callData)
+  }, [])
 
   // Accept incoming call
   const acceptCall = useCallback((callData?: CallData) => {
@@ -96,7 +106,6 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
       })
       navigate("/call", {
         state: callData
-        // state: { name: callData.receiver.name, callerId: callData.caller.id,  id: callData.receiver.id, room: callData.room }
       })
     }
   }, [incomingCall]);
@@ -191,15 +200,12 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
     subscribe(CallAction.Incoming, (data) => {
       setIncomingCall(data)
       setActiveCall(data)
-      // setIsCallRejected(false)
     })
 
 
 
     subscribe(CallAction.Accepted, async (data) => {
       setActiveCall(data)
-      // await livekitService.connectToRoom(data.room, data.receiver.name)
-      // toast.success("Your call was acccepted")
     })
 
 
@@ -210,20 +216,24 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
 
 
     subscribe(CallAction.Rejected, (data) => {
-      // setIsIncomingCall(false)
       setActiveCall(null)
-      // setIsCallRejected(true)
-
-      toast.error("Your call was rejected")
     })
 
 
     // Escrow Requested
     subscribe(CallAction.EscrowRequested, (data: EscrowData) => {
-      console.info("[CallAction.EscrowRequested]", data)
       setEscrowPayment(data)
       setIsPaymentRequestActive(true)
-      toast.success("Escrow Accepted")
+    })
+
+
+    // Escrow Accepted
+    subscribe(CallAction.EscrowAccepted, (data: EscrowData) => {
+      setEscrowPaymentFeedback(data)
+    })
+    // Escrow Rejected
+    subscribe(CallAction.EscrowRejected, (data: EscrowData) => {
+      setEscrowPaymentFeedback(data)
     })
 
     // TODO: Real-time update for user online status on SellerList.tsx
@@ -273,6 +283,34 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
           open={isPaymentRequestActive}
         />
       )}
+
+      {escrowPaymentFeedback && !("escrow-rejected" in escrowPaymentFeedback.data) && (
+        <SellerPaymentFeedbackModal
+          buyerName={escrowPaymentFeedback.caller.name}
+          onOpenChange={() => {
+            setEscrowPaymentFeedback(null)
+            return true
+          }}
+          open={!!escrowPaymentFeedback}
+          paymentDetails={{
+            amount: escrowPaymentFeedback.data.amount,
+            productDescription: escrowPaymentFeedback.data.itemDescription,
+            productName: escrowPaymentFeedback.data.itemTitle,
+            reference: escrowPaymentFeedback.data.reference
+          }}
+          buyerAvatar=''
+          isNewCustomer={true}
+        />
+      )}
+
+      {escrowPaymentFeedback && ("escrow-rejected" in escrowPaymentFeedback.data) && (<SellerPaymentRejectionFeedbackModal
+        onClose={() => {
+          setEscrowPaymentFeedback(null)
+          return true
+        }}
+        open={"escrow-rejected" in escrowPaymentFeedback.data}
+        buyerName={escrowPaymentFeedback.receiver.name}
+      />)}
       {children}
     </LiveCallContext.Provider>
   );

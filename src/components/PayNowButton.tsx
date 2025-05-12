@@ -34,8 +34,6 @@ export const PayNowButton: React.FC<PayNowButtonProps> = ({
     onPaymentStart
 }) => {
     const handlePaymentSuccess = (response: any) => {
-        console.log('Payment successful:', response);
-        // Handle successful payment
         if (onSuccess) {
             onSuccess(response);
         }

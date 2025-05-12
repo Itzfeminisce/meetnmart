@@ -26,3 +26,5 @@ dist-ssr
 sitemap-generator/
 supabase.*
 .env.*
+
+dist.zip

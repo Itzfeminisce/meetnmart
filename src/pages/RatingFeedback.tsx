@@ -8,25 +8,53 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Seller } from '@/types';
 import { toast } from 'sonner';
 import { formatDuration, getInitials } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { CallParticipant } from '@/contexts/live-call-context';
 
 const RatingFeedback = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { seller, callDuration } = location.state as { seller: Seller, callDuration: number };
-  
+  const [isLoading, setIsLoading] = useState(false)
+  const { seller, callDuration } = location.state as { seller: CallParticipant, callDuration: number };
+
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState('');
 
+  if (!(seller && callDuration)) {
+    navigate("/markets")
+  }
 
-  const handleSubmit = () => {
+
+  const handleSubmit = async () => {
     if (rating === 0) {
       toast.error("Please select a rating");
       return;
     }
-    
-    // In a real app, this would submit the rating to the API
-    toast.success(`Thank you! Your ${rating}-star rating has been submitted.`);
-    navigate('/markets');
+
+    try {
+      setIsLoading(true)
+      const { error } = await supabase.rpc('submit_call_feedback', {
+        p_seller_id: seller.id,
+        p_rating: rating,
+        p_feedback_text: feedback,
+        p_call_duration: callDuration
+      });
+
+      if (error) {
+        toast.error("Feedback could not be saved. Please try again")
+
+        return;
+      }
+
+      toast.success(`Thank you! Your ${rating}-star rating has been submitted.`);
+      navigate('/markets');
+    } catch (error) {
+      console.error("[FeedbackSubmitError]", error)
+      toast.error("Something went wrong. Please try again")
+    } finally {
+      setIsLoading(false)
+    }
   };
 
   const handleSkip = () => {
@@ -40,22 +68,17 @@ const RatingFeedback = () => {
         <div className="flex flex-col items-center text-center mb-6">
           <h1 className="text-2xl font-bold text-gradient mb-2">How was your call?</h1>
           <p className="text-muted-foreground">Rate your experience with {seller.name}</p>
-          
+
           <Avatar className="h-20 w-20 my-6 border-2 border-secondary">
-            {seller.avatar ? (
-              <AvatarImage src={seller.avatar} alt={seller.name} />
-            ) : (
-              <AvatarFallback className="bg-secondary text-foreground text-2xl">
-                {getInitials(seller.name)}
-              </AvatarFallback>
-            )}
+            <AvatarFallback className="bg-secondary text-foreground text-2xl">
+              {getInitials(seller.name)}
+            </AvatarFallback>
           </Avatar>
-          
+
           <h2 className="text-lg font-medium">{seller.name}</h2>
-          <p className="text-sm text-muted-foreground mb-2">{seller.description}</p>
           <div className="text-xs text-market-blue">Call duration: {formatDuration(callDuration)}</div>
         </div>
-        
+
         <div className="flex justify-center mb-6">
           {[1, 2, 3, 4, 5].map(star => (
             <button
@@ -71,7 +94,7 @@ const RatingFeedback = () => {
             </button>
           ))}
         </div>
-        
+
         <div className="mb-6">
           <label className="text-sm text-muted-foreground block mb-2">
             Additional feedback (optional)
@@ -84,18 +107,20 @@ const RatingFeedback = () => {
             rows={3}
           />
         </div>
-        
+
         <div className="space-y-3">
-          <Button 
+          <Button
+          disabled={isLoading}
             onClick={handleSubmit}
-            className="w-full bg-market-orange hover:bg-market-orange/90"
+            className="w-full bg-market-orange hover:bg-market-orange/90  disabled:cursor-not-allowed"
           >
             Submit Rating
           </Button>
-          <Button 
-            variant="ghost" 
+          <Button
+            disabled={isLoading}
+            variant="ghost"
             onClick={handleSkip}
-            className="w-full text-muted-foreground"
+            className="w-full text-muted-foreground disabled:cursor-not-allowed"
           >
             Skip for now
           </Button>
