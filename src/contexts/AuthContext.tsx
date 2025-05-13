@@ -11,6 +11,8 @@ export type UserRole = 'buyer' | 'seller' | 'moderator' | 'admin' | null;
 export type UserProfile = Database['public']['Tables']['profiles']['Row']
 export type WalletInfo = Database['public']['Tables']['wallets']['Row']
 export type EscrowTransaction = Database['public']['Tables']['escrow_transactions']['Row']
+export type UsersByRole = Database['public']['Functions']['get_users_by_role']['Returns'][number]
+export type WalletSummary = Database['public']['Functions']['get_wallet_summary']['Returns']
 interface AuthContextType {
   user: User | null;
   profile: any | null;
@@ -25,6 +27,7 @@ interface AuthContextType {
   fetchUsersByRole: (role: Exclude<UserRole, null>) => Promise<Database['public']['Functions']['get_users_by_role']['Returns']>;
   fetchUserRole: (userId?: string) => Promise<string>;
   updateUserRole: (role: Exclude<UserRole, null>) => Promise<void>;
+  fetchWalletSummary: () => Promise<WalletSummary>;
 }
 
 // Create context with undefined initial value
@@ -120,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /**
    * Fetch user role data
    */
-  const fetchUsersByRole = async (role: UserRole) => {
+  const fetchUsersByRole = async (role: UserRole): Promise<UsersByRole[]> => {
     const { data: users, error: usersError } = await supabase
       .rpc('get_users_by_role', { target_role: role });
 
@@ -144,6 +147,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setWallet(walletData as WalletInfo);
+    return walletData
+  };
+
+
+  /**
+   * Fetch wallet data
+   */
+  const fetchWalletSummary = async (): Promise<WalletSummary> => {
+    const { data: walletData, error: walletError } = await supabase.rpc('get_wallet_summary');
+
+    if (walletError) {
+      console.error("Wallet fetch error:", walletError);
+      return;
+    }
     return walletData
   };
 
@@ -319,7 +336,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchUserProfile,
     fetchUsersByRole,
     updateUserRole,
-    fetchUserRole
+    fetchUserRole,
+    fetchWalletSummary
   };
 
   return isLoading ? <SplashScreen /> : (

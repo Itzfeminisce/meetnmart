@@ -8,8 +8,10 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import BottomNavigation from '@/components/BottomNavigation';
 import EscrowRequestModal from '@/components/EscrowRequestModal';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, WalletSummary } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { formatCurrency } from '@/lib/utils';
+import { WalletSummary as WalletSummaryComponent } from '@/components/WalletSummary';
 
 const recentCalls = [
   { id: 'c1', buyerName: 'John Smith', time: '2 hours ago', duration: '8:45', missed: false },
@@ -23,15 +25,29 @@ const paymentRequests = [
 ];
 
 const SellerDashboard = () => {
-  const { user, profile, signOut, isLoading } = useAuth();
+  const { user, profile, signOut, isLoading, wallet, fetchWalletSummary } = useAuth();
   const navigate = useNavigate();
   const [isOnline, setIsOnline] = useState(true);
   const [escrowModalOpen, setEscrowModalOpen] = useState(false);
+  const [walletSummary, setWalletSummary] = useState<WalletSummary>(null);
   const [selectedBuyer, setSelectedBuyer] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (!user) {
       navigate('/');
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
+    try {
+      fetchWalletSummary()
+        .then(data => {
+          setWalletSummary(data)
+        })
+        .catch(console.error)
+    } catch (error) {
+      console.error(error)
+      toast.error("Unable to retrieve wallet summary")
     }
   }, [user, navigate]);
 
@@ -205,21 +221,9 @@ const SellerDashboard = () => {
       </div>
 
       <div className="mb-6">
-        <h2 className="text-lg font-medium flex items-center mb-4">
-          <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
-          Earnings Overview
-        </h2>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="glass-morphism rounded-lg p-3 text-center">
-            <div className="text-market-green text-xl font-bold">$254.65</div>
-            <div className="text-xs text-muted-foreground">This Month</div>
-          </div>
-          <div className="glass-morphism rounded-lg p-3 text-center">
-            <div className="text-market-blue text-xl font-bold">$1,245.00</div>
-            <div className="text-xs text-muted-foreground">All Time</div>
-          </div>
-        </div>
+        {walletSummary && (
+          <WalletSummaryComponent walletSummary={walletSummary}  userRole='seller'/>
+        )}
       </div>
 
       <Button
@@ -236,12 +240,12 @@ const SellerDashboard = () => {
         Log out
       </Button>
 
-      <EscrowRequestModal
+      {/* <EscrowRequestModal
         open={escrowModalOpen}
         onOpenChange={setEscrowModalOpen}
         sellerName={profile.name || 'MeetnMart Seller'}
         onSuccess={handlePaymentRequestSubmit}
-      />
+      /> */}
     </div>
   );
 };

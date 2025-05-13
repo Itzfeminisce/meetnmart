@@ -31,7 +31,9 @@ const EscrowPaymentConfirmModal = ({
   onAccept,
   onReject
 }: EscrowPaymentConfirmModalProps) => {
-  const { user } = useAuth();
+  console.log("[EscrowPaymentConfirmModal]", payload);
+  
+  const { user, profile } = useAuth();
   const [paymentStarted, setPaymentStarted] = useState(false);
   const [paymentSuccessful, setPaymentSuccessful] = useState(false);
   const [paymentReference, setPaymentReference] = useState<string | null>(null);
@@ -51,6 +53,8 @@ const EscrowPaymentConfirmModal = ({
 
   // Handle successful payment
   const handlePaymentSuccess = (response: any) => {
+    console.log("[handlePaymentSuccess]", {response, payload});
+    
     setPaymentSuccessful(true);
     setPaymentReference(response.reference);
 
@@ -325,7 +329,8 @@ const EscrowPaymentConfirmModal = ({
 
               <PayNowButton
                 amount={payload.data.amount}
-                email={user?.email || "customer@example.com"}
+                reference={payload.data.reference}
+                email={user?.email || profile?.email || "customer@example.com"}
                 onSuccess={handlePaymentSuccess}
                 onPaymentStart={handlePaymentStart}
                 className={`bg-market-green hover:bg-market-green/90 ${!acceptedTerms ? 'opacity-60 cursor-not-allowed' : ''}`}
@@ -357,6 +362,11 @@ const EscrowPaymentConfirmModal = ({
                       display_name: "Amount",
                       variable_name: "amount",
                       value: payload.data.amount
+                    },
+                    {
+                      display_name: "Reference",
+                      variable_name: "reference",
+                      value: payload.data.reference
                     },
                   ]
                 }}

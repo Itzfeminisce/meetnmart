@@ -240,7 +240,17 @@ export type Database = {
           avatar: string
           description: string
           is_online: boolean
+          avg_rating: number
+          total_reviews: number
         }[]
+      }
+      get_wallet_summary: {
+        Returns: {
+          balance: number;
+          escrowed_balance: number;
+          monthly_balance: number;
+          monthly_escrowed: number;
+        }
       }
       increment_market_user_count: {
         Args: { market_place_id: string }

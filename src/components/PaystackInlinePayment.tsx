@@ -33,15 +33,7 @@ export const PaystackInlinePayment = ({
   buttonText = "Pay Now",
   disabled,
   onSuccess,
-  metadata = {
-    custom_fields: [
-      {
-        display_name: "Order ID",
-        variable_name: "order_id",
-        value: Math.floor(Math.random() * 1000000).toString()
-      }
-    ]
-  },
+  metadata,
   reference,
   className = "",
   currency = "NGN",
@@ -52,7 +44,7 @@ export const PaystackInlinePayment = ({
   const scriptRef = useRef<HTMLScriptElement | null>(null);
   
   // Get the public key from environment variables
-  const PAYSTACK_PUBLIC_KEY = getEnvVar("PAYSTACK_PUBLIC_KEY") || 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+  const PAYSTACK_PUBLIC_KEY = getEnvVar("PAYSTACK_PUBLIC_KEY")
 
   // Load Paystack script
   useEffect(() => {
@@ -102,10 +94,10 @@ export const PaystackInlinePayment = ({
         email,
         amount: amount * 100, // Convert to kobo/cents
         currency,
-        ref: reference || `REF_${Date.now()}`,
+        ref: reference,
         metadata,
         channels: ['card', 'bank', 'ussd'],
-        label: 'Payment',
+        label: 'Escrow Payment',
         onClose: () => {
           setStatus('idle');
           toast.info('Payment window closed');

@@ -13,15 +13,15 @@ export interface Category {
   color: string;
 }
 
-export interface Seller {
+export interface Seller  {
   id: string;
   name: string;
   avatar?: string;
-  category: string;
+  description: string;
   is_online: boolean;
   rating: number;
-  description: string;
 
+  category: string;
   // Newly Added
   location?: string;
 }

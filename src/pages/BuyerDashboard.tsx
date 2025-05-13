@@ -6,13 +6,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Clock, DollarSign, ShoppingBag, Truck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { getInitials } from '@/lib/utils';
+import { formatCurrency, getInitials } from '@/lib/utils';
 import { WalletData } from '@/types';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MarketPlaceholder } from '@/components/MarketPlaceholder';
 import { toast } from 'sonner';
-import BottomNavigation from '@/components/BottomNavigation';
+import { WalletSummary } from '@/components/WalletSummary';
 
 const BuyerDashboard = () => {
   const { user, profile, signOut, isLoading } = useAuth();
@@ -107,9 +107,9 @@ const BuyerDashboard = () => {
         <CardContent>
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-3xl font-bold">${walletData.balance.toFixed(2)}</p>
+              <p className="text-3xl font-bold">{formatCurrency(walletData.balance)}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                ${walletData.escrowed_balance.toFixed(2)} in escrow
+                {formatCurrency(walletData.escrowed_balance)} in escrow
               </p>
             </div>
             <Button variant="outline" className="rounded-full h-10 w-10 p-0">
@@ -118,6 +118,7 @@ const BuyerDashboard = () => {
           </div>
         </CardContent>
       </Card>
+
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-4 mb-6">
@@ -162,7 +163,7 @@ const BuyerDashboard = () => {
                       <p className="text-xs text-muted-foreground">{tx.date}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">${tx.amount.toFixed(2)}</p>
+                      <p className="font-medium">{formatCurrency(tx.amount)}</p>
                       <p className={`text-xs ${tx.status === 'completed' ? 'text-green-600' : 'text-amber-600'}`}>
                         {tx.status}
                       </p>

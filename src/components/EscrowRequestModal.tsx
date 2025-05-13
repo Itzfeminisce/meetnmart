@@ -19,6 +19,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { AppData } from '@/types/call';
 
 interface EscrowRequestModalProps {
   open: boolean;
@@ -140,7 +141,7 @@ const EscrowRequestModal = ({
                     </FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{AppData.CurrencySymbol}</span>
                         <Input
                           {...field}
                           type="number"

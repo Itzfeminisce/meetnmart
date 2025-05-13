@@ -10,7 +10,7 @@ import { categories } from '@/lib/mockData';
 import { Market, Seller } from '@/types';
 import { toast } from 'sonner';
 import { getInitials, toLivekitRoomName } from '@/lib/utils';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, UsersByRole } from '@/contexts/AuthContext';
 import { useSocket } from '@/contexts/SocketContext';
 import { AppEvent } from '@/types/call';
 import { CallData } from '@/contexts/live-call-context';
@@ -22,9 +22,9 @@ const SellersList = () => {
   const { market, categoryId } = location.state as { market: Market; categoryId: string };
 
   const [paymentConfirmModalOpen, setPaymentConfirmModalOpen] = useState(false);
-  const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
+  const [selectedSeller, setSelectedSeller] = useState<{name: string} | null>(null);
   const [requestAmount, setRequestAmount] = useState(0);
-  const [sellers, setSellers] = useState([]);
+  const [sellers, setSellers] = useState<UsersByRole[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { subscribe } = useSocket()
 
@@ -48,7 +48,7 @@ const SellersList = () => {
   }, []);
 
 
-  const handleCall = async (seller: Seller) => {
+  const handleCall = async (seller: UsersByRole) => {
     if (!seller.is_online) {
       toast.error("This seller is currently offline.");
       return;
@@ -126,9 +126,9 @@ const SellersList = () => {
                     </div>
                     <div className="flex items-center text-xs text-muted-foreground">
                       <span className="flex items-center">
-                        {'★'.repeat(Math.floor(seller?.rating || 2))}
-                        {seller.rating % 1 > 0 ? '☆' : ''}
-                        <span className="ml-1">{seller?.rating || 3}</span>
+                        <span className='text-market-orange'>{'★'.repeat(Math.floor(seller?.avg_rating))}</span>
+                        {seller.avg_rating % 1 > 0 ? '☆' : ''}
+                        <span className="ml-1 ">{seller?.total_reviews || 'No Reviews'}</span>
                       </span>
                     </div>
                   </div>
@@ -158,12 +158,12 @@ const SellersList = () => {
         </div>
       </div>
 
-      {selectedSeller && (
+      {/* {selectedSeller && (
         <EscrowPaymentConfirmModal
+        payload={}
           open={paymentConfirmModalOpen}
           onOpenChange={setPaymentConfirmModalOpen}
           sellerName={selectedSeller.name}
-          amount={requestAmount}
           onAccept={() => {
             toast.success(`Payment of $${requestAmount.toFixed(2)} sent to ${selectedSeller.name}!`);
           }}
@@ -171,7 +171,7 @@ const SellersList = () => {
             toast.info(`Payment request from ${selectedSeller.name} was rejected.`);
           }}
         />
-      )}
+      )} */}
     </div>
   );
 };

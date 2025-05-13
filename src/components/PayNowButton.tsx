@@ -15,18 +15,10 @@ interface PayNowButtonProps {
 }
 
 export const PayNowButton: React.FC<PayNowButtonProps> = ({
-    amount = 5000, // Default amount
-    email = "customer@example.com",
+    amount,
+    email,
     reference,
-    metadata = {
-        custom_fields: [
-            {
-                display_name: "Order ID",
-                variable_name: "order_id",
-                value: "12345"
-            }
-        ]
-    },
+    metadata,
     onSuccess,
     buttonText = "Pay Now",
     className = "",

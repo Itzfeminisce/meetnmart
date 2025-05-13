@@ -24,8 +24,11 @@ export type EscrowData = CallData<{
   amount: number,
   itemTitle: string;
   itemDescription: string;
+  reference?: string;
   [key: string]: any;
 }>
+
+// type EscrowStatus = "pending" | "rejected" | "initiated" | "held" | "delivered" | "confirmed" | "released" | "disputed" | "refunded"
 
 
 interface LiveCallContextType {
@@ -222,6 +225,8 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     // Escrow Requested
     subscribe(CallAction.EscrowRequested, (data: EscrowData) => {
+      console.log("[subscribe(CallAction.EscrowRequested]", data);
+      
       setEscrowPayment(data)
       setIsPaymentRequestActive(true)
     })
