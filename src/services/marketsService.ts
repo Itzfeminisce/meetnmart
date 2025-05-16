@@ -213,7 +213,7 @@ export const debouncedSearchMarkets = (callback: (results: MarketSearchResult) =
  */
 export const joinMarket = async (market: MarketResult): Promise<void> => {
   try {
-    const { error } = await supabase.rpc('increment_market_user_count', {
+    const {data, error } = await supabase.rpc('increment_market_user_count', {
       market_place_id: market.id,
       name: market.name,
       location: market.location, //market.location,
@@ -224,6 +224,8 @@ export const joinMarket = async (market: MarketResult): Promise<void> => {
       console.error('Error incrementing market user count:', error);
       throw error;
     }
+
+    return data
   } catch (error) {
     console.error('Error in joinMarket:', error);
     throw error;

@@ -8,64 +8,26 @@ import { Clock, DollarSign, ShoppingBag, Truck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency, getInitials } from '@/lib/utils';
 import { WalletData } from '@/types';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MarketPlaceholder } from '@/components/MarketPlaceholder';
 import { toast } from 'sonner';
-import { WalletSummary } from '@/components/WalletSummary';
+import TransactionCard from '@/components/TransactionCard';
+import RecentCallCard from '@/components/RecentCallCard';
+import { Separator } from '@/components/ui/separator';
+import Logo from '@/components/Logo';
+import Loader from '@/components/ui/loader';
+import { useFetch } from '@/hooks/api-hooks';
 
 const BuyerDashboard = () => {
-  const { user, profile, signOut, isLoading } = useAuth();
-  const [walletData, setWalletData] = useState<WalletData>({ balance: 0, escrowed_balance: 0 });
-  const [recentTransactions, setRecentTransactions] = useState([]);
-  const [recentCalls, setRecentCalls] = useState([]);
+  const { user, profile, signOut, userRole, isLoading, fetchTransactions, wallet: walletData } = useAuth();
+  // const [recentCalls, setRecentCalls] = useState<Awaited<ReturnType<typeof fetchTransactions>>>([]);
+  // const [isLoadingTrx, setIsLoadingTrx] = useState(false);
+  // const [trxErr, setTrxErr] = useState('');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!user) return;
+  const {data:recentCalls, isLoading: isLoadingTrx, error: trxErr } = useFetch(["transactions"], () => fetchTransactions({ user_id: user.id, limit_count: 2 }),)
 
-    // Fetch wallet data
-    const fetchWalletData = async () => {
-      try {
-        const { data, error } = await supabase.rpc('get_user_wallet', {
-          uid: user.id,
-        }) as any;
-
-        if (error) throw error;
-        if (data) {
-          setWalletData({
-            balance: +data.balance || 0,
-            escrowed_balance: +data.escrowed_balance || 0
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching wallet data:', error);
-      }
-    };
-
-    // Fetch mock data for demo purposes
-    const fetchMockData = () => {
-      // Mock transactions data
-      const mockTransactions = [
-        { id: 1, type: 'payment', amount: 52.50, description: 'Fresh vegetables', status: 'completed', date: '2025-04-28' },
-        { id: 2, type: 'escrow', amount: 120.00, description: 'Electronic goods', status: 'pending', date: '2025-04-27' },
-        { id: 3, type: 'payment', amount: 35.75, description: 'Local spices', status: 'completed', date: '2025-04-25' },
-      ];
-
-      // Mock calls data
-      const mockCalls = [
-        { id: 1, seller: 'Aisha M.', duration: '12:45', date: '2025-04-28', category: 'Vegetables' },
-        { id: 2, seller: 'Kofi Electronics', duration: '08:20', date: '2025-04-26', category: 'Electronics' },
-        { id: 3, seller: 'Mama Spices', duration: '05:30', date: '2025-04-24', category: 'Food' },
-      ];
-
-      setRecentTransactions(mockTransactions);
-      setRecentCalls(mockCalls);
-    };
-
-    fetchWalletData();
-    fetchMockData();
-  }, [user]);
 
   if (!user) {
     return <MarketPlaceholder message="Please sign in to view your dashboard" />;
@@ -93,7 +55,7 @@ const BuyerDashboard = () => {
           <p className="text-muted-foreground">Welcome back to your dashboard</p>
         </div>
 
-        <Avatar className="h-14 w-14 mr-5  self-start  text-market-green border-market-green/30">
+        <Avatar onClick={handleEditProfile} className="h-14 w-14 mr-5  self-start  text-market-green border-market-green/30 cursor-pointer">
           <AvatarImage src={profile?.avatar} alt="Profile" />
           <AvatarFallback className="bg-secondary text-foreground">{getInitials(profile?.name)}</AvatarFallback>
         </Avatar>
@@ -139,75 +101,35 @@ const BuyerDashboard = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue="transactions" className="mt-6">
-        <TabsList className="grid grid-cols-2">
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="calls">Recent Calls</TabsTrigger>
-        </TabsList>
+      <div className="mt-6">
+        <div className='w-full flex items-center justify-between py-4'>
+          <h2 className='font-bold'>Recent Calls</h2>
+          <Button
+            type='button'
+            onClick={() => navigate("/recent-calls")}
+            size='sm'
+            variant='link'
+          >View All</Button>
+        </div>
 
-        <TabsContent value="transactions">
-          <div className="space-y-4">
-            {recentTransactions.map((tx) => (
-              <Card key={tx.id} className="overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="flex items-center p-4">
-                    <div className={`rounded-full p-2 mr-4 ${tx.type === 'escrow' ? 'bg-blue-100' : 'bg-green-100'}`}>
-                      {tx.type === 'escrow' ? (
-                        <Clock className="h-5 w-5 text-blue-600" />
-                      ) : (
-                        <DollarSign className="h-5 w-5 text-green-600" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium">{tx.description}</p>
-                      <p className="text-xs text-muted-foreground">{tx.date}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">{formatCurrency(tx.amount)}</p>
-                      <p className={`text-xs ${tx.status === 'completed' ? 'text-green-600' : 'text-amber-600'}`}>
-                        {tx.status}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
+        <div className="space-y-4">
+          {isLoadingTrx ? (
+            <Loader />
+          ) : trxErr ? (
+            <p>{trxErr as string}</p>
+          ) : (
+            !trxErr && recentCalls.length == 0 ? (
+              <p>No transactions found.</p>
+            ) : recentCalls.map((call) => (
+              <RecentCallCard role={userRole} key={call.transaction_id} recentCall={call} />
+            ))
+          )}
+        </div>
+      </div>
 
-        <TabsContent value="calls">
-          <div className="space-y-4">
-            {recentCalls.map((call) => (
-              <Card key={call.id} className="overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="flex items-center p-4">
-                    <Avatar className="h-10 w-10 mr-4">
-                      <AvatarImage src="" />
-                      <AvatarFallback>{getInitials(call.seller)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium">{call.seller}</p>
-                      <p className="text-xs text-muted-foreground">{call.category}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">{call.duration}</p>
-                      <p className="text-xs text-muted-foreground">{call.date}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
+      <Separator className='my-4' />
 
       <div className="mt-4">
-        <Button
-          className="w-full mb-8 bg-market-orange hover:bg-market-orange/90"
-          onClick={handleEditProfile}
-        >
-          Edit Profile
-        </Button>
         <Button
           disabled={isLoading}
           className="w-full mb-8 bg-destructive/10 hover:bg-destructive/90 hover:text-foreground text-destructive"

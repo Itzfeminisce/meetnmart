@@ -12,6 +12,9 @@ import { useAuth, WalletSummary } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 import { WalletSummary as WalletSummaryComponent } from '@/components/WalletSummary';
+import Loader from '@/components/ui/loader';
+import RecentCallCard from '@/components/RecentCallCard';
+import { useFetch } from '@/hooks/api-hooks';
 
 const recentCalls = [
   { id: 'c1', buyerName: 'John Smith', time: '2 hours ago', duration: '8:45', missed: false },
@@ -24,13 +27,31 @@ const paymentRequests = [
   { id: 'p2', buyerName: 'Emma Davis', amount: 24.50, status: 'pending', time: 'Yesterday' },
 ];
 
+// const fetchTransactionsData = async () => {
+//   setTrxErr('')
+//   try {
+//     setIsLoadingTrx(true)
+//     const trxs = await fetchTransactions({ user_id: user.id, limit_count: 2 })
+//     setRecentCalls(trxs)
+//     setTrxErr('')
+//   } catch (error) {
+//     setTrxErr("Unable to load transaction. Please try again")
+//   } finally {
+//     setIsLoadingTrx(false)
+//   }
+// }
+
 const SellerDashboard = () => {
-  const { user, profile, signOut, isLoading, wallet, fetchWalletSummary } = useAuth();
+  const { user, profile, signOut, isLoading, fetchTransactions, fetchWalletSummary } = useAuth();
   const navigate = useNavigate();
   const [isOnline, setIsOnline] = useState(true);
   const [escrowModalOpen, setEscrowModalOpen] = useState(false);
-  const [walletSummary, setWalletSummary] = useState<WalletSummary>(null);
+  // const [walletSummary, setWalletSummary] = useState<WalletSummary>(null);
   const [selectedBuyer, setSelectedBuyer] = useState<{ id: string; name: string } | null>(null);
+
+  const {data:recentCalls, isLoading: isLoadingTrx, error: trxErr } = useFetch(["transactions"], () => fetchTransactions({ user_id: user.id, limit_count: 2 }),)
+  const {data:walletSummary } = useFetch(["wallets"], fetchWalletSummary,)
+
 
   useEffect(() => {
     if (!user) {
@@ -38,18 +59,6 @@ const SellerDashboard = () => {
     }
   }, [user, navigate]);
 
-  useEffect(() => {
-    try {
-      fetchWalletSummary()
-        .then(data => {
-          setWalletSummary(data)
-        })
-        .catch(console.error)
-    } catch (error) {
-      console.error(error)
-      toast.error("Unable to retrieve wallet summary")
-    }
-  }, [user, navigate]);
 
   const handleToggleOnline = async (checked: boolean) => {
     setIsOnline(checked);
@@ -135,7 +144,7 @@ const SellerDashboard = () => {
         </div>
       </div>
 
-      <div className="mb-6">
+      {/* <div className="mb-6">
         <h2 className="text-lg font-medium flex items-center mb-4">
           <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
           Payment Requests
@@ -218,11 +227,38 @@ const SellerDashboard = () => {
             </div>
           ))}
         </div>
+        
+      </div> */}
+
+      <div className="mt-6">
+        <div className='w-full flex items-center justify-between py-4'>
+          <h2 className='font-bold'>Recent Calls</h2>
+          <Button
+            type='button'
+            onClick={() => navigate("/recent-calls")}
+            size='sm'
+            variant='link'
+          >View All</Button>
+        </div>
+
+        <div className="space-y-4">
+          {isLoadingTrx ? (
+            <Loader />
+          ) : trxErr ? (
+            <p>{trxErr as any}</p>
+          ) : (
+            !trxErr && recentCalls.length == 0 ? (
+              <p>No transactions found.</p>
+            ) : recentCalls.map((call) => (
+              <RecentCallCard role={'seller'} key={call.transaction_id} recentCall={call} />
+            ))
+          )}
+        </div>
       </div>
 
       <div className="mb-6">
         {walletSummary && (
-          <WalletSummaryComponent walletSummary={walletSummary}  userRole='seller'/>
+          <WalletSummaryComponent walletSummary={walletSummary} userRole='seller' />
         )}
       </div>
 
@@ -240,12 +276,6 @@ const SellerDashboard = () => {
         Log out
       </Button>
 
-      {/* <EscrowRequestModal
-        open={escrowModalOpen}
-        onOpenChange={setEscrowModalOpen}
-        sellerName={profile.name || 'MeetnMart Seller'}
-        onSuccess={handlePaymentRequestSubmit}
-      /> */}
     </div>
   );
 };

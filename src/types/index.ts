@@ -118,3 +118,13 @@ export interface CallSession {
   token: string;
   participants: string[];
 }
+
+
+export interface Transaction {
+    id: string, 
+    type: string, 
+    amount: number, 
+    description: string, 
+    status: string, 
+    date: Date
+}

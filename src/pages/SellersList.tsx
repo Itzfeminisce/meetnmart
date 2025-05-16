@@ -14,6 +14,8 @@ import { useAuth, UsersByRole } from '@/contexts/AuthContext';
 import { useSocket } from '@/contexts/SocketContext';
 import { AppEvent } from '@/types/call';
 import { CallData } from '@/contexts/live-call-context';
+import { useFetch } from '@/hooks/api-hooks';
+import Loader from '@/components/ui/loader';
 
 const SellersList = () => {
   const { fetchUsersByRole, profile } = useAuth()
@@ -21,31 +23,33 @@ const SellersList = () => {
   const navigate = useNavigate();
   const { market, categoryId } = location.state as { market: Market; categoryId: string };
 
-  const [paymentConfirmModalOpen, setPaymentConfirmModalOpen] = useState(false);
-  const [selectedSeller, setSelectedSeller] = useState<{name: string} | null>(null);
-  const [requestAmount, setRequestAmount] = useState(0);
-  const [sellers, setSellers] = useState<UsersByRole[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const { subscribe } = useSocket()
+  // const [paymentConfirmModalOpen, setPaymentConfirmModalOpen] = useState(false);
+  const [selectedSeller, setSelectedSeller] = useState<{ name: string } | null>(null);
+  // const [requestAmount, setRequestAmount] = useState(0);
+  // const [sellers, setSellers] = useState<UsersByRole[]>([]);
+  // const [isLoading, setIsLoading] = useState(false);
+  // const { subscribe } = useSocket()
+
+  const { data: sellers, isLoading } = useFetch(['sellers'], () => fetchUsersByRole("seller"))
 
   const category = categories.find(cat => cat.id === categoryId);
   const filteredSellers = sellers //.filter(seller => seller.category === categoryId);
 
   // Get Availabke sellers
-  useEffect(() => {
-    async function getSellers() {
-      try {
-        const _sellers = await fetchUsersByRole("seller")
-        setSellers(_sellers)
-      } catch (error) {
-        toast.error('Unable to fetch sellers. PLease try again')
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  // useEffect(() => {
+  //   async function getSellers() {
+  //     try {
+  //       const _sellers = await fetchUsersByRole("seller")
+  //       setSellers(_sellers)
+  //     } catch (error) {
+  //       toast.error('Unable to fetch sellers. PLease try again')
+  //     } finally {
+  //       setIsLoading(false)
+  //     }
+  //   }
 
-    getSellers()
-  }, []);
+  //   getSellers()
+  // }, []);
 
 
   const handleCall = async (seller: UsersByRole) => {
@@ -94,7 +98,9 @@ const SellersList = () => {
         </h2>
 
         <div className="space-y-3">
-          {filteredSellers.length > 0 ? (
+          {isLoading ? (
+            <Loader />
+          ) : filteredSellers.length > 0 ? (
             filteredSellers.map(seller => (
               <div
                 key={seller.id}

@@ -18,6 +18,8 @@ import Activity from "./pages/Activity";
 import BottomNavigation from "./components/BottomNavigation";
 import RecentVisits from "./pages/RecentVisits";
 import { LiveCall_V2 } from "./pages/LiveCall";
+import { TransactionDetails } from "./components/TransactionDetail";
+import CallsList from "./pages/CallsList";
 
 export const appRoutes: RouteObject[] = [
   // Guest Routes
@@ -49,6 +51,8 @@ export const appRoutes: RouteObject[] = [
       { path: "/edit-seller-profile", element: <EditSellerProfile /> },
       { path: "/edit-buyer-profile", element: <EditBuyerProfile /> },
       { path: "/recent-visits", element: <RecentVisits /> },
+      { path: "/transactions/:tx_id", element: <TransactionDetails /> },
+      { path: "/recent-calls", element: <CallsList /> },
     ]
   },
 

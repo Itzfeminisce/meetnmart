@@ -20,11 +20,13 @@ export interface CallData<TData = any, TReceiver = CallParticipant> {
   data?: TData
 }
 
+
 export type EscrowData = CallData<{
   amount: number,
   itemTitle: string;
   itemDescription: string;
   reference?: string;
+  callSessionId?: string;
   [key: string]: any;
 }>
 
@@ -89,6 +91,8 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   // Accept incoming call
   const acceptCall = useCallback((callData?: CallData) => {
+    console.log("[acceptCall]", { incomingCall });
+
     if (incomingCall) {
       setActiveCall(incomingCall);
       setIsCallActive(true);
@@ -96,17 +100,7 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
 
 
 
-      publish(CallAction.Accepted, {
-        room: callData.room,
-        receiver: {
-          name: callData.receiver.name,
-          id: callData.receiver.id
-        },
-        caller: {
-          id: callData.caller.id,
-          name: callData.caller.name
-        }
-      })
+      publish(CallAction.Accepted, callData)
       navigate("/call", {
         state: callData
       })
@@ -116,17 +110,7 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
   // Reject incoming call
   const rejectCall = useCallback((callData?: CallData) => {
     if (incomingCall) {
-      publish(CallAction.Rejected, {
-        room: callData.room,
-        receiver: {
-          name: callData.receiver.name,
-          id: callData.receiver.id
-        },
-        caller: {
-          id: callData.caller.id,
-          name: callData.caller.name
-        }
-      })
+      publish(CallAction.Rejected, callData)
 
       setIncomingCall(null);
     }
@@ -147,54 +131,22 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
     setIsCallActive(true);
 
     console.log('Publishing outgoing call:', callData);
-    publish(CallAction.Outgoing, {
-      room: callData.room,
-      receiver: {
-        name: callData.receiver.name,
-        id: callData.receiver.id
-      },
-      caller: {
-        id: callData.caller.id,
-        name: callData.caller.name
-      }
-    })
+    publish(CallAction.Outgoing, callData)
   }, []);
 
   // Publish call ended notification
   const handlePublishEscrowRequested = useCallback((callData: EscrowData) => {
     toast.info("Payment request sent")
-    publish(CallAction.EscrowRequested, {
-      room: callData.room,
-      receiver: {
-        name: callData.receiver.name,
-        id: callData.receiver.id
-      },
-      caller: {
-        id: callData.caller.id,
-        name: callData.caller.name
-      },
-      data: callData.data
-    })
+    publish(CallAction.EscrowRequested, callData)
   }, []);
 
   const handlePublishCallEnded = useCallback((callData: CallData) => {
-    // In a real application, you would send this to a backend service
     console.log('Publishing call ended:', callData);
     setIsCallActive(false);
     setActiveCall(null);
     setOutgoingCall(null);
 
-    publish(CallAction.Ended, {
-      room: callData.room,
-      receiver: {
-        name: callData.receiver.name,
-        id: callData.receiver.id
-      },
-      caller: {
-        id: callData.caller.id,
-        name: callData.caller.name
-      }
-    })
+    publish(CallAction.Ended, callData)
   }, []);
 
 
@@ -207,14 +159,24 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
 
 
 
-    subscribe(CallAction.Accepted, async (data) => {
-      setActiveCall(data)
+    subscribe(CallAction.Accepted, async (payload, callSessionId) => {
+      // the buyer receives a callSessionId when seller accepts call
+      setActiveCall({
+        ...payload,
+        data: {
+          callSessionId
+        }
+      })
     })
 
 
     subscribe(CallAction.Ended, ({ data }) => {
-      setIncomingCall(null)
-      setActiveCall(null)
+      console.log("[CallAction.Ended#subscribe]", data);
+      // TODO: Better handle disconnect.
+
+      // Right now, it makes the screen go blank due to absence of callSessionId or something. yet to figure it out.
+      // setIncomingCall(null)
+      // setActiveCall(null)
     })
 
 
@@ -225,8 +187,6 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     // Escrow Requested
     subscribe(CallAction.EscrowRequested, (data: EscrowData) => {
-      console.log("[subscribe(CallAction.EscrowRequested]", data);
-      
       setEscrowPayment(data)
       setIsPaymentRequestActive(true)
     })
@@ -280,7 +240,13 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
       )}
       {escrowPayment && (
         <EscrowPaymentConfirmModal
-          payload={escrowPayment}
+          payload={{
+            ...escrowPayment,
+            data: {
+              ...escrowPayment.data,
+              callSessionId: activeCall.data.callSessionId
+            }
+          }}
           sellerName={escrowPayment.receiver.name}
           onAccept={acceptPaymentRequest}
           onReject={rejectPaymentRequest}

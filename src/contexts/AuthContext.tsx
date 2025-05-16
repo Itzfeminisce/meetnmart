@@ -13,6 +13,7 @@ export type WalletInfo = Database['public']['Tables']['wallets']['Row']
 export type EscrowTransaction = Database['public']['Tables']['escrow_transactions']['Row']
 export type UsersByRole = Database['public']['Functions']['get_users_by_role']['Returns'][number]
 export type WalletSummary = Database['public']['Functions']['get_wallet_summary']['Returns']
+export type Transaction = Database['public']['Functions']['get_call_sessions_with_transactions']
 interface AuthContextType {
   user: User | null;
   profile: any | null;
@@ -28,6 +29,7 @@ interface AuthContextType {
   fetchUserRole: (userId?: string) => Promise<string>;
   updateUserRole: (role: Exclude<UserRole, null>) => Promise<void>;
   fetchWalletSummary: () => Promise<WalletSummary>;
+  fetchTransactions: (args: Transaction['Args']) => Promise<Transaction['Returns']>;
 }
 
 // Create context with undefined initial value
@@ -82,25 +84,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Set default names if not already set
-    // if (profileData && !profileData.name) {
-    //   const { data: roleData } = await supabase
-    //     .rpc('get_user_role', { uid: userId });
-        
-    //   const defaultName = roleData === 'seller' ? 'MeetnMart Seller' : 'MeetnMart Buyer';
-
-    //   const { error: updateError } = await supabase
-    //     .from('profiles')
-    //     .update({ name: defaultName })
-    //     .eq('id', userId);
-
-    //   if (updateError) {
-    //     console.error("Error updating default name:", updateError);
-    //   } else {
-    //     profileData.name = defaultName;
-    //   }
-    // }
-
     setProfile(profileData);
     return profileData
   };
@@ -123,6 +106,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /**
    * Fetch user role data
    */
+  const fetchTransactions = async (params: Transaction['Args']): Promise<Transaction['Returns']> => {
+    let { data, error } = await supabase
+      .rpc('get_call_sessions_with_transactions', params);
+
+    if (error) {
+      console.error("Transaction fetch error:", error);
+      return;
+    }
+
+    return data
+  };
+  /**
+   * Fetch user role data
+   */
   const fetchUsersByRole = async (role: UserRole): Promise<UsersByRole[]> => {
     const { data: users, error: usersError } = await supabase
       .rpc('get_users_by_role', { target_role: role });
@@ -134,21 +131,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return users
   };
 
-  /**
-   * Fetch wallet data
-   */
-  const fetchWalletData = async (userId: string) => {
-    const { data: walletData, error: walletError } = await supabase
-      .rpc('get_user_wallet', { uid: userId });
-
-    if (walletError) {
-      console.error("Wallet fetch error:", walletError);
-      return;
-    }
-
-    setWallet(walletData as WalletInfo);
-    return walletData
-  };
 
 
   /**
@@ -161,6 +143,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Wallet fetch error:", walletError);
       return;
     }
+    return walletData
+  };
+
+
+  /**
+ * Fetch wallet data
+ */
+  const fetchWalletData = async (userId: string) => {
+    const { data: walletData, error: walletError } = await supabase
+      .rpc('get_user_wallet', { uid: userId });
+
+    if (walletError) {
+      console.error("Wallet fetch error:", walletError);
+      return;
+    }
+
+    setWallet(walletData as WalletInfo);
     return walletData
   };
 
@@ -296,7 +295,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initializeAuth = async () => {
       try {
         setIsLoading(true)
-        
+
         const { data: { session }, } = await supabase.auth.getSession();
 
         if (session?.user) {
@@ -317,7 +316,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const waitTime = user ? 1000 : 3000
-    const wait = async () => await new Promise((resolve) => setTimeout(resolve, waitTime)) 
+    const wait = async () => await new Promise((resolve) => setTimeout(resolve, waitTime))
 
     wait()
   }, [user])
@@ -337,7 +336,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchUsersByRole,
     updateUserRole,
     fetchUserRole,
-    fetchWalletSummary
+    fetchWalletSummary,
+    fetchTransactions
   };
 
   return isLoading ? <SplashScreen /> : (

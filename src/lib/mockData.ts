@@ -127,3 +127,36 @@ export const mockAgents: DeliveryAgent[] = [
     specialties: ['Quick delivery', 'Small packages']
   }
 ];
+
+// Mock transactions data
+export const mockTransactions = [
+  { id: 1, type: 'payment', amount: 52.50, description: 'Fresh vegetables', status: 'completed', date: new Date('2025-04-28') },
+  { id: 2, type: 'escrow', amount: 120.00, description: 'Electronic goods', status: 'pending', date: new Date('2025-04-27') },
+  { id: 3, type: 'payment', amount: 35.75, description: 'Local spices', status: 'completed', date: new Date('2025-04-25') },
+];
+
+// Mock calls data
+export const mockCalls = [
+  {
+    id: 1,
+    seller: 'Aisha M.',
+    duration: '12:45',
+    date: '2025-04-28',
+    category: 'Vegetables',
+    transaction: {
+      status: "success",
+      ref: "Ref_32948269832",
+      amount: "200",
+    }
+  },
+  {
+    id: 2, seller: 'Kofi Electronics', duration: '08:20', date: '2025-04-26', category: 'Electronics', transaction: {
+      status: "pending",
+      ref: "Ref_32948269832",
+      amount: "200",
+    }
+  },
+  {
+    id: 3, seller: 'Mama Spices', duration: '05:30', date: '2025-04-24', category: 'Food'
+  },
+];

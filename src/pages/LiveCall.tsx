@@ -22,7 +22,7 @@ const LiveCall = () => {
   const { user, profile, userRole } = useAuth();
   const timerRef = useRef<CallTimerHandle>(null);
 
-  const callData = location.state as CallData<never>
+  const callData = location.state as CallData
   const [isSeller] = useState(userRole === "seller");
   const liveCall = useLiveCall();
 
@@ -120,9 +120,17 @@ const LiveCall = () => {
   }, [activeSpeakers, remoteParticipants, localParticipant, manualActiveSpeaker]);
 
   const handleEndCall = async () => {
+    console.log("handleEndCall", {  liveCall });
+
     // Notify about call ending
     if (room && user && profile) {
-      liveCall.handlePublishCallEnded(callData);
+      liveCall.handlePublishCallEnded({
+        ...callData,
+        data: {
+          ...callData.data,
+          callSessionId: liveCall.activeCall.data.callSessionId
+        }
+      });
     }
 
     // Disconnect from LiveKit
@@ -164,7 +172,7 @@ const LiveCall = () => {
       data: {
         amount: payload.amount,
         itemDescription: payload.itemDescription,
-        itemTitle: payload.itemTitle
+        itemTitle: payload.itemTitle,
       }
     })
     toast.success(`Payment request of ${AppData.CurrencySymbol}${payload.amount.toFixed(2)} sent to buyer!`);
