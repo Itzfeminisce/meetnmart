@@ -150,6 +150,11 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, []);
 
 
+  const handlePublishReleaseEscrowedFund = useCallback((callData: EscrowData) => {
+    publish(CallAction.EscrowReleased, callData)
+  }, []);
+
+
 
   useEffect(() => {
     subscribe(CallAction.Incoming, (data) => {

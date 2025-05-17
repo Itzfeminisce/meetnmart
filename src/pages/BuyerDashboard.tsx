@@ -5,25 +5,17 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Clock, DollarSign, ShoppingBag, Truck } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency, getInitials } from '@/lib/utils';
-import { WalletData } from '@/types';
 import { useNavigate, Link } from 'react-router-dom';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MarketPlaceholder } from '@/components/MarketPlaceholder';
 import { toast } from 'sonner';
-import TransactionCard from '@/components/TransactionCard';
 import RecentCallCard from '@/components/RecentCallCard';
 import { Separator } from '@/components/ui/separator';
-import Logo from '@/components/Logo';
 import Loader from '@/components/ui/loader';
 import { useFetch } from '@/hooks/api-hooks';
 
 const BuyerDashboard = () => {
   const { user, profile, signOut, userRole, isLoading, fetchTransactions, wallet: walletData } = useAuth();
-  // const [recentCalls, setRecentCalls] = useState<Awaited<ReturnType<typeof fetchTransactions>>>([]);
-  // const [isLoadingTrx, setIsLoadingTrx] = useState(false);
-  // const [trxErr, setTrxErr] = useState('');
   const navigate = useNavigate();
 
   const {data:recentCalls, isLoading: isLoadingTrx, error: trxErr } = useFetch(["transactions"], () => fetchTransactions({ user_id: user.id, limit_count: 2 }),)

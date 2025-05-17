@@ -79,8 +79,8 @@ const RecentCallCard: React.FC<Props> = ({ recentCall: call, role }) => {
                             </div>
 
                             {role === "buyer" && call.status === "held" && (
-                                <div className="w-full pt-4 flex items-center justify-end">
-                                    <Button size='sm' variant='outline'>Release Fund</Button>
+                                <div className="w-full pt-4 flex items-center justify-end text-market-green text-sm">
+                                    Open transaction to release funds
                                 </div>
                             )}
                         </div>

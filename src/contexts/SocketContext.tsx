@@ -10,6 +10,7 @@ interface SocketContextState {
   lastPong: number | null;
   connect: (token?: string) => void;
   disconnect: () => void;
+  unsubscribe: (event: string, listener?: (...args: any[]) => void) => void
   ping: () => void;
   subscribe: (event: string, listener: (...args: any[]) => void) => void
   publish: (event: string, ...data: any[]) => void
@@ -33,6 +34,7 @@ const defaultContextValue: SocketContextState = {
   disconnect: () => {},
   ping: () => {},
   subscribe: () => {},
+  unsubscribe: () => {},
   publish: () => {},
 };
 
@@ -172,6 +174,16 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     }
   }, [isConnected]);
 
+  // Subscribe to a room
+  const unsubscribe = useCallback((event: string, listener?: (...args: any[]) => void) => {
+    if (socketRef.current && isConnected) {
+      console.log(`Unsubscribing from event: ${event}`);
+      socketRef.current.off(event, listener);
+    } else {
+      console.warn(`Cannot unsubscribe from ${event}: socket not connected`);
+    }
+  }, [isConnected]);
+
   // Publish an event
   const publish = useCallback((event: string, ...data: any[]) => {
     if (socketRef.current.connected) {
@@ -225,7 +237,8 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     disconnect,
     ping,
     subscribe, 
-    publish
+    publish,
+    unsubscribe
   };
 
   return (

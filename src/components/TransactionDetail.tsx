@@ -32,7 +32,7 @@ import { useFetch } from '@/hooks/api-hooks';
 // Helper function to get status badge
 const StatusBadge = ({ status }) => {
     const statusConfig = {
-        'completed': { color: 'bg-green-100 text-green-800', icon: <CheckCircle className="h-4 w-4" /> },
+        'released': { color: 'bg-green-100 text-green-800', icon: <CheckCircle className="h-4 w-4" /> },
         'pending': { color: 'bg-yellow-100 text-yellow-800', icon: <Hourglass className="h-4 w-4" /> },
         'rejected': { color: 'bg-red-100 text-red-800', icon: <AlertCircle className="h-4 w-4" /> },
         'disputed': { color: 'bg-purple-100 text-purple-800', icon: <Shield className="h-4 w-4" /> },
@@ -50,7 +50,7 @@ const StatusBadge = ({ status }) => {
 };
 
 const TransactionDetails = () => {
-    const { fetchTransactions, user } = useAuth()
+    const { fetchTransactions, user, userRole } = useAuth()
     const navigate = useNavigate();
     const { tx_id } = useParams() as { tx_id: string }
     const [showDisputeForm, setShowDisputeForm] = useState(false);
@@ -103,8 +103,8 @@ const TransactionDetails = () => {
     // Determine if user can release funds or file dispute
     // This would be based on user role and transaction state
     const status = transaction?.status?.toLowerCase() ?? '';
-    const canReleaseFunds = status === 'escrow';
-    const canFileDispute = !['completed', 'disputed', 'rejected'].includes(status);
+    const canReleaseFunds = status === 'held' && userRole === "buyer";
+    const canFileDispute = !canReleaseFunds && !['released', 'disputed', 'rejected'].includes(status);
 
 
     return (
@@ -207,7 +207,7 @@ const TransactionDetails = () => {
                                         <div className="text-sm text-muted-foreground flex items-center gap-1">
                                             <FileText className="h-3 w-3" /> Order Ref
                                         </div>
-                                        <div className="font-medium">{transaction.reference}</div>
+                                        <div className="font-medium break-words">{transaction.reference}</div>
                                     </div>
                                 </div>
                             </CardFooter>

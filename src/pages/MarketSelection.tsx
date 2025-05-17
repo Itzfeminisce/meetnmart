@@ -114,7 +114,7 @@ const MarketSelection = () => {
       return;
     }
 
-    toast.loading("Detecting your location...");
+    // toast.loading("Detecting your location...");
 
     navigator.geolocation.getCurrentPosition(
       (position) => {

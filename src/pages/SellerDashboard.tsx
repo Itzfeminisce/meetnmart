@@ -42,7 +42,7 @@ const paymentRequests = [
 // }
 
 const SellerDashboard = () => {
-  const { user, profile, signOut, isLoading, fetchTransactions, fetchWalletSummary } = useAuth();
+  const { user, profile, signOut, isLoading, fetchTransactions } = useAuth();
   const navigate = useNavigate();
   const [isOnline, setIsOnline] = useState(true);
   const [escrowModalOpen, setEscrowModalOpen] = useState(false);
@@ -50,7 +50,7 @@ const SellerDashboard = () => {
   const [selectedBuyer, setSelectedBuyer] = useState<{ id: string; name: string } | null>(null);
 
   const {data:recentCalls, isLoading: isLoadingTrx, error: trxErr } = useFetch(["transactions"], () => fetchTransactions({ user_id: user.id, limit_count: 2 }),)
-  const {data:walletSummary } = useFetch(["wallets"], fetchWalletSummary,)
+  // const {data:walletSummary } = useFetch(["wallets"], fetchWalletSummary,)
 
 
   useEffect(() => {
@@ -144,93 +144,12 @@ const SellerDashboard = () => {
         </div>
       </div>
 
-      {/* <div className="mb-6">
-        <h2 className="text-lg font-medium flex items-center mb-4">
-          <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
-          Payment Requests
-        </h2>
+      
+      <div className="mb-6">
+          <WalletSummaryComponent userRole='seller' />
+      </div>
 
-        <div className="space-y-3 mb-6">
-          {paymentRequests.length > 0 ? (
-            paymentRequests.map(payment => (
-              <div
-                key={payment.id}
-                className="glass-morphism rounded-lg p-3 flex items-center"
-              >
-                <div className="h-10 w-10 rounded-full bg-market-green/20 flex items-center justify-center mr-3">
-                  <DollarSign size={20} className="text-market-green" />
-                </div>
-                <div className="flex-grow">
-                  <h3 className="font-medium text-sm">${payment.amount.toFixed(2)} from {payment.buyerName}</h3>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <Clock size={12} className="mr-1" />
-                    <span>{payment.time}</span>
-                    <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${payment.status === 'accepted'
-                      ? 'bg-market-green/20 text-market-green'
-                      : payment.status === 'pending'
-                        ? 'bg-market-orange/20 text-market-orange'
-                        : 'bg-destructive/20 text-destructive'
-                      }`}>
-                      {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center py-4 text-muted-foreground text-sm">
-              No payment requests yet
-            </div>
-          )}
-        </div>
-
-        <h2 className="text-lg font-medium flex items-center mb-4">
-          <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
-          Recent Calls
-        </h2>
-
-        <div className="space-y-3">
-          {recentCalls.map(call => (
-            <div
-              key={call.id}
-              className="glass-morphism rounded-lg p-3 flex items-center"
-            >
-              <div className="h-10 w-10 rounded-full bg-secondary/50 flex items-center justify-center mr-3">
-                <PhoneCall size={20} className="text-muted-foreground" />
-              </div>
-              <div className="flex-grow">
-                <h3 className="font-medium text-sm">
-                  {call.buyerName}
-                  {call.missed && (
-                    <span className="text-destructive text-xs ml-2">(Missed)</span>
-                  )}
-                </h3>
-                <div className="flex items-center text-xs text-muted-foreground">
-                  <Clock size={12} className="mr-1" />
-                  <span>{call.time}</span>
-                  {call.duration && (
-                    <span className="ml-2">{call.duration}</span>
-                  )}
-                </div>
-              </div>
-              {!call.missed && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-market-green hover:text-market-green/90"
-                  onClick={() => handleRequestPayment(call.id, call.buyerName)}
-                >
-                  <DollarSign size={16} className="mr-1" />
-                  Request
-                </Button>
-              )}
-            </div>
-          ))}
-        </div>
-        
-      </div> */}
-
-      <div className="mt-6">
+      <div className="my-6">
         <div className='w-full flex items-center justify-between py-4'>
           <h2 className='font-bold'>Recent Calls</h2>
           <Button
@@ -256,11 +175,6 @@ const SellerDashboard = () => {
         </div>
       </div>
 
-      <div className="mb-6">
-        {walletSummary && (
-          <WalletSummaryComponent walletSummary={walletSummary} userRole='seller' />
-        )}
-      </div>
 
       <Button
         className="w-full mb-8 bg-market-orange hover:bg-market-orange/90"

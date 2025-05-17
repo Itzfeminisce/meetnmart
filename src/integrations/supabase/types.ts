@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type EscrowStatus = 'pending' | 'completed' | 'failed' | 'refunded'
+export type EscrowStatus = "initiated" | "pending" | "held" | "delivered" | "confirmed" | "released" | "disputed" | "refunded" | "rejected"
 
 export type Database = {
   public: {
