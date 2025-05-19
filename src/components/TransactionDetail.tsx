@@ -276,19 +276,19 @@ const TransactionDetails = () => {
                         </Card>
 
                         {/* Additional details */}
-                        <Card>
+                       {transaction.description.feedback &&  <Card>
                             <CardHeader>
                                 <CardTitle className="text-lg">Additional Information</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="grid gap-4">
                                     <div>
-                                        <p className="text-sm text-muted-foreground">Notes</p>
-                                        <p className="mt-1">{"No additional notes."}</p>
+                                        <p className="text-sm text-muted-foreground">Feedback:</p>
+                                        <p className="mt-1">{transaction.description.feedback || "No Feedback"}</p>
                                     </div>
                                 </div>
                             </CardContent>
-                        </Card>
+                        </Card>}
 
                         {/* Help information */}
                         <Alert>

@@ -120,7 +120,7 @@ const LiveCall = () => {
   }, [activeSpeakers, remoteParticipants, localParticipant, manualActiveSpeaker]);
 
   const handleEndCall = async () => {
-    console.log("handleEndCall", {  liveCall });
+    console.log("handleEndCall", { liveCall });
 
     // Notify about call ending
     if (room && user && profile) {
@@ -197,10 +197,20 @@ const LiveCall = () => {
     toast.success(`${agent.name} has been invited and will join the call shortly!`);
   };
 
-  const toggleFullscreen = () => {
-    setIsFullscreenMode(!isFullscreenMode);
-  };
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        toast.error('Error attempting to enable fullscreen mode');
+      });
+      setIsFullscreenMode(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+        setIsFullscreenMode(false);
+      }
+    }
+  };
   // Format participants for the UI
   const renderParticipants = useCallback(() => {
     if (!localParticipant) return [];
@@ -229,16 +239,16 @@ const LiveCall = () => {
   const participantCount = localParticipant ? remoteParticipants.length + 1 : 0;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Call Header */}
-      <div className="glass-morphism py-3 px-4 border-b flex justify-between items-center">
+    <div className="h-screen w-screen bg-black flex flex-col relative overflow-hidden">
+      {/* Call Header - Floating */}
+      <div className="absolute top-0 left-0 right-0 z-10 glass-morphism-dark py-3 px-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <Users size={20} />
-          <span className="font-medium">
+          <Users size={20} className="text-white" />
+          <span className="font-medium text-white">
             {`${participantCount} participants`}
           </span>
         </div>
-        <div className="glass-morphism px-3 py-1 rounded-full text-sm font-medium">
+        <div className="glass-morphism-dark px-3 py-1 rounded-full text-sm font-medium text-white">
           <CallTimer
             ref={timerRef}
             formatDuration={formatDuration}
@@ -248,96 +258,89 @@ const LiveCall = () => {
         <Button
           variant="ghost"
           size="icon"
-          className="rounded-full"
+          className="rounded-full text-white hover:bg-white/10"
           onClick={toggleFullscreen}
         >
           {isFullscreenMode ? <Minimize size={20} /> : <Maximize size={20} />}
         </Button>
       </div>
 
-      {/* Main Call Area */}
-      <div className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Main Video/Avatar Space */}
-        <div
-          className={cn(
-            "flex-1 flex flex-col items-center justify-center",
-            isMobile ? "pb-20" : "pb-24"
-          )}
-        >
-          {isConnecting ? (
-            <div className="text-center">
-              <p>Connecting to the call...</p>
-            </div>
-          ) : participantCount <= 2 ? (
-            // Two participant layout
-            <div className="relative max-w-2xl w-full h-full flex flex-col items-center justify-center">
-              {/* Main participant (remote) */}
-              <div className="aspect-video w-full h-[calc(100vh - 42rem)] relative rounded-xl overflow-hidden bg-secondary/30 border-2 border-market-orange/50 flex items-center justify-center">
-                {!isConnecting && waitingForSeller && !isSeller ? (<p>Waiting for seller</p>) : (
-                  renderParticipants().find(p => !p.isLocal) && (
-                    <Participant
-                      {...renderParticipants().find(p => !p.isLocal)!}
-                      large={true}
-                    />
-                  )
-                )}
-              </div>
-
-              {/* Self view (small) */}
-              <div className="absolute bottom-5 right-5 w-32 h-32 rounded-lg overflow-hidden border-2 border-background shadow-md">
-                {renderParticipants().find(p => p.isLocal) && (
-                  <Participant
-                    {...renderParticipants().find(p => p.isLocal)!}
-                  />
-                )}
-              </div>
-            </div>
-          ) : (
-            // Multiple participants layout
-            <div className="w-full h-full flex flex-col md:flex-row gap-4">
-              {/* Main active speaker */}
-              <div className="flex-1 relative">
-                <div className="aspect-video w-full h-full max-h-[60vh] md:max-h-none relative rounded-xl overflow-hidden bg-secondary/30 border-2 border-market-orange/50 flex items-center justify-center">
-                  {renderParticipants().find(p => p.isSpeaking) && (
-                    <Participant
-                      {...renderParticipants().find(p => p.isSpeaking)!}
-                      large={true}
-                    />
-                  )}
+      {/* Main Call Area - Full Screen */}
+      <div className="w-full h-full flex-1 relative">
+        {isConnecting ? (
+          <div className="text-center text-white absolute inset-0 flex items-center justify-center">
+            <p>Connecting to the call...</p>
+          </div>
+        ) : participantCount <= 2 ? (
+          // Two participant layout - Full Screen
+          <div className="w-full h-full relative">
+            {/* Main participant (remote) - Full Screen */}
+            <div className="absolute inset-0">
+              {!isConnecting && waitingForSeller && !isSeller ? (
+                <div className="w-full h-full flex items-center justify-center text-white">
+                  <p>Waiting for seller</p>
                 </div>
-              </div>
-
-              {/* Thumbnail strip (vertical on mobile, horizontal on desktop) */}
-              <div className={cn(
-                "flex gap-2",
-                isMobile ? "flex-row justify-center" : "flex-col justify-start w-1/4"
-              )}>
-                {/* Thumbnails for all non-speaking participants */}
-                {renderParticipants()
-                  .filter(p => !p.isSpeaking)
-                  .map((p, idx) => (
-                    <div
-                      key={p.participant.identity || idx}
-                      className={cn(
-                        "relative rounded-lg overflow-hidden bg-secondary/30 border-2 cursor-pointer hover:border-primary/50 transition-colors",
-                        isMobile ? "h-24 w-24" : "aspect-video w-full"
-                      )}
-                      onClick={() => {
-                        // Manually set active speaker for UI purposes
-                        setManualActiveSpeaker(p.participant.identity || null);
-                      }}
-                    >
-                      <Participant {...p} />
-                    </div>
-                  ))}
-              </div>
+              ) : (
+                renderParticipants().find(p => !p.isLocal) && (
+                  <Participant
+                    {...renderParticipants().find(p => !p.isLocal)!}
+                    large={true}
+                  />
+                )
+              )}
             </div>
-          )}
-        </div>
+
+            {/* Self view (small) - Floating */}
+            <div className="absolute bottom-24 right-5 w-32 h-32 md:w-40 md:h-40 rounded-lg overflow-hidden border-2 border-white/30 shadow-lg z-10">
+              {renderParticipants().find(p => p.isLocal) && (
+                <Participant
+                  {...renderParticipants().find(p => p.isLocal)!}
+                />
+              )}
+            </div>
+          </div>
+        ) : (
+          // Multiple participants layout
+          <div className="w-full h-full relative">
+            {/* Main active speaker - Full Screen */}
+            <div className="absolute inset-0">
+              {renderParticipants().find(p => p.isSpeaking) && (
+                <Participant
+                  {...renderParticipants().find(p => p.isSpeaking)!}
+                  large={true}
+                />
+              )}
+            </div>
+
+            {/* Thumbnail strip - Floating */}
+            <div className={cn(
+              "absolute z-10 flex gap-2 bg-black/30 p-2 rounded-lg backdrop-blur-sm",
+              isMobile ? "bottom-24 left-1/2 transform -translate-x-1/2 flex-row" : "right-5 top-1/2 transform -translate-y-1/2 flex-col"
+            )}>
+              {/* Thumbnails for non-speaking participants */}
+              {renderParticipants()
+                .filter(p => !p.isSpeaking)
+                .map((p, idx) => (
+                  <div
+                    key={p.participant.identity || idx}
+                    className={cn(
+                      "relative rounded-lg overflow-hidden border border-white/30 cursor-pointer hover:border-primary/80 transition-colors",
+                      isMobile ? "h-20 w-20" : "h-24 w-24"
+                    )}
+                    onClick={() => {
+                      setManualActiveSpeaker(p.participant.identity || null);
+                    }}
+                  >
+                    <Participant {...p} />
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Call Controls */}
-      <div className="absolute left-0 right-0 bottom-0">
+      {/* Call Controls - Floating */}
+      <div className="absolute left-0 right-0 bottom-0 z-10">
         <CallControls
           isMuted={isMuted}
           isVideoOn={isVideoOn}

@@ -226,6 +226,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_feedbacks: {
+        Args: {
+          p_limit?: number;
+          p_offset?: number;
+          p_search?: string;
+          p_min_rating?: number;
+          p_start_date?: string; // ISO string (timestamptz)
+          p_end_date?: string;   // ISO string (timestamptz)
+        }
+        Returns: {
+          id: string;
+          feedback_text: string;
+          rating: number;
+          call_duration: string; // PostgreSQL interval returns as string
+          created_at: string;
+          buyer_id: string;
+          buyer_name: string | null;
+          buyer_avatar: string | null;
+          seller_id: string;
+          seller_name: string | null;
+          seller_avatar: string | null;
+        }[]
+      }
       get_call_sessions_with_transactions: {
         Args: {
           user_id: string;
@@ -257,6 +280,7 @@ export type Database = {
           status: string | null;
           reference: string | null;
           description: {
+            feedback?: string
             metadata?: {
               itemTitle: string
               itemDescription: string
