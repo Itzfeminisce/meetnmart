@@ -119,6 +119,59 @@ export const Participant = ({
     }
   }, [videoTrack, videoRef.current]);
 
+  // Attach audio tracks
+  useEffect(() => {
+    if (!participant) return;
+
+    // Function to find active audio track
+    const findAudioTrack = () => {
+      const publications = Array.from(participant.audioTrackPublications.values());
+      for (const publication of publications) {
+        if (publication.track && !publication.isMuted) {
+          return publication.track;
+        }
+      }
+      return null;
+    };
+
+    const audioTrack = findAudioTrack();
+
+    if (audioTrack && !isLocal) {
+      audioTrack.attach();
+    }
+
+    // Set up audio track subscribed/unsubscribed listeners
+    const handleAudioTrackSubscribed = (track) => {
+      if (track.kind === Track.Kind.Audio && !isLocal) {
+        track.attach();
+      }
+    };
+
+    const handleAudioTrackUnsubscribed = (track) => {
+      if (track.kind === Track.Kind.Audio) {
+        track.detach();
+      }
+    };
+
+    // Add event listeners
+    if ('on' in participant) {
+      participant.on('trackSubscribed', handleAudioTrackSubscribed);
+      participant.on('trackUnsubscribed', handleAudioTrackUnsubscribed);
+    }
+
+    // Clean up
+    return () => {
+      if (audioTrack && !isLocal) {
+        audioTrack.detach();
+      }
+
+      if ('off' in participant) {
+        participant.off('trackSubscribed', handleAudioTrackSubscribed);
+        participant.off('trackUnsubscribed', handleAudioTrackUnsubscribed);
+      }
+    };
+  }, [participant, isLocal]);
+
   // Determine if camera is on based on props or track state
   const showVideo = isCameraOn !== undefined ? isCameraOn : hasVideo;
 

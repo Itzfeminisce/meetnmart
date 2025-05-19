@@ -23,17 +23,47 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from './ui/form';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
+import { useMutate } from '@/hooks/api-hooks';
+import { useAuth } from '@/contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 const formSchema = z.object({
-    reason: z.string().min(1),
+    reason: z.enum(["fraud", "delayed_delivery", "item_not_as_described", "communication_problem", "other"]),
     description: z.string().min(1),
-    evidence: z.string().min(1),
+    evidence: z.string().optional(),
     email: z.string().min(1).email()
 })
 
+async function submitDisput({
+    description,
+    email,
+    reason,
+    trxId,
+    evidence
+}: { trxId: string; reason: string; description: string; email: string; evidence?: string }) {
+    const { data, error } = await supabase.rpc("submit_dispute", {
+        p_transaction_id: trxId,
+        p_reason: reason,
+        p_description: description,
+        p_contact_email: email,
+        p_evidence: evidence // optional
+    });
+
+    if (error) {
+        console.error("Dispute failed:", error.message);
+        throw error
+    }
+
+    return data
+
+}
+
 const DisputeForm = ({ transactionId, onCancel }) => {
-    const [error, setError] = useState('')
-    const [isSubmitted, setSubmitted] = useState(false)
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+    // const [error, setError] = useState('')
+    // const [isSubmitted, setSubmitted] = useState(false)
     const form = useForm({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -44,37 +74,39 @@ const DisputeForm = ({ transactionId, onCancel }) => {
         }
     });
 
+    const { mutateAsync, error, data: disputeResponse } = useMutate(() => submitDisput({
+        description: form.getValues().description,
+        reason: form.getValues().reason,
+        email: form.getValues().email,
+        trxId: transactionId,
+        evidence: form.getValues().evidence,
+    }))
+
 
     const handleSubmit = async () => {
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            setSubmitted(true)
-        } catch (error: any) {
-            setError(error?.message)
-        } finally {
-            // setSubmitted(false)
-        }
+        await mutateAsync()
+        await queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    }
 
-    };
 
     return (
         <CustomDialog
-            showSubmitButton={!isSubmitted}
+            showSubmitButton={!form.formState.isSubmitSuccessful}
             onOpenChange={() => !true}
             open={true}
             form={form}
             onSubmit={handleSubmit}
             onCancel={onCancel}
-            submitButtonText={isSubmitted ? " Dispute Filed Successfully" : "Submit Dispute"}
-            dialogTitle={isSubmitted ? 'Submitted, We shall revert.' : 'Lets hear from you'}>
-            {isSubmitted ? (
+            submitButtonText={"Submit Dispute"}
+            dialogTitle={form.formState.isSubmitSuccessful ? 'Submitted, We shall revert.' : 'Lets hear from you'}>
+            {form.formState.isSubmitSuccessful ? (
                 <Card className="shadow-md border-yellow-200 bg-yellow-50 p-4">
                     <CardContent className="space-y-2">
                         <p className="text-amber-700">
-                            Your dispute for transaction <b>{transactionId}</b> has been filed.
+                            Your dispute for transaction <b>{disputeResponse?.id}</b> has been filed.
                         </p>
                         <p className="text-amber-700">
-                        Our support team will review your case and contact you within 2 business days.
+                            Our support team will review your case and contact you within 2 business days.
                         </p>
                         <p className="mt-2 text-amber-700">
                             A copy of this dispute has been sent to your email address.
@@ -82,13 +114,15 @@ const DisputeForm = ({ transactionId, onCancel }) => {
                     </CardContent>
                 </Card>
             ) : (
-                <Form {...form}>
-                    <form onSubmit={handleSubmit}>
+                error ? (
+                    <p>{error instanceof Error ? error?.message : error as any}</p>
+                ) : <Form {...form}>
+                    <form>
                         {error && (
                             <Alert variant="destructive" className="mb-4">
                                 <AlertCircle className="h-4 w-4" />
                                 <AlertTitle>Error</AlertTitle>
-                                <AlertDescription>{error}</AlertDescription>
+                                <AlertDescription>{error as any}</AlertDescription>
                             </Alert>
                         )}
 
@@ -107,10 +141,10 @@ const DisputeForm = ({ transactionId, onCancel }) => {
                                             </FormControl>
 
                                             <SelectContent >
-                                                <SelectItem value="incomplete_service">Service Not Completed</SelectItem>
-                                                <SelectItem value="quality_issues">Quality Issues</SelectItem>
+                                                <SelectItem value="fraud">Fradulence</SelectItem>
+                                                <SelectItem value="delayed_delivery">Delayed Delivery</SelectItem>
                                                 <SelectItem value="communication_problems">Communication Problems</SelectItem>
-                                                <SelectItem value="not_as_described">Not As Described</SelectItem>
+                                                <SelectItem value="item_not_as_described">Not As Described</SelectItem>
                                                 <SelectItem value="other">Other</SelectItem>
                                             </SelectContent>
                                         </Select>
@@ -161,6 +195,7 @@ const DisputeForm = ({ transactionId, onCancel }) => {
                         <div className="space-y-4">
                             <FormField
                                 control={form.control}
+                                defaultValue={user?.email}
                                 name="email"
                                 render={({ field }) => (
                                     <FormItem>
