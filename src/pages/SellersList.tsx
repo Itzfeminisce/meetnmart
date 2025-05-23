@@ -1,73 +1,51 @@
 
-import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Bell, BellOff, PhoneCall } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import BottomNavigation from '@/components/BottomNavigation';
-import EscrowPaymentConfirmModal from '@/components/EscrowPaymentConfirmModal';
 import { categories } from '@/lib/mockData';
-import { Market, Seller } from '@/types';
-import { toast } from 'sonner';
+import { Market } from '@/types';
 import { getInitials, toLivekitRoomName } from '@/lib/utils';
 import { useAuth, UsersByRole } from '@/contexts/AuthContext';
-import { useSocket } from '@/contexts/SocketContext';
-import { AppEvent } from '@/types/call';
 import { CallData } from '@/contexts/live-call-context';
-import { useFetch } from '@/hooks/api-hooks';
+import { useGetSellers } from '@/hooks/api-hooks';
 import Loader from '@/components/ui/loader';
+import ErrorComponent from '@/components/ErrorComponent';
+import { useEffect } from 'react';
+import { useSocket } from '@/contexts/SocketContext';
 
 const SellersList = () => {
-  const { fetchUsersByRole, profile } = useAuth()
+  const { profile } = useAuth()
   const location = useLocation();
   const navigate = useNavigate();
+  const {unsubscribe,subscribe} = useSocket()
   const { market, categoryId } = location.state as { market: Market; categoryId: string };
 
-  // const [paymentConfirmModalOpen, setPaymentConfirmModalOpen] = useState(false);
-  const [selectedSeller, setSelectedSeller] = useState<{ name: string } | null>(null);
-  // const [requestAmount, setRequestAmount] = useState(0);
-  // const [sellers, setSellers] = useState<UsersByRole[]>([]);
-  // const [isLoading, setIsLoading] = useState(false);
-  // const { subscribe } = useSocket()
 
-  const { data: sellers, isLoading } = useFetch(['sellers'], () => fetchUsersByRole("seller"))
+  const { data: sellers, isLoading, error, refetch } = useGetSellers()
 
   const category = categories.find(cat => cat.id === categoryId);
   const filteredSellers = sellers //.filter(seller => seller.category === categoryId);
 
-  // Get Availabke sellers
-  // useEffect(() => {
-  //   async function getSellers() {
-  //     try {
-  //       const _sellers = await fetchUsersByRole("seller")
-  //       setSellers(_sellers)
-  //     } catch (error) {
-  //       toast.error('Unable to fetch sellers. PLease try again')
-  //     } finally {
-  //       setIsLoading(false)
-  //     }
-  //   }
-
-  //   getSellers()
-  // }, []);
-
-
   const handleCall = async (seller: UsersByRole) => {
-    if (!seller.is_online) {
-      toast.error("This seller is currently offline.");
-      return;
-    }
-    setSelectedSeller(seller);
-    // name: seller.name, id: seller.id
-    navigate('/call', {
+    navigate('/calls', {
       state: {
         caller: { id: profile.id, name: profile.name },
         room: toLivekitRoomName(`call_${Date.now()}_${seller.id}`),
-        receiver: { name: seller.name, id: seller.id }
+        receiver: { name: seller.name, id: seller.id },
       } as CallData,
-      replace: true,
     });
   };
+
+
+
+  useEffect(() => {
+    subscribe("user_socket_cache:user_joined", refetch)
+    return () => unsubscribe("user_socket_cache:user_joined", refetch)
+  }, [refetch])
+
+
+  if (error) return <ErrorComponent error={error} onRetry={() => navigate(0)} />
 
 
   return (
@@ -100,7 +78,7 @@ const SellersList = () => {
         <div className="space-y-3">
           {isLoading ? (
             <Loader />
-          ) : filteredSellers.length > 0 ? (
+          ) : filteredSellers?.length > 0 ? (
             filteredSellers.map(seller => (
               <div
                 key={seller.id}

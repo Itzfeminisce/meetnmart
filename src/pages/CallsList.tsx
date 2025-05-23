@@ -12,9 +12,10 @@ import {
 import RecentCallCard from '@/components/RecentCallCard';
 import { useAuth } from '@/contexts/AuthContext';
 import Loader from '@/components/ui/loader';
-import { useFetch } from '@/hooks/api-hooks';
+import { useFetch, useGetTransactions } from '@/hooks/api-hooks';
+import ErrorComponent from '@/components/ErrorComponent';
 
-type Status = "status:completed" | "status:held" | "status:rejected"
+type Status = "status:initiated" | "status:pending" | "status:held" | "status:delivered" | "status:confirmed" | "status:released" | "status:disputed" | "status:refunded" | "status:rejected";
 type SortOption = 'date-asc' | 'date-desc' | 'duration-asc' | 'duration-desc' | Status;
 
 const CallsList = () => {
@@ -23,53 +24,92 @@ const CallsList = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOption, setSortOption] = useState<SortOption>('date-desc');
 
-    const {data: allCalls, isLoading: isLoadingTrx, error:trxErr } = useFetch(['transactions'], () => fetchTransactions({ user_id: user.id }))
+    const {data: allCalls, isLoading: isLoadingTrx, error:trxErr } = useGetTransactions({params: {user_id: user.id }})
 
     const [filteredCalls, setFilteredCalls] = useState<Awaited<ReturnType<typeof fetchTransactions>>>([]);
 
     // Apply filters and sorting whenever search term or sort option changes
     useEffect(() => {
+        if(!allCalls) return
         // Start with all calls
         let results = [...allCalls];
         
         // Apply search filter
-        if (searchTerm) {
+        if (searchTerm.trim()) {
+            const searchLower = searchTerm.toLowerCase().trim();
             results = results.filter(call =>
-                call.seller_name.toLowerCase().includes(searchTerm.toLowerCase())
-                // Add other search criteria if needed
-                // || call.category.toLowerCase().includes(searchTerm.toLowerCase())
+                call.seller_name?.toLowerCase().includes(searchLower) ||
+                call.buyer_name?.toLowerCase().includes(searchLower) ||
+                call.category?.toLowerCase().includes(searchLower) ||
+                call.description?.toLowerCase().includes(searchLower)
             );
         }
         
         // Apply status filter
-        if (sortOption.startsWith("status")) {
+        if (sortOption.startsWith("status:")) {
             const status = sortOption.split(":")[1];
             results = results.filter(call => call.status === status);
         }
         
-        // Apply sorting
-        results.sort((a, b) => {
-            switch (sortOption) {
-                case 'date-asc':
-                    return new Date(a?.transaction_created_at).getTime() - new Date(b?.transaction_created_at).getTime();
-                case 'date-desc':
-                    return new Date(b?.transaction_created_at).getTime() - new Date(a?.transaction_created_at).getTime();
-                case 'duration-asc':
-                    return a.duration?.localeCompare(b.duration);
-                case 'duration-desc':
-                    return b.duration?.localeCompare(a.duration);
-                default:
-                    return 0;
-            }
-        });
+        // Apply sorting (only if not filtering by status)
+        if (!sortOption.startsWith("status:")) {
+            results.sort((a, b) => {
+                switch (sortOption) {
+                    case 'date-asc':
+                        return new Date(a?.transaction_created_at || 0).getTime() - new Date(b?.transaction_created_at || 0).getTime();
+                    case 'date-desc':
+                        return new Date(b?.transaction_created_at || 0).getTime() - new Date(a?.transaction_created_at || 0).getTime();
+                    case 'duration-asc':
+                        // Convert duration strings to numbers for proper comparison
+                        const aDuration = parseDuration(a.duration);
+                        const bDuration = parseDuration(b.duration);
+                        return aDuration - bDuration;
+                    case 'duration-desc':
+                        const aDurationDesc = parseDuration(a.duration);
+                        const bDurationDesc = parseDuration(b.duration);
+                        return bDurationDesc - aDurationDesc;
+                    default:
+                        return 0;
+                }
+            });
+        } else {
+            // If filtering by status, still sort by date (newest first)
+            results.sort((a, b) => 
+                new Date(b?.transaction_created_at || 0).getTime() - new Date(a?.transaction_created_at || 0).getTime()
+            );
+        }
         
         setFilteredCalls(results);
     }, [searchTerm, sortOption, allCalls]);
+
+    // Helper function to parse duration string to seconds for comparison
+    const parseDuration = (duration: string | undefined): number => {
+        if (!duration) return 0;
+        
+        // Handle different duration formats (e.g., "5:30", "1:05:30", "30s", etc.)
+        const timeMatch = duration.match(/(\d+):(\d+)(?::(\d+))?/);
+        if (timeMatch) {
+            const hours = timeMatch[3] ? parseInt(timeMatch[1]) : 0;
+            const minutes = timeMatch[3] ? parseInt(timeMatch[2]) : parseInt(timeMatch[1]);
+            const seconds = timeMatch[3] ? parseInt(timeMatch[3]) : parseInt(timeMatch[2]);
+            return hours * 3600 + minutes * 60 + seconds;
+        }
+        
+        // Handle seconds format
+        const secondsMatch = duration.match(/(\d+)s?/);
+        if (secondsMatch) {
+            return parseInt(secondsMatch[1]);
+        }
+        
+        return 0;
+    };
 
     const handleClearFilters = () => {
         setSearchTerm('');
         setSortOption('date-desc');
     };
+
+    if(trxErr) return <ErrorComponent error={trxErr} onRetry={() => navigate(0)} />
 
     return (
         <div className="app-container px-4 pt-6 animate-fade-in">
@@ -98,7 +138,7 @@ const CallsList = () => {
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Search by seller or category..."
+                            placeholder="Search by seller, buyer, or category..."
                             className="pl-9"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -109,7 +149,7 @@ const CallsList = () => {
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" className="shrink-0">
                                 <Filter className="mr-2 h-4 w-4" />
-                                Sort
+                                {sortOption.startsWith('status:') ? 'Filter' : 'Sort'}
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -125,32 +165,84 @@ const CallsList = () => {
                             <DropdownMenuItem onClick={() => setSortOption('duration-asc')}>
                                 Duration (Shortest first)
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortOption('status:rejected')}>
-                                Rejected
+                            {/* <DropdownMenuItem onClick={() => setSortOption('status:initiated')}>
+                                Status: Initiated
+                            </DropdownMenuItem> */}
+                            <DropdownMenuItem onClick={() => setSortOption('status:pending')}>
+                                Status: Pending
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setSortOption('status:held')}>
-                                Held
+                                Status: Held
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortOption('status:completed')}>
-                                Completed
+                            {/* <DropdownMenuItem onClick={() => setSortOption('status:delivered')}>
+                                Status: Delivered
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortOption('status:confirmed')}>
+                                Status: Confirmed
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortOption('status:released')}>
+                                Status: Released
+                            </DropdownMenuItem> */}
+                            <DropdownMenuItem onClick={() => setSortOption('status:disputed')}>
+                                Status: Disputed
+                            </DropdownMenuItem>
+                            {/* <DropdownMenuItem onClick={() => setSortOption('status:refunded')}>
+                                Status: Refunded
+                            </DropdownMenuItem> */}
+                            <DropdownMenuItem onClick={() => setSortOption('status:rejected')}>
+                                Status: Rejected
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
 
+                {/* Show active filters */}
+                {(searchTerm || sortOption !== 'date-desc') && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>Active filters:</span>
+                        {searchTerm && (
+                            <span className="bg-secondary px-2 py-1 rounded text-xs">
+                                Search: "{searchTerm}"
+                            </span>
+                        )}
+                        {sortOption !== 'date-desc' && (
+                            <span className="bg-secondary px-2 py-1 rounded text-xs">
+                                {sortOption.startsWith('status:') 
+                                    ? `Status: ${sortOption.split(':')[1]}` 
+                                    : `Sort: ${sortOption}`
+                                }
+                            </span>
+                        )}
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={handleClearFilters}
+                            className="text-xs h-6 px-2"
+                        >
+                            Clear all
+                        </Button>
+                    </div>
+                )}
+
                 <div className="space-y-3">
                     {isLoadingTrx ? (
                         <Loader />
-                    ) : trxErr ? (
-                        <p>{trxErr as string}</p>
-                    ) : (
+                    ) :  (
                         !trxErr && filteredCalls.length === 0 ? (
-                            <div className="w-full flex flex-col gap-4 mx-auto justify-center align-center text-center py-4">
-                                <p>No transactions found.</p>
-                                <Button size="sm" onClick={handleClearFilters}>Clear Filters</Button>
+                            <div className="w-full flex flex-col gap-4 mx-auto justify-center align-center text-center py-8">
+                                <p className="text-muted-foreground">
+                                    {searchTerm || sortOption !== 'date-desc' 
+                                        ? 'No calls match your current filters.' 
+                                        : 'No transactions found.'}
+                                </p>
+                                {(searchTerm || sortOption !== 'date-desc') && (
+                                    <Button size="sm" onClick={handleClearFilters}>
+                                        Clear Filters
+                                    </Button>
+                                )}
                             </div>
                         ) : filteredCalls.map((call, idx) => (
-                            <RecentCallCard role={userRole} key={idx} recentCall={call} />
+                            <RecentCallCard role={userRole} key={call.call_session_id || idx} recentCall={call} />
                         ))
                     )}
                 </div>

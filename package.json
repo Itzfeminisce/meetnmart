@@ -51,6 +51,7 @@
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
+    "firebase": "^11.7.3",
     "input-otp": "^1.2.4",
     "livekit-client": "^2.11.4",
     "lodash": "^4.17.21",

@@ -3,52 +3,32 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import AuthModal from "./AuthModal";
+import ErrorComponent from "./ErrorComponent";
 
 const BottomNavigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, userRole } = useAuth();
+  const { userRole } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const userDashboardUrl = `/${userRole === "buyer" ? 'buyer' : 'seller'}-dashboard`
+
+
+  const userDashboardUrl = `/${userRole}-dashboard`
+  const userHomeUrl = `/${userRole}/landing`
 
   const isActive = (path: string) => {
     return location.pathname === path;
   };
 
-  const handleProfileClick = () => {
-    if (!user) {
-      setShowAuthModal(true);
-      return;
-    }
 
-
-    // If user hasn't chosen a role yet, direct them to role selection
-    if (!userRole) {
-      navigate('/role-selection');
-      return;
-    }
-
-    navigate(userDashboardUrl);
-  };
-
-  const handleAuthSuccess = () => {
-    // After successful auth, check if user has a role
-    if (!userRole) {
-      navigate('/role-selection');
-    } else {
-      navigate(userDashboardUrl);
-    }
-  };
-
-  if (location.pathname == "/call") return null
+  if (location.pathname == "/calls") return null
 
   return (
     <>
       <div className="fixed bottom-0 left-0 right-0 h-16 bg-card glass-morphism border-t border-border shadow-lg z-50">
         <div className="grid grid-cols-4 h-full max-w-md mx-auto">
           <button
-            onClick={() => navigate('/markets')}
-            className={`flex flex-col items-center justify-center ${isActive('/markets') ? 'text-market-orange' : 'text-muted-foreground'}`}
+            onClick={() => navigate(userHomeUrl)}
+            className={`flex flex-col items-center justify-center ${isActive(userHomeUrl) ? 'text-market-orange' : 'text-muted-foreground'}`}
           >
             <Home size={20} />
             <span className="text-xs mt-1">Markets</span>
@@ -71,7 +51,7 @@ const BottomNavigation = () => {
           </button>
 
           <button
-            onClick={handleProfileClick}
+            onClick={() => navigate(userDashboardUrl)}
             className={`flex flex-col items-center justify-center ${isActive('/seller-dashboard') || isActive('/buyer-dashboard') || isActive('/profile') || isActive('/role-selection')
                 ? 'text-market-orange'
                 : 'text-muted-foreground'
@@ -86,7 +66,7 @@ const BottomNavigation = () => {
       <AuthModal
         open={showAuthModal}
         onOpenChange={setShowAuthModal}
-        onSuccess={handleAuthSuccess}
+        onSuccess={() => navigate(userHomeUrl)}
       />
     </>
   );

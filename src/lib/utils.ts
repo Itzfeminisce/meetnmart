@@ -157,3 +157,12 @@ const formatDateTime = (dateString) => {
     hour12: true
   }).format(date);
 };
+
+
+export const logger = (message?: any, ...optionalParams: any[]) => {
+const env = getEnvVar("NODE_ENV")
+
+if(env === "production") return;
+
+console.log(message, optionalParams)
+}

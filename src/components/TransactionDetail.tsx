@@ -24,7 +24,8 @@ import { formatCurrency, formatDate, formatDuration, formatTimeAgo } from '@/lib
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Transaction, useAuth } from '@/contexts/AuthContext';
 import Loader from './ui/loader';
-import { useFetch } from '@/hooks/api-hooks';
+import { useFetch, useGetTransactions } from '@/hooks/api-hooks';
+import ErrorComponent from './ErrorComponent';
 
 
 
@@ -50,7 +51,7 @@ const StatusBadge = ({ status }) => {
 };
 
 const TransactionDetails = () => {
-    const { fetchTransactions, user, userRole } = useAuth()
+    const { user, userRole } = useAuth()
     const navigate = useNavigate();
     const { tx_id } = useParams() as { tx_id: string }
     const [showDisputeForm, setShowDisputeForm] = useState(false);
@@ -62,7 +63,7 @@ const TransactionDetails = () => {
     if (!(tx_id && user)) navigate("/")
 
 
-    let { data: trnx, isLoading: isLoadingTrx, error: trxErr } = useFetch(['transactions', tx_id], () => fetchTransactions({ user_id: user.id, session_id: tx_id }))
+    let { data: trnx, isLoading: isLoadingTrx, error: trxErr } = useGetTransactions({ params: { user_id: user.id, session_id: tx_id } })
 
 
 
@@ -76,7 +77,7 @@ const TransactionDetails = () => {
                 description: JSON.parse(tranx.description as undefined as string)
             })
         }
-        
+
     }, [trnx, setTransaction])
 
 
@@ -106,6 +107,7 @@ const TransactionDetails = () => {
     const canReleaseFunds = status === 'held' && userRole === "buyer";
     const canFileDispute = !canReleaseFunds && !['released', 'disputed', 'rejected'].includes(status);
 
+    if (trxErr) return <ErrorComponent error={trxErr} onRetry={() => navigate(0)}/>
 
     return (
         <div className="app-container px-4 pt-6 animate-fade-in mb-6">
@@ -119,9 +121,7 @@ const TransactionDetails = () => {
             </div>
             {isLoadingTrx ? (
                 <Loader />
-            ) : trxErr ? (
-                <p>{trxErr as string}</p>
-            ) : (
+            ) :  (
                 transaction && (
                     <div className="grid gap-6">
                         {/* Top summary card */}
@@ -276,7 +276,7 @@ const TransactionDetails = () => {
                         </Card>
 
                         {/* Additional details */}
-                       {transaction.description.feedback &&  <Card>
+                        {transaction.description.feedback && <Card>
                             <CardHeader>
                                 <CardTitle className="text-lg">Additional Information</CardTitle>
                             </CardHeader>

@@ -1,5 +1,3 @@
-
-// routes.ts
 import Index from "./pages/Index";
 import MarketSelection from "./pages/MarketSelection";
 import CategorySelection from "./pages/CategorySelection";
@@ -11,7 +9,7 @@ import RoleSelection from "./pages/RoleSelection";
 import EditSellerProfile from "./pages/EditSellerProfile";
 import NotFound from "./pages/NotFound";
 import { RouteObject } from "react-router-dom";
-import AuthGaurd from "./contexts/AuthGaurd";
+import AuthGaurd, { BuyerRoute, RoleSelectionRoute, SellerRoute } from "./contexts/AuthGaurd";
 import EditBuyerProfile from "./pages/EditBuyerProfile";
 import Explore from "./pages/Explore";
 import Activity from "./pages/Activity";
@@ -20,39 +18,63 @@ import RecentVisits from "./pages/RecentVisits";
 import { LiveCall_V2 } from "./pages/LiveCall";
 import { TransactionDetails } from "./components/TransactionDetail";
 import CallsList from "./pages/CallsList";
+import SellerMarketSelection from "./pages/SellerMarketSelection";
 
 export const appRoutes: RouteObject[] = [
   // Guest Routes
   { path: "/", element: <Index /> },
-  
-  // Role Selection Route (protected but no role check)
-  {
-    path: "/role-selection",
-    element: <AuthGaurd requiresRole={false}><RoleSelection /></AuthGaurd>
-  },
+
+
 
   // Protected Routes (requires auth AND role)
   {
     element: <>
-      <AuthGaurd requiresRole={true} />
+      <AuthGaurd requiresRole={true} requiresAuth={true} />
       <BottomNavigation />
-    </>, 
+    </>,
     children: [
-      { path: "/markets", element: <MarketSelection /> },
-      { path: "/categories", element: <CategorySelection /> },
-      { path: "/sellers", element: <SellersList /> },
+
       { path: "/explore", element: <Explore /> },
       { path: "/activity", element: <Activity /> },
-      { path: "/call", element: <LiveCall_V2 />},
-      // { path: "/call", element: <LiveCall />},
-      { path: "/rating", element: <RatingFeedback /> },
-      { path: "/seller-dashboard", element: <SellerDashboard /> },
-      { path: "/buyer-dashboard", element: <BuyerDashboard /> },
-      { path: "/edit-seller-profile", element: <EditSellerProfile /> },
-      { path: "/edit-buyer-profile", element: <EditBuyerProfile /> },
+      { path: "/calls/:callId?", element: <LiveCall_V2 /> },
+
+      // Seller specific routes
+      {
+        element: <SellerRoute />,
+        children: [
+          { path: "/seller/landing", element: <SellerMarketSelection /> },
+          { path: "/seller-dashboard", element: <SellerDashboard /> },
+          { path: "/edit-seller-profile", element: <EditSellerProfile /> },
+        ]
+      },
+
+      // Buyer specific routes
+      {
+        element: <BuyerRoute />,
+        children: [
+          { path: "/sellers", element: <SellersList /> },
+          { path: "/categories", element: <CategorySelection /> },
+          { path: "/rating", element: <RatingFeedback /> },
+
+          { path: "/buyer/landing", element: <MarketSelection /> },
+          { path: "/buyer-dashboard", element: <BuyerDashboard /> },
+          { path: "/edit-buyer-profile", element: <EditBuyerProfile /> },
+        ]
+      },
+
       { path: "/recent-visits", element: <RecentVisits /> },
       { path: "/transactions/:tx_id", element: <TransactionDetails /> },
       { path: "/recent-calls", element: <CallsList /> },
+      // Role Selection Route (protected but no role check)
+      {
+        element: <RoleSelectionRoute />,
+        children: [
+          {
+            path: "/role-selection",
+            element: <RoleSelection />
+          }
+        ]
+      },
     ]
   },
 

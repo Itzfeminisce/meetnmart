@@ -1,334 +1,325 @@
-import React, { createContext, useContext, useEffect, useLayoutEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Subscription, User } from '@supabase/supabase-js';
-import { Database } from "@/integrations/supabase/types"
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { SplashScreen } from '@/components/SplashScreen';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import ErrorComponent from '@/components/ErrorComponent';
+import { 
+  useGetUserRole, 
+  useGetProfileData, 
+  useGetWalletData,
+  useSignInWithPhone,
+  useVerifyOTP,
+  useSignOut,
+  useUpdateUserRole,
+  useGetWalletSummary,
+  useGetTransactions,
+  useGetSellers,
+  useGetBuyers,
+  queryClient,
+  UserRole,
+  UserProfile,
+  WalletInfo,
+  EscrowTransaction,
+  UsersByRole,
+  WalletSummary,
+  Transaction
+} from '@/hooks/api-hooks';
 
-// Define types for better type safety
-export type UserRole = 'buyer' | 'seller' | 'moderator' | 'admin' | null;
-export type UserProfile = Database['public']['Tables']['profiles']['Row']
-export type WalletInfo = Database['public']['Tables']['wallets']['Row']
-export type EscrowTransaction = Database['public']['Tables']['escrow_transactions']['Row']
-export type UsersByRole = Database['public']['Functions']['get_users_by_role']['Returns'][number]
-export type WalletSummary = Database['public']['Functions']['get_wallet_summary']['Returns']
-export type Transaction = Database['public']['Functions']['get_call_sessions_with_transactions']
+// Re-export types for convenience
+export type { UserRole, UserProfile, WalletInfo, EscrowTransaction, UsersByRole, WalletSummary, Transaction };
+
 interface AuthContextType {
   user: User | null;
-  profile: any | null;
+  profile: UserProfile | null;
   userRole: UserRole;
-  wallet: WalletInfo;
+  wallet: WalletInfo | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signInWithPhone: (phoneNumber: string) => Promise<{ error: any | null }>;
-  verifyOTP: (phoneNumber: string, token: string) => Promise<{ error: any | null }>;
+  isInitialized: boolean;
+  signInWithPhone: (phoneNumber: string) => Promise<void>;
+  verifyOTP: (phoneNumber: string, token: string) => Promise<void>;
   signOut: () => Promise<void>;
-  fetchUserProfile: (userId?: string) => Promise<{ profile: UserProfile, role: string; wallet: WalletInfo }>;
-  fetchUsersByRole: (role: Exclude<UserRole, null>) => Promise<Database['public']['Functions']['get_users_by_role']['Returns']>;
-  fetchUserRole: (userId?: string) => Promise<string>;
+  fetchUserProfile: (userId?: string) => Promise<{ profile: UserProfile, role: string; wallet: WalletInfo } | null>;
+  fetchUsersByRole: (role: Exclude<UserRole, null>) => Promise<UsersByRole[]>;
+  fetchUserRole: (userId?: string) => Promise<string | null>;
   updateUserRole: (role: Exclude<UserRole, null>) => Promise<void>;
-  fetchWalletSummary: () => Promise<WalletSummary>;
-  fetchTransactions: (args: Transaction['Args']) => Promise<Transaction['Returns']>;
+  fetchWalletSummary: () => Promise<WalletSummary | null>;
+  fetchTransactions: (args: Transaction['Args']) => Promise<Transaction['Returns'] | null>;
 }
 
-// Create context with undefined initial value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // State management
-  const { setValue: userRoleToLocalStorage, clear: clearLocalStrorage } = useLocalStorage("role")
+  // Local storage management
+  const { setValue: userRoleToLocalStorage, clear: clearLocalStorage } = useLocalStorage("role");
+
+  // Auth state
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [profile, setProfile] = useState<any | null>(null);
-  const [userRole, setUserRole] = useState<UserRole>(null);
-  const [wallet, setWallet] = useState<WalletInfo>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [error, setError] = useState<null | Error>(null);
+
+  // Data hooks - only fetch when user exists
+  const { data: userRole, isLoading: roleLoading, error: roleError } = useGetUserRole({ userId: user?.id, enabled: !!user?.id });
+  const { data: profile, isLoading: profileLoading, error: profileError } = useGetProfileData({ userId: user?.id,  enabled: !!user?.id });
+  const { data: wallet, isLoading: walletLoading, error: walletError } = useGetWalletData({ userId: user?.id, enabled: !!user?.id });
+
+  // Pre-fetch sellers and buyers for better UX
+  const { data: sellers, error: sellersError } = useGetSellers();
+  const { data: buyers, error: buyersError } = useGetBuyers();
+  const { data: walletSummary, error: walletSummaryError } = useGetWalletSummary({enabled: !!user?.id});
+
+  // Mutation hooks
+  const signInMutation = useSignInWithPhone();
+  const verifyOTPMutation = useVerifyOTP();
+  const signOutMutation = useSignOut();
+  const updateRoleMutation = useUpdateUserRole();
+
+  // Compute loading state
+  const isDataLoading = user ? (roleLoading || profileLoading || walletLoading) : false;
+  const isLoading = !isInitialized || isDataLoading;
+
+  // Update local storage when role changes
+  useEffect(() => {
+    if (userRole) {
+      userRoleToLocalStorage(userRole);
+    }
+  }, [userRole]);
 
   /**
-   * Fetch user profile data, role, and wallet information
+   * Sign in with phone number - uses hook
    */
-  const fetchUserProfile = async (userId?: string) => {
-    const id = userId || user?.id;
-    if (!id) {
-      console.log("No user ID available for fetching profile");
-      return;
-    }
-
-    const [profileData, role, userWallet] = await Promise.all([
-      fetchProfileData(id),
-      fetchUserRole(id),
-      fetchWalletData(id)
-    ]);
-
-    userRoleToLocalStorage(userRole)
-    return {
-      profile: profileData as UserProfile,
-      role: role as string,
-      wallet: userWallet as WalletInfo
-    }
-  };
-
-  /**
-   * Fetch and process user profile data
-   */
-  const fetchProfileData = async (userId: string) => {
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (profileError) {
-      console.error("Profile fetch error:", profileError);
-      return;
-    }
-
-    setProfile(profileData);
-    return profileData
-  };
-
-  /**
-   * Fetch user role data
-   */
-  const fetchUserRole = async (userId: string) => {
-    const { data: roleData, error: roleError } = await supabase
-      .rpc('get_user_role', { uid: userId });
-
-    if (roleError) {
-      console.error("Role fetch error:", roleError);
-      return;
-    }
-
-    setUserRole(roleData as UserRole);
-    return roleData
-  };
-  /**
-   * Fetch user role data
-   */
-  const fetchTransactions = async (params: Transaction['Args']): Promise<Transaction['Returns']> => {
-    let { data, error } = await supabase
-      .rpc('get_call_sessions_with_transactions', params);
-
-    if (error) {
-      console.error("Transaction fetch error:", error);
-      return;
-    }
-
-    return data
-  };
-  /**
-   * Fetch user role data
-   */
-  const fetchUsersByRole = async (role: UserRole): Promise<UsersByRole[]> => {
-    const { data: users, error: usersError } = await supabase
-      .rpc('get_users_by_role', { target_role: role });
-
-    if (usersError) {
-      console.error("UserByRole fetch error:", usersError);
-      return;
-    }
-    return users
-  };
-
-
-
-  /**
-   * Fetch wallet data
-   */
-  const fetchWalletSummary = async (): Promise<WalletSummary> => {
-    const { data: walletData, error: walletError } = await supabase.rpc('get_wallet_summary');
-
-    if (walletError) {
-      console.error("Wallet fetch error:", walletError);
-      return;
-    }
-    return walletData
-  };
-
-
-  /**
- * Fetch wallet data
- */
-  const fetchWalletData = async (userId: string) => {
-    const { data: walletData, error: walletError } = await supabase
-      .rpc('get_user_wallet', { uid: userId });
-
-    if (walletError) {
-      console.error("Wallet fetch error:", walletError);
-      return;
-    }
-
-    setWallet(walletData as WalletInfo);
-    return walletData
-  };
-
-  /**
-   * Sign in with phone number by sending OTP
-   */
-  const signInWithPhone = async (phoneNumber: string) => {
+  const signInWithPhone = useCallback(async (phoneNumber: string) => {
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: phoneNumber,
-      });
-
-      if (error) {
-        console.error("Phone sign-in error:", error);
-        toast.error('Failed to send verification code');
-      } else {
-        console.log("OTP sent successfully");
-        toast.success('Verification code sent');
-      }
-
-      return { error };
+      await signInMutation.mutateAsync({ phoneNumber });
+      toast.success('Verification code sent');
     } catch (error: any) {
-      console.error("Phone sign-in exception:", error);
-      toast.error('An error occurred while sending verification code');
-      return { error };
+      console.error("Phone sign-in error:", error);
+      toast.error('Failed to send verification code');
+      throw error;
     }
-  };
+  }, []);
 
   /**
-   * Verify OTP token for phone authentication
+   * Verify OTP - uses hook
    */
-  const verifyOTP = async (phoneNumber: string, token: string) => {
+  const verifyOTP = useCallback(async (phoneNumber: string, token: string) => {
     try {
-      console.log("Verifying OTP for phone:", phoneNumber);
-      const { error } = await supabase.auth.verifyOtp({
-        phone: phoneNumber,
-        token,
-        type: 'sms',
-      });
-
-      if (error) {
-        console.error("OTP verification error:", error);
-        toast.error('Invalid verification code');
-      } else {
-        console.log("OTP verified successfully");
-        toast.success('Logged in successfully');
-      }
-
-      return { error };
+      await verifyOTPMutation.mutateAsync({ phoneNumber, token });
+      toast.success('Logged in successfully');
     } catch (error: any) {
-      console.error("OTP verification exception:", error);
-      toast.error('An error occurred during verification');
-      return { error };
+      console.error("OTP verification error:", error);
+      toast.error('Invalid verification code');
+      throw error;
     }
-  };
+  }, []);
 
   /**
-   * Sign out current user
+   * Sign out - uses hook
    */
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
-      console.log("Signing out");
-      setIsLoading(true);
-
-      const { error } = await supabase.auth.signOut();
-
-      if (error) {
-        console.error("Sign out error:", error);
-        toast.error('Failed to log out');
-      } else {
-        // Clear user state
-        setUser(null);
-        setProfile(null);
-        setUserRole(null);
-        setWallet(null);
-        setIsAuthenticated(false);
-        clearLocalStrorage()
-        toast.success('Logged out successfully');
-      }
-    } catch (error) {
-      console.error("Sign out exception:", error);
-      toast.error('An error occurred during logout');
-    } finally {
-      setIsLoading(false);
+      await signOutMutation.mutateAsync();
+      setUser(null);
+      setIsAuthenticated(false);
+      clearLocalStorage();
+      toast.success('Logged out successfully');
+    } catch (error: any) {
+      console.error("Sign out error:", error);
+      toast.error('Failed to log out');
+      throw error;
     }
-  };
+  }, []);
 
   /**
-   * Update user role and related profile information
+   * Update user role - uses hook
    */
-  const updateUserRole = async (role: Exclude<UserRole, null>) => {
+  const updateUserRole = useCallback(async (role: Exclude<UserRole, null>) => {
     if (!user) {
-      console.error("Cannot update role: No user logged in");
       toast.error('You must be logged in to update your role');
-      return;
+      throw new Error('No user logged in');
     }
 
     try {
-      console.log("Updating user role to:", role);
-      setIsLoading(true);
-
-      // Update user role in the database
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .upsert({
-          user_id: user.id,
-          role
-        });
-
-      if (roleError) {
-        console.error("Role update error:", roleError);
-        toast.error('Failed to update user role');
-        throw roleError;
-      }
-
-      // Update local state
-      setUserRole(role);
-      console.log("User role updated successfully");
+      await updateRoleMutation.mutateAsync({ userId: user.id, role });
       toast.success(`Role updated to ${role} successfully`);
     } catch (error: any) {
       console.error('Error updating user role:', error);
       toast.error('Failed to update user role');
       throw error;
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, []);
+
+  /**
+   * Fetch user profile - leverages cached data from hooks
+   */
+  const fetchUserProfile = useCallback(async (userId?: string) => {
+    const id = userId || user?.id;
+    if (!id) {
+      console.log("No user ID available for fetching profile");
+      return null;
+    }
+
+    // Invalidate and refetch data
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["profile", id] }),
+      queryClient.invalidateQueries({ queryKey: ["role", id] }),
+      queryClient.invalidateQueries({ queryKey: ["wallet", id] })
+    ]);
+
+    // Get data from cache after invalidation triggers refetch
+    const profileData = queryClient.getQueryData(["profile", id]) as UserProfile;
+    const roleData = queryClient.getQueryData(["role", id]) as string;
+    const walletData = queryClient.getQueryData(["wallet", id]) as WalletInfo;
+
+    if (!profileData || !walletData) {
+      return null;
+    }
+
+    return {
+      profile: profileData,
+      role: roleData,
+      wallet: walletData
+    };
+  }, []);
+
+  /**
+   * Fetch users by role - uses cached data from hooks
+   */
+  const fetchUsersByRole = useCallback(async (role: Exclude<UserRole, null>): Promise<UsersByRole[]> => {
+    try {
+      if (role === 'seller') {
+        return sellers || [];
+      } else if (role === 'buyer') {
+        return buyers || [];
+      } else {
+        // For other roles, invalidate and get fresh data
+        await queryClient.invalidateQueries({ queryKey: [`users_by_role`, role] });
+        const data = queryClient.getQueryData([`users_by_role`, role]) as UsersByRole[];
+        return data || [];
+      }
+    } catch (error) {
+      console.error("Error fetching users by role:", error);
+      return [];
+    }
+  }, []);
+
+  /**
+   * Fetch user role - uses cached data
+   */
+  const fetchUserRole = useCallback(async (userId?: string): Promise<string | null> => {
+    const id = userId || user?.id;
+    if (!id) {
+      console.log("No user ID available for fetching role");
+      return null;
+    }
+
+    // Get from cache or current userRole state
+    if (id === user?.id && userRole) {
+      return userRole;
+    }
+
+    // For other users, get from cache
+    const cachedRole = queryClient.getQueryData(["role", id]) as string;
+    return cachedRole || null;
+  }, []);
+
+  /**
+   * Fetch wallet summary - uses cached data
+   */
+  const fetchWalletSummary = useCallback(async (): Promise<WalletSummary | null> => {
+    // Return cached data or trigger fresh fetch
+    if (walletSummary) {
+      return walletSummary;
+    }
+    
+    await queryClient.invalidateQueries({ queryKey: ["wallet_summary"] });
+    const data = queryClient.getQueryData(["wallet_summary"]) as WalletSummary;
+    return data || null;
+  }, []);
+
+  /**
+   * Fetch transactions - uses cached data
+   */
+  const fetchTransactions = useCallback(async (params: Transaction['Args']): Promise<Transaction['Returns'] | null> => {
+    try {
+      await queryClient.invalidateQueries({ queryKey: ["transactions", params] });
+      const data = queryClient.getQueryData(["transactions", params]) as Transaction['Returns'];
+      return data || null;
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      return null;
+    }
+  }, []);
 
   /**
    * Initialize auth and set up auth state listeners
+   * Only handles auth state - no data fetching
    */
-  useLayoutEffect(() => {
+  useEffect(() => {
+    let authSubscription: Subscription | null = null;
+
     const initializeAuth = async () => {
       try {
-        setIsLoading(true)
+        // Get initial session
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-        const { data: { session }, } = await supabase.auth.getSession();
-
-        if (session?.user) {
-          await fetchUserProfile(session.user.id);
-          setIsAuthenticated(!!session);
+        if (error) {
+          setIsAuthenticated(false);
+          setUser(null);
+          throw error;
+        } else if (session?.user) {
           setUser(session.user);
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+          setUser(null);
         }
+
+        // Set up auth state listener
+        authSubscription = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'SIGNED_IN' && session?.user) {
+            setUser(session.user);
+            setIsAuthenticated(true);
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+            setIsAuthenticated(false);
+            clearLocalStorage();
+            // Clear all cached data
+            queryClient.clear();
+          }
+        }).data.subscription;
+
       } catch (error) {
-        console.log("initializeAuth", { error });
+        console.error("Auth initialization error:", error);
+        setIsAuthenticated(false);
+        setUser(null);
+        setError(error as Error);
       } finally {
-        setIsLoading(false)
+        setIsInitialized(true);
       }
     };
 
-    // Initialize auth immediately
     initializeAuth();
+
+    return () => {
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
+    };
   }, []);
-
-  useEffect(() => {
-    const waitTime = user ? 1000 : 3000
-    const wait = async () => await new Promise((resolve) => setTimeout(resolve, waitTime))
-
-    wait()
-  }, [user])
 
   // Context value
   const contextValue: AuthContextType = {
     user,
-    profile,
-    userRole,
-    wallet,
+    profile: profile || null,
+    userRole: userRole || null,
+    wallet: wallet || null,
     isLoading,
     isAuthenticated,
+    isInitialized,
     signInWithPhone,
     verifyOTP,
     signOut,
@@ -340,7 +331,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchTransactions
   };
 
-  return isLoading ? <SplashScreen /> : (
+  // Show splash screen while initializing
+  if (!isInitialized) {
+    return <SplashScreen />;
+  }
+
+  const errors = error || roleError || profileError || walletError || sellersError || buyersError
+
+  if (errors) return <ErrorComponent error={error} />;
+
+  return (
     <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>

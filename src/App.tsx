@@ -2,39 +2,29 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, useLocation, useNavigate, useRoutes } from "react-router-dom";
+import { BrowserRouter, useRoutes } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { appRoutes } from "./routes";
 import { SocketProvider } from "./contexts/SocketContext";
 import { getEnvVar } from "./lib/utils";
-// import { LiveCallPovider } from "./contexts/LiveCallContext";
-import { useEffect } from "react";
 import { LiveCallProvider as LiveCallProvider_V2 } from "./contexts/live-call-context";
 import { PaystackProvider } from "./contexts/paystack-context";
+import { useAutoScrollToTop } from "./hooks/scroll-top";
+import { ScrollToTop } from "./components/ScrollTop";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      retry: false,
 
-// const Router = () => useRoutes(appRoutes);
+      throwOnError: () => false,
+    },
+  },
+});
 
-const Router = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // This effect runs only on initial load
-    const { pathname, search, hash } = location;
-
-    // Combine the full URL path
-    const fullPath = pathname + search + hash;
-
-    // Only correct if the current location doesn't match
-    if (fullPath !== '/' && fullPath !== location.pathname + location.search + location.hash) {
-      navigate(fullPath, { replace: true });
-    }
-  }, []); // Empty dependency array means this runs once on mount
-
-  return useRoutes(appRoutes);
-};
+const Router = () => useRoutes(appRoutes);
 
 
 // Socket provider wrapper that gets token from auth context
@@ -57,15 +47,14 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
+      <Sonner position="top-right" />
       <AuthProvider>
         <SocketProviderWithAuth>
           <BrowserRouter>
-            {/* <LiveCallPovider> */}
             <PaystackProvider>
+              <ScrollToTop />
               <LiveCallProvider_V2>
                 <Router />
-                {/* </LiveCallPovider> */}
               </LiveCallProvider_V2>
             </PaystackProvider>
           </BrowserRouter>

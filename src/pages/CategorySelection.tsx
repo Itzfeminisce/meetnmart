@@ -1,19 +1,23 @@
 
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import BottomNavigation from '@/components/BottomNavigation';
 import { categories } from '@/lib/mockData';
 import { Market } from '@/types';
 
 const CategorySelection = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { market } = location.state as { market: Market };
+  const locationState = location.state as { market: Market };
+
+  if (!locationState) return <Navigate to={"/"} replace />
+
+  const { market } = locationState
+
 
   const handleCategorySelect = (categoryId: string) => {
-    navigate('/sellers', { 
-      state: { market, categoryId } 
+    navigate('/sellers', {
+      state: { market, categoryId }
     });
   };
 
@@ -21,8 +25,8 @@ const CategorySelection = () => {
     <div className="app-container px-4 pt-6 animate-fade-in">
       <header className="mb-6">
         <div className="flex items-center mb-4">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             className="mr-2 -ml-3"
             onClick={() => navigate(-1)}
@@ -33,12 +37,12 @@ const CategorySelection = () => {
         </div>
         <p className="text-muted-foreground">Select a category to find sellers</p>
       </header>
-      
+
       <div className="grid grid-cols-2 gap-4 mb-4">
         {categories.map(category => {
           const bgColorClass = `bg-${category.color}/10`;
           const textColorClass = `text-${category.color}`;
-          
+
           return (
             <div
               key={category.id}
@@ -53,7 +57,7 @@ const CategorySelection = () => {
           );
         })}
       </div>
-      
+
     </div>
   );
 };

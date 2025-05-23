@@ -51,9 +51,9 @@ export const SellerPaymentRejectionFeedbackModal = ({
             <Lightbulb className="h-4 w-4" />
             <AlertTitle>Tips for stronger buyer confidence</AlertTitle>
             <AlertDescription>
-              {buyerName
-                ? `${buyerName} decided not to proceed with the payment after the call.`
-                : 'The buyer chose not to complete the payment after your session.'}{' '}
+              {buyerName ? (
+                <><b>{buyerName}</b> decided not to proceed with the payment.</>
+              ) : <span>The buyer chose not to complete the payment.</span>}{' '}
               This can happen — here are a few ways to build stronger buyer confidence in future calls.
             </AlertDescription>
           </Alert>

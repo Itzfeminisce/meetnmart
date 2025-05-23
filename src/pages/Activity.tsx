@@ -3,10 +3,11 @@ import { ArrowLeft, ActivityIcon, Star, Bell, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Database } from '@/integrations/supabase/types';
-import { useFetch } from '@/hooks/api-hooks';
+import { useFetch, useGetUserFeedbacks } from '@/hooks/api-hooks';
 import { supabase } from '@/integrations/supabase/client';
 import { formatTimeAgo } from '@/lib/utils';
 import Loader from '@/components/ui/loader';
+import ErrorComponent from '@/components/ErrorComponent';
 
 type Feedback = Database['public']['Functions']['get_feedbacks']
 
@@ -19,17 +20,11 @@ type Notification = {
   type: 'in-app' | 'sitewide';
 };
 
-async function fetchFeedbacks(options?: Feedback['Args']): Promise<Feedback['Returns']> {
-  const { data, error } = await supabase.rpc("get_feedbacks")
 
-  if (error) throw error
-
-  return data
-}
 
 const Activity = () => {
   const navigate = useNavigate();
-  const { data: feedbacks, isLoading, error} = useFetch(['feedbacks'], fetchFeedbacks)
+  const { data: feedbacks, isLoading, error} = useGetUserFeedbacks()
 
 
   const notifications: Notification[] = [
@@ -50,6 +45,8 @@ const Activity = () => {
       type: 'sitewide',
     },
   ];
+
+  if(error) return <ErrorComponent error={error} onRetry={() => navigate(0)}/>
 
   return (
     <div className="app-container px-4 pt-6 animate-fade-in mb-6">
@@ -90,7 +87,7 @@ const Activity = () => {
         <TabsContent value="feedback" className="mt-4">
           {isLoading ? (
             <Loader />
-          ) : feedbacks.length > 0 ? (
+          ) : feedbacks?.length > 0 ? (
             <div className="space-y-4">
               {feedbacks.map((feedback) => (
                 <FeedbackCard key={feedback.id} feedback={feedback} />

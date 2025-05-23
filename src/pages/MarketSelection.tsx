@@ -17,6 +17,7 @@ import { MarketPlaceholder } from '@/components/MarketPlaceholder';
 import MarketIcon from '@/components/ui/svg/market-icon.svg';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFetch, useMutate, queryClient } from '@/hooks/api-hooks';
+import { ComingSoon } from '../components/PremiumFeature';
 
 interface Coordinates {
   latitude: number;
@@ -37,12 +38,12 @@ const MarketSelection = () => {
   // Create the debounced search function once when component mounts
   const performDebouncedSearch = useCallback((query: string) => {
     if (query.length < 2) return;
-    
+
     setIsSearching(true);
     debouncedSearchMarkets((response) => {
       const results = Array.isArray(response) ? response :
         (response && response.markets ? response.markets : []);
-      
+
       setSearchResults(results);
       setIsSearching(false);
     })(query);
@@ -71,7 +72,7 @@ const MarketSelection = () => {
     data: recentVisits = [],
     isLoading: loadingRecent
   } = useFetch<MarketResult[]>(
-    ['recentVisits'],
+    ['recentVisits', 3],
     () => getRecentVisits(3),
     {
       enabled: isAuthenticated,
@@ -125,11 +126,9 @@ const MarketSelection = () => {
 
         setLocation(userCoordinates);
         setNearbyPage(1);
-        toast.dismiss();
-        toast.success("Location detected! Showing nearby markets.");
+        // toast.success("Location detected! Showing nearby markets.");
       },
       (error) => {
-        toast.dismiss();
         switch (error.code) {
           case error.PERMISSION_DENIED:
             toast.error("Location access denied. Please enable location services.");
@@ -189,18 +188,18 @@ const MarketSelection = () => {
   // Derived state
   const nearbyMarkets = nearbyMarketsData?.markets || [];
   const hasMoreNearby = nearbyMarketsData?.hasMore || false;
-  
+
   // Render the search results dropdown conditionally
   const renderSearchDropdown = () => {
     if (!isSearchPopoverOpen || searchQuery.length < 2) return null;
-    
+
     return (
       <div className="absolute left-0 right-0 top-full mt-1 bg-background rounded-lg border shadow-md z-10">
         <div className="p-0 max-h-80 overflow-y-auto">
           <div className="p-2 border-b">
             <h4 className="text-sm font-medium text-muted-foreground">Search Results</h4>
           </div>
-          
+
           {isSearching ? (
             <div className="py-6 text-center text-sm">
               <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
@@ -209,8 +208,8 @@ const MarketSelection = () => {
           ) : searchResults.length > 0 ? (
             <div>
               {searchResults.map((market) => (
-                <div 
-                  key={market.id} 
+                <div
+                  key={market.id}
                   className="p-2 hover:bg-secondary cursor-pointer"
                   onClick={() => {
                     handleSelectMarket(market);
@@ -275,7 +274,7 @@ const MarketSelection = () => {
           {isSearching && (
             <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
           )}
-          
+
           {/* Render the custom dropdown instead of using Popover */}
           {renderSearchDropdown()}
         </div>
@@ -295,13 +294,15 @@ const MarketSelection = () => {
           )}
           {loadingNearby && !location ? 'Detecting...' : 'Detect location'}
         </Button>
-        <Button
-          variant="outline"
-          className="flex-1 ml-2 bg-secondary/50 border-none"
-        >
-          <List size={16} className="mr-2 text-market-green" />
-          View all markets
-        </Button>
+        <ComingSoon>
+          <Button
+            variant="outline"
+            className="flex-1 ml-2 bg-secondary/50 border-none"
+          >
+            <List size={16} className="mr-2 text-market-green" />
+            View all markets
+          </Button>
+        </ComingSoon>
       </div>
 
       {/* Recent Visits Section */}

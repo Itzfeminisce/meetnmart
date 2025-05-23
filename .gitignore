@@ -28,3 +28,4 @@ supabase.*
 .env.*
 
 dist.zip
+cert/

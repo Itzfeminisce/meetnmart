@@ -16,13 +16,14 @@ const RatingFeedback = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false)
+  const {userRole} = useAuth()
   const { seller, callDuration } = location.state as { seller: CallParticipant, callDuration: number };
 
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState('');
 
   if (!(seller && callDuration)) {
-    navigate("/markets")
+    navigate(`/${userRole}/landing`)
   }
 
 
@@ -48,7 +49,7 @@ const RatingFeedback = () => {
       }
 
       toast.success(`Thank you! Your ${rating}-star rating has been submitted.`);
-      navigate('/markets');
+       navigate(`/${userRole}/landing`)
     } catch (error) {
       console.error("[FeedbackSubmitError]", error)
       toast.error("Something went wrong. Please try again")
@@ -59,7 +60,7 @@ const RatingFeedback = () => {
 
   const handleSkip = () => {
     toast.info("Rating skipped");
-    navigate('/markets');
+     navigate(`/${userRole}/landing`)
   };
 
   return (
@@ -110,7 +111,7 @@ const RatingFeedback = () => {
 
         <div className="space-y-3">
           <Button
-          disabled={isLoading}
+            disabled={isLoading}
             onClick={handleSubmit}
             className="w-full bg-market-orange hover:bg-market-orange/90  disabled:cursor-not-allowed"
           >

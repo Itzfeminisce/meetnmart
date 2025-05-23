@@ -9,23 +9,21 @@ import { SocialAuthButtons } from '@/components/SocialAuthButtons';
 import SEO from '@/components/SEO';
 import { Card, CardContent } from '@/components/ui/card';
 import Logo from '@/components/Logo';
+import { useNotifications } from '@/hooks/useNotification';
 
 const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const { user, signOut, profile, userRole, isAuthenticated } = useAuth();
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { user, signOut, userRole, isAuthenticated } = useAuth();
+  const {isInitialized, requestPermission } = useNotifications()
+  const [isLoading] = useState<boolean>(false);
+
+  const userHomeUrl = `/${userRole}/landing`
 
   const navigate = useNavigate();
 
   const handleGetStarted = () => {
     if (isAuthenticated) {
-      if (!userRole) {
-        navigate('/role-selection');
-      } else if (userRole === 'seller') {
-        navigate('/seller-dashboard');
-      } else {
-        navigate('/markets');  // Changed from buyer-dashboard to markets
-      }
+      navigate(userHomeUrl);
     } else {
       setShowAuthModal(true);
     }
@@ -34,6 +32,32 @@ const Index = () => {
   const handleAuthSuccess = async () => {
     window.location.reload()
   };
+
+
+  useEffect(() => {
+    if (!isAuthenticated || !isInitialized) return;
+
+    requestPermission()
+  }, [isAuthenticated, requestPermission])
+
+  useEffect(() => {
+    const handleShowInstructions = (event: CustomEvent) => {
+      // const { instructions } = event.detail;
+      // console.log('Received instructions:', instructions);
+
+      // You can trigger a modal, toast, etc.
+    };
+
+    // Attach listener
+    window.addEventListener('show-notification-instructions', handleShowInstructions as EventListener);
+
+    // Clean up listener on unmount
+    return () => {
+      window.removeEventListener('show-notification-instructions', handleShowInstructions as EventListener);
+    };
+  }, []);
+
+
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -46,10 +70,10 @@ const Index = () => {
       <main className="flex-grow flex flex-col animate-fade-in">
         <div className="px-4 pt-8 pb-12 md:pt-12 md:pb-16 max-w-md mx-auto w-full text-center">
           <div className="mb-6 relative">
-           <div className="w-full flex items-center justify-center">
-           <Logo />
-           </div>
-            <Badge className="ml-2 bg-background/50 absolute top-0 right-0 border-market-orange">Beta</Badge>
+            <div className="w-full flex items-center justify-center">
+              <Logo />
+            </div>
+            <Badge className="ml-2 bg-background/50 absolute top-0 right-0 border-market-orange " />
           </div>
 
 
@@ -194,10 +218,10 @@ const Index = () => {
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
 
-          
+
           {/* Hero Tagline */}
           <h1 className="text-2xl font-bold pt-4">
-          Meet Them, See It, Buy It
+            Meet Them, See It, Buy It
           </h1>
         </div>
       </main >
@@ -213,7 +237,7 @@ const Index = () => {
         onOpenChange={setShowAuthModal}
         onSuccess={handleAuthSuccess}
       />
-    </div >
+    </div>
   );
 };
 

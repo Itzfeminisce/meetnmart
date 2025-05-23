@@ -101,7 +101,7 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
 
 
       publish(CallAction.Accepted, callData)
-      navigate("/call", {
+      navigate("/calls", {
         state: callData
       })
     }
@@ -180,8 +180,8 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
       // TODO: Better handle disconnect.
 
       // Right now, it makes the screen go blank due to absence of callSessionId or something. yet to figure it out.
-      // setIncomingCall(null)
-      // setActiveCall(null)
+      setIncomingCall(null)
+      setActiveCall(null)
     })
 
 
@@ -249,7 +249,7 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
             ...escrowPayment,
             data: {
               ...escrowPayment.data,
-              callSessionId: activeCall.data.callSessionId
+              callSessionId: activeCall?.data?.callSessionId
             }
           }}
           sellerName={escrowPayment.receiver.name}

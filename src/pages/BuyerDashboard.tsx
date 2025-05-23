@@ -1,32 +1,28 @@
 
-import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Clock, DollarSign, ShoppingBag, Truck } from 'lucide-react';
 import { formatCurrency, getInitials } from '@/lib/utils';
-import { useNavigate, Link } from 'react-router-dom';
-import { MarketPlaceholder } from '@/components/MarketPlaceholder';
+import { useNavigate, } from 'react-router-dom';
 import { toast } from 'sonner';
 import RecentCallCard from '@/components/RecentCallCard';
 import { Separator } from '@/components/ui/separator';
 import Loader from '@/components/ui/loader';
-import { useFetch } from '@/hooks/api-hooks';
+import {useGetTransactions } from '@/hooks/api-hooks';
+import ErrorComponent from '@/components/ErrorComponent';
+import { ComingSoon } from '@/components/PremiumFeature';
 
 const BuyerDashboard = () => {
   const { user, profile, signOut, userRole, isLoading, fetchTransactions, wallet: walletData } = useAuth();
   const navigate = useNavigate();
 
-  const {data:recentCalls, isLoading: isLoadingTrx, error: trxErr } = useFetch(["transactions"], () => fetchTransactions({ user_id: user.id, limit_count: 2 }),)
+  const { data: recentCalls, isLoading: isLoadingTrx, error: trxErr } = useGetTransactions({ params: { user_id: user.id, limit_count: 2 } })
 
-
-  if (!user) {
-    return <MarketPlaceholder message="Please sign in to view your dashboard" />;
-  }
 
   const navigateToMarkets = () => {
-    navigate('/markets');
+    navigate(`/${userRole}/landing`);
   };
 
 
@@ -38,6 +34,8 @@ const BuyerDashboard = () => {
     await signOut()
     navigate('/');
   };
+
+  if (trxErr) return <ErrorComponent error={trxErr as Error} onRetry={() => navigate(0)} />
 
   return (
     <div className="app-container px-4 pt-6 animate-fade-in">
@@ -84,13 +82,16 @@ const BuyerDashboard = () => {
           <ShoppingBag className="h-6 w-6 mb-2" />
           <span>Shop Now</span>
         </Button>
-        <Button
-          variant="outline"
-          className="flex flex-col h-auto py-4 text-market-orange border-market-orange/30"
-        >
-          <Truck className="h-6 w-6 mb-2" />
-          <span>Delivery</span>
-        </Button>
+
+        <ComingSoon>
+          <Button
+            variant="outline"
+            className="flex flex-col h-auto py-4 text-market-orange border-market-orange/30 w-full"
+          >
+            <Truck className="h-6 w-6 mb-2" />
+            <span>Delivery</span>
+          </Button>
+        </ComingSoon>
       </div>
 
       <div className="mt-6">
@@ -107,10 +108,8 @@ const BuyerDashboard = () => {
         <div className="space-y-4">
           {isLoadingTrx ? (
             <Loader />
-          ) : trxErr ? (
-            <p>{trxErr as string}</p>
           ) : (
-            !trxErr && recentCalls.length == 0 ? (
+            recentCalls.length == 0 ? (
               <p>No transactions found.</p>
             ) : recentCalls.map((call) => (
               <RecentCallCard role={userRole} key={call.transaction_id} recentCall={call} />
