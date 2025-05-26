@@ -214,7 +214,7 @@ export const debouncedSearchMarkets = (callback: (results: MarketSearchResult) =
 export const joinMarket = async (market: MarketResult): Promise<void> => {
   try {
     const {data, error } = await supabase.rpc('increment_market_user_count', {
-      market_place_id: market.id,
+      market_place_id: market.place_id,
       name: market.name,
       location: market.location, //market.location,
       address: market.address,

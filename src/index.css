@@ -62,7 +62,20 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-
+  .scrollbar-small::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+  
+  .scrollbar-small::-webkit-scrollbar-thumb {
+    background: rgba(100, 100, 100, 0.4);
+    border-radius: 4px;
+  }
+  
+  .scrollbar-small::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }

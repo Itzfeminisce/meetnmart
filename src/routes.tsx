@@ -18,7 +18,12 @@ import RecentVisits from "./pages/RecentVisits";
 import { LiveCall_V2 } from "./pages/LiveCall";
 import { TransactionDetails } from "./components/TransactionDetail";
 import CallsList from "./pages/CallsList";
-import SellerMarketSelection from "./pages/SellerMarketSelection";
+import SellerMarketSelection from "./pages/_SellerMarketSelection";
+import SellerCategorySelection from "./pages/_SellerCategorySelection";
+import SellerLanding from "./pages/SellerLanding";
+import SellerSetup from "./pages/SellerSetup";
+import Transactions from "./pages/Transaction";
+import BuyerMarketSelection from "./pages/MarketSelection";
 
 export const appRoutes: RouteObject[] = [
   // Guest Routes
@@ -42,7 +47,9 @@ export const appRoutes: RouteObject[] = [
       {
         element: <SellerRoute />,
         children: [
-          { path: "/seller/landing", element: <SellerMarketSelection /> },
+          { path: "/seller/landing", element: <SellerLanding /> },
+          { path: "/seller/setup", element: <SellerSetup /> },
+          { path: "/seller/categories", element: <SellerCategorySelection /> },
           { path: "/seller-dashboard", element: <SellerDashboard /> },
           { path: "/edit-seller-profile", element: <EditSellerProfile /> },
         ]
@@ -56,14 +63,14 @@ export const appRoutes: RouteObject[] = [
           { path: "/categories", element: <CategorySelection /> },
           { path: "/rating", element: <RatingFeedback /> },
 
-          { path: "/buyer/landing", element: <MarketSelection /> },
+          { path: "/buyer/landing", element: <BuyerMarketSelection /> },
           { path: "/buyer-dashboard", element: <BuyerDashboard /> },
           { path: "/edit-buyer-profile", element: <EditBuyerProfile /> },
         ]
       },
 
       { path: "/recent-visits", element: <RecentVisits /> },
-      { path: "/transactions/:tx_id", element: <TransactionDetails /> },
+      { path: "/transactions/:tx_id?", element: <Transactions /> },
       { path: "/recent-calls", element: <CallsList /> },
       // Role Selection Route (protected but no role check)
       {

@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
+import { Category, ExpandedTransaction, Feedback, MarketWithAnalytics, SellerMarketAndCategory } from '@/types';
 import {
   useQuery,
   useMutation,
@@ -18,18 +19,22 @@ export type UsersByRole = Database['public']['Functions']['get_users_by_role']['
 export type WalletSummary = Database['public']['Functions']['get_wallet_summary']['Returns']
 export type Transaction = Database['public']['Functions']['get_call_sessions_with_transactions']
 
+
 // Cache time constants for different data types
 const CACHE_TIMES = {
+  DEFAULT: 1 * 60 * 1000,
   // Static/semi-static data - cache for longer periods
   USER_PROFILE: 10 * 60 * 1000, // 10 minutes
   USER_ROLE: 15 * 60 * 1000, // 15 minutes
   USER_LISTS: 5 * 60 * 1000, // 5 minutes (sellers, buyers, etc.)
-  
+  MARKET_VISIT_LISTS: 60 * 1000, // 5 minutes (sellers, buyers, etc.)
+
   // Dynamic data - shorter cache times
   WALLET_DATA: 2 * 60 * 1000, // 2 minutes
   TRANSACTIONS: 1 * 60 * 1000, // 1 minute
   FEEDBACKS: 3 * 60 * 1000, // 3 minutes
-  
+  MARKETS: 1 * 60 * 1000, // 1 minutes
+
   // Real-time data - very short cache
   CURRENT_USER: 30 * 1000, // 30 seconds
   WALLET_SUMMARY: 30 * 1000, // 30 seconds
@@ -60,27 +65,30 @@ export const queryClient = new QueryClient({
 // Cache key factories for consistent key generation
 export const cacheKeys = {
   // Auth related
-  currentUser: () => ['auth', 'current_user'] ,
-  
+  currentUser: () => ['auth', 'current_user'],
+
   // User related
   userRole: (userId: string) => ['user', userId, 'role'] as const,
   userProfile: (userId: string) => ['user', userId, 'profile'] as const,
   userWallet: (userId: string) => ['user', userId, 'wallet'] as const,
   completeProfile: (userId: string) => ['user', userId, 'complete'] as const,
-  
+
   // Lists
   usersByRole: (role: string) => ['users', 'by_role', role] as const,
+  markets: (params?: any) => ['markets', params] as const,
+  categories: (params?: any) => ['categories', params] as const,
+  seller_market_categories: (params?: any) => ['seller_market_categories', params] as const,
   sellers: () => ['users', 'sellers'] as const,
   buyers: () => ['users', 'buyers'] as const,
   moderators: () => ['users', 'moderators'] as const,
   admins: () => ['users', 'admins'] as const,
-  
+
   // Transactions and financial
   transactions: (params: any) => ['transactions', params] as const,
   walletSummary: () => ['wallet', 'summary'] as const,
-  
+
   // Feedback
-  feedbacks: () => ['feedbacks'] as const,
+  feedbacks: (params?: any) => ['feedbacks', params] as const,
 } as const;
 
 /**
@@ -98,7 +106,7 @@ export function useFetch<
   }
 ) {
   const { cacheTime, ...restOptions } = queryOptions || {};
-  
+
   return useQuery<TData, TError, TData, TQueryKey>({
     queryKey,
     queryFn: fetchFn,
@@ -130,12 +138,12 @@ export function useMutate<
       // Auto-invalidate based on patterns
       if (invalidatePatterns) {
         await Promise.all(
-          invalidatePatterns.map(pattern => 
+          invalidatePatterns.map(pattern =>
             queryClient.invalidateQueries({ queryKey: pattern })
           )
         );
       }
-      
+
       // Call original onSuccess if provided
       if (restOptions.onSuccess) {
         await restOptions.onSuccess(data, variables, context);
@@ -149,6 +157,18 @@ export function useMutate<
 // AUTH HOOKS
 // ===================
 
+export const useToggleOnlineStatus = () => {
+  return useMutate(
+    async ({ userId, status }: { userId: string; status: boolean }) => {
+      console.log({ status, userId });
+
+      const { data, error } = await supabase.from("profiles").update({ is_reachable: status }).eq("id", userId).select("is_reachable").single();
+      if (error) throw error;
+
+      return data.is_reachable
+    }
+  );
+};
 export const useSignInWithPhone = () => {
   return useMutate(
     async ({ phoneNumber }: { phoneNumber: string }) => {
@@ -244,7 +264,7 @@ export const useUpdateUserRole = () => {
       onSuccess: async ({ userId, role }) => {
         // Update cache immediately for better UX
         queryClient.setQueryData(cacheKeys.userRole(userId), role);
-        
+
         // Invalidate related queries
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: cacheKeys.completeProfile(userId) }),
@@ -261,9 +281,9 @@ export const useUpdateUserRole = () => {
 
 export const useUpdateProfile = () => {
   return useMutate(
-    async ({ userId, update }: { 
-      userId: string; 
-      update: { name: string; category: string; description: string } 
+    async ({ userId, update }: {
+      userId: string;
+      update: { name: string; category: string; description: string }
     }) => {
       const { error } = await supabase
         .from('profiles')
@@ -276,10 +296,10 @@ export const useUpdateProfile = () => {
       onSuccess: async ({ userId, update }) => {
         // Optimistically update the cache
         queryClient.setQueryData(
-          cacheKeys.userProfile(userId), 
+          cacheKeys.userProfile(userId),
           (oldData: any) => oldData ? { ...oldData, ...update } : undefined
         );
-        
+
         // Invalidate related queries
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: cacheKeys.completeProfile(userId) }),
@@ -292,16 +312,16 @@ export const useUpdateProfile = () => {
 
 export const useSubmitFeedback = () => {
   return useMutate(
-    async ({ 
-      p_seller_id, 
-      rating, 
-      callDuration, 
-      feedback 
-    }: { 
-      p_seller_id: string; 
-      rating: number; 
-      feedback: string; 
-      callDuration: string 
+    async ({
+      p_seller_id,
+      rating,
+      callDuration,
+      feedback
+    }: {
+      p_seller_id: string;
+      rating: number;
+      feedback: string;
+      callDuration: string
     }) => {
       const { error } = await supabase.rpc('submit_call_feedback', {
         p_seller_id: p_seller_id,
@@ -331,10 +351,10 @@ export const useSubmitFeedback = () => {
 // ===================
 
 export const useGetUserRole = ({
-  userId, 
+  userId,
   enabled = true
 }: {
-  userId: string; 
+  userId: string;
   enabled?: boolean
 }) => {
   return useFetch(
@@ -353,10 +373,10 @@ export const useGetUserRole = ({
 };
 
 export const useGetProfileData = ({
-  userId, 
+  userId,
   enabled = true
 }: {
-  userId: string; 
+  userId: string;
   enabled?: boolean
 }) => {
   return useFetch(
@@ -378,10 +398,10 @@ export const useGetProfileData = ({
 };
 
 export const useGetWalletData = ({
-  userId, 
+  userId,
   enabled = true
 }: {
-  userId: string; 
+  userId: string;
   enabled?: boolean
 }) => {
   return useFetch(
@@ -401,10 +421,10 @@ export const useGetWalletData = ({
   );
 };
 
-export const useGetCompleteUserProfile = ({ 
-  userId 
-}: { 
-  userId: string | undefined 
+export const useGetCompleteUserProfile = ({
+  userId
+}: {
+  userId: string | undefined
 }) => {
   return useFetch(
     cacheKeys.completeProfile(userId!),
@@ -441,18 +461,18 @@ export const useGetCompleteUserProfile = ({
   );
 };
 
-export const useUserHasRole = ({ 
-  userId, 
-  role 
-}: { 
-  userId: string | undefined; 
-  role: UserRole 
+export const useUserHasRole = ({
+  userId,
+  role
+}: {
+  userId: string | undefined;
+  role: UserRole
 }) => {
-  const { data: userRole, isLoading } = useGetUserRole({ 
-    userId: userId!, 
-    enabled: !!userId 
+  const { data: userRole, isLoading } = useGetUserRole({
+    userId: userId!,
+    enabled: !!userId
   });
-  
+
   return {
     hasRole: userRole === role,
     userRole,
@@ -486,12 +506,12 @@ export const useGetWalletSummary = ({
   );
 };
 
-export const useGetTransactions = ({ 
-  params 
-}: { 
-  params: Transaction['Args'] 
+export const useGetTransactions = ({
+  params
+}: {
+  params: Transaction['Args']
 }) => {
-  return useFetch(
+  return useFetch<ExpandedTransaction[]>(
     cacheKeys.transactions(params),
     async () => {
       const { data, error } = await supabase
@@ -509,17 +529,28 @@ export const useGetTransactions = ({
 // ===================
 // FEEDBACK HOOKS
 // ===================
+export interface GetFeedbacksParams {
+  p_limit?: number; // default: 20
+  p_offset?: number; // default: 0
+  p_seller_id?: string; // UUID
+  p_buyer_id?: string; // UUID
+  p_search?: string; // optional search text
+  p_start_date?: string; // ISO timestamp string
+  p_end_date?: string; // ISO timestamp string
+  p_min_rating?: number; // default: 1
+}
 
-export const useGetUserFeedbacks = () => {
-  return useFetch(
-    cacheKeys.feedbacks(),
+export const useGetUserFeedbacks = (params?:GetFeedbacksParams ) => {
+  return useFetch<Feedback[]>(
+    cacheKeys.feedbacks(params),
     async () => {
-      const { data, error } = await supabase.rpc("get_feedbacks");
+      const { data, error } = await supabase.rpc("get_feedbacks", params);
       if (error) throw error;
       return data;
     },
     {
-      cacheTime: 'FEEDBACKS',
+      enabled: !!params,
+      cacheTime: 'DEFAULT',
     }
   );
 };
@@ -558,10 +589,10 @@ export const useGetBuyers = () => {
   );
 };
 
-export const useGetUsersByRole = ({ 
-  role 
-}: { 
-  role: Exclude<UserRole, null> 
+export const useGetUsersByRole = ({
+  role
+}: {
+  role: Exclude<UserRole, null>
 }) => {
   return useFetch(
     cacheKeys.usersByRole(role),
@@ -608,6 +639,158 @@ export const useGetAdmins = () => {
   );
 };
 
+export const useGetMarketRecentVisits = ({ limit = 5, userId = null }: { limit?: number; userId?: string } = {}) => {
+  return useFetch(
+    cacheKeys.markets({ limit, userId }),
+    async () => {
+
+      const query = supabase
+        .from('recent_visits')
+        .select('*')
+
+      if (userId) {
+        query.eq('user_id', userId)
+      }
+      const { data, error } = await query
+        .order('visited_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      const recentVisits = data.map(visit => ({
+        id: visit.id,
+        name: visit.market_name,
+        address: visit.market_address,
+        place_id: visit.place_id,
+      }));
+
+      return recentVisits;
+    },
+    {
+      cacheTime: 'MARKET_VISIT_LISTS',
+    }
+  );
+};
+
+
+export const useGetMarkets = ({ userId, limit = 5 }: { userId?: string; limit?: number; } = {}) => {
+  return useFetch<MarketWithAnalytics[]>(
+    ["markets"],
+    async () => {
+
+      const { data, error } = await supabase.rpc('get_available_markets', {
+        p_seller_id: userId,
+        p_limit: 50
+      });
+      if (error) throw error;
+      return data;
+    },
+    {
+      cacheTime: 'MARKETS',
+    }
+  );
+};
+
+
+export const useGetCategories = ({ userId = undefined, limit = 5 }: { userId?: string; limit?: number; } = {}) => {
+  return useFetch<Category[]>(
+    ["categories"],
+    async () => {
+      const { data, error } = await supabase.rpc('get_market_categories', {
+        p_seller_id: userId,
+        p_limit: 50
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    {
+      cacheTime: 'DEFAULT',
+    }
+  );
+};
+export const useGetSellerMarketAndCategories = ({ seller, ...filters }: {
+  seller: string;
+  market_sort_col?: "impressions";
+  market_sort_dir?: "asc" | "desc";
+  market_limit?: number;
+  category_sort_col?: "created_at";
+  category_sort_dir?: "asc" | "desc";
+  category_limit?: number;
+}) => {
+  return useFetch<SellerMarketAndCategory>(
+    ["markets_categories"],
+    async () => {
+      const { data, error } = await supabase
+        .rpc('get_seller_markets_and_categories', {
+          seller,
+          market_sort_col: 'impressions',
+          market_sort_dir: 'desc',
+          market_limit: 2,
+          category_sort_col: 'created_at',
+          category_sort_dir: 'asc',
+          category_limit: 2
+        });
+
+      if (error) throw error;
+      return data;
+    },
+    {
+      cacheTime: 'DEFAULT',
+    }
+  );
+};
+export const useSellerCatrgoryMutation = () => {
+  return useMutate(
+    async ({ sellerId, payload }: {
+      sellerId: string; payload: {
+        selectedMarkets: string[];
+        selectedCategories: string[];
+      }
+    }) => {
+      const { selectedMarkets, selectedCategories } = payload;
+
+      // Build array of all combinations
+      const recordsToInsert = selectedMarkets.flatMap(marketId =>
+        selectedCategories.map(categoryId => ({
+          seller_id: sellerId,
+          market_id: marketId,
+          category_id: categoryId,
+        }))
+      );
+
+      // Insert with upsert to avoid duplicates errors
+      const { data, error } = await supabase
+        .from('seller_market_category')
+        .upsert(recordsToInsert, { onConflict: "seller_id,market_id,category_id", ignoreDuplicates: true });
+
+      if (error) {
+        console.error('Error inserting seller market categories:', error);
+        throw error;
+      }
+      return data;
+    },
+    {
+      async onSuccess() {
+        await queryClient.invalidateQueries({ queryKey: ['markets'] })
+        await queryClient.invalidateQueries({ queryKey: ['category'] })
+        await queryClient.invalidateQueries({ queryKey: ['markets_categories'] })
+      }
+    }
+  );
+};
+
+export const useDeleteMarketSelection = () => {
+  return useMutate(async ({ userId, selectionId, criteria }: { userId: string; selectionId: string; criteria: "category_id" | "market_id" }) => {
+    const { error } = await supabase.from("seller_market_category").delete().eq("seller_id", userId).eq(criteria, selectionId)
+    if (error) throw error;
+  }, {
+    async onSuccess() {
+      await queryClient.invalidateQueries({ queryKey: ['markets'] })
+      await queryClient.invalidateQueries({ queryKey: ['categories'] })
+      await queryClient.invalidateQueries({ queryKey: ['markets_categories'] })
+    }
+  });
+};
 // ===================
 // UTILITY FUNCTIONS FOR CACHE MANAGEMENT
 // ===================
@@ -674,7 +857,7 @@ export const cacheUtils = {
   getCacheStats: () => {
     const cache = queryClient.getQueryCache();
     const queries = cache.getAll();
-    
+
     return {
       totalQueries: queries.length,
       staleQueries: queries.filter(q => q.isStale()).length,
@@ -683,337 +866,3 @@ export const cacheUtils = {
     };
   },
 };
-
-// import { supabase } from '@/integrations/supabase/client';
-// import { Database } from '@/integrations/supabase/types';
-// import {
-//   useQuery,
-//   useMutation,
-//   UseQueryOptions,
-//   UseMutationOptions,
-//   QueryClient,
-//   QueryKey
-// } from '@tanstack/react-query';
-
-
-// export type UserRole = 'buyer' | 'seller' | 'moderator' | 'admin' | null;
-// export type UserProfile = Database['public']['Tables']['profiles']['Row']
-// export type WalletInfo = Database['public']['Tables']['wallets']['Row']
-// export type EscrowTransaction = Database['public']['Tables']['escrow_transactions']['Row']
-// export type UsersByRole = Database['public']['Functions']['get_users_by_role']['Returns'][number]
-// export type WalletSummary = Database['public']['Functions']['get_wallet_summary']['Returns']
-// export type Transaction = Database['public']['Functions']['get_call_sessions_with_transactions']
-
-
-// // Create a query client to use with the QueryClientProvider
-// export const queryClient = new QueryClient({
-//   defaultOptions: {
-//     queries: {
-//       refetchOnWindowFocus: false,
-//       retry: 1,
-//       staleTime: 5 * 60 * 1000, // 5 minutes
-//     },
-//   },
-// });
-
-// /**
-//  * Custom hook that wraps TanStack Query's useQuery to work with existing fetch functions
-//  * (can be fetch, axios, supabase, etc.)
-//  */
-// export function useFetch<
-//   TData = unknown,
-//   TError = Error,
-//   TQueryKey extends QueryKey = QueryKey
-// >(
-//   // The query key used for caching and deduplication
-//   queryKey: TQueryKey,
-//   // Your existing fetch function that returns a promise
-//   fetchFn: () => Promise<TData>,
-//   // Optional TanStack Query options
-//   queryOptions?: Omit<UseQueryOptions<TData, TError, TData, TQueryKey>, 'queryKey' | 'queryFn'>
-// ) {
-//   return useQuery<TData, TError, TData, TQueryKey>({
-//     queryKey,
-//     queryFn: fetchFn,
-//     ...queryOptions,
-//   });
-// }
-
-// /**
-//  * Custom hook that wraps TanStack Query's useMutation to work with existing mutation functions
-//  * (can be fetch, axios, supabase, etc.)
-//  */
-// export function useMutate<
-//   TData = unknown,
-//   TError = Error,
-//   TVariables = void,
-//   TContext = unknown
-// >(
-//   // Your existing mutation function that takes variables and returns a promise
-//   mutateFn: (variables: TVariables) => Promise<TData>,
-//   // Optional TanStack Query mutation options
-//   mutationOptions?: Omit<UseMutationOptions<TData, TError, TVariables, TContext>, 'mutationFn'>
-// ) {
-//   return useMutation<TData, TError, TVariables, TContext>({
-//     mutationFn: mutateFn,
-//     ...mutationOptions,
-//   });
-// }
-
-
-// export const useSignInWithPhone = () => {
-//   return useMutate(async ({ phoneNumber }: { phoneNumber: string }) => {
-//     const { error } = await supabase.auth.signInWithOtp({
-//       phone: phoneNumber,
-//     });
-//     if (error) throw error;
-//   })
-// }
-
-// export const useSignOut = () => {
-//   return useMutate(async () => {
-//     const { error } = await supabase.auth.signOut();
-//     await queryClient.invalidateQueries()
-//     if (error) throw error;
-//   })
-// }
-
-// export const useVerifyOTP = () => {
-//   return useMutate(async ({ phoneNumber, token }: { phoneNumber: string; token: string }) => {
-//     const { error } = await supabase.auth.verifyOtp({
-//       phone: phoneNumber,
-//       token,
-//       type: 'sms',
-//     });
-//     if (error) throw error;
-//   })
-// }
-
-// export const useUpdateUserRole = () => {
-//   return useMutate(async ({ userId, role }: { userId: string; role: UserRole }) => {
-//     const { error } = await supabase
-//       .from('user_roles')
-//       .upsert({
-//         user_id: userId,
-//         role
-//       });
-
-//     await queryClient.invalidateQueries({ queryKey: ["role", userId] })
-
-//     if (error) throw error;
-//   })
-// }
-// export const useUpdateProfile = () => {
-//   return useMutate(async ({ userId, update }: { userId: string; update: { name: string; category: string; description: string } }) => {
-//     const { error } = await supabase
-//       .from('profiles')
-//       .update(update)
-//       .eq('id', userId);
-
-//     await queryClient.invalidateQueries({ queryKey: ["profile", userId] })
-
-//     if (error) throw error;
-//   })
-// }
-// export const useSubmitFeedback = () => {
-//   return useMutate(async ({ p_seller_id, rating, callDuration, feedback }: { p_seller_id: string; rating: number; feedback: string; callDuration: string }) => {
-//     const { error } = await supabase.rpc('submit_call_feedback', {
-//       p_seller_id: p_seller_id,
-//       p_rating: rating,
-//       p_feedback_text: feedback,
-//       p_call_duration: callDuration
-//     });
-
-//     await queryClient.invalidateQueries({ queryKey: ["user", p_seller_id] })
-//     if (error) throw error;
-//   })
-// }
-
-// export const useGetUserFeedbacks = () => {
-//   return useFetch(["feedbacks"], async () => {
-//     const { data, error } = await supabase.rpc("get_feedbacks")
-
-//     if (error) throw error
-
-//     return data
-//   })
-// }
-
-// export const useGetUserRole = ({userId, enabled = true}:{userId: string; enabled?: boolean}) => {
-//   return useFetch(["role", userId], async () => {
-//     const { data, error} = await supabase
-//       .rpc('get_user_role', { uid: userId });
-
-//     if (error) throw error
-
-//     return data
-//   }, {enabled})
-// }
-// export const useGetProfileData = ({userId, enabled = true}:{userId: string; enabled?: boolean}) => {
-//   return useFetch(["profile", userId], async () => {
-//     const { data, error } = await supabase
-//       .from('profiles')
-//       .select('*')
-//       .eq('id', userId)
-//       .single();
-//     if (error) throw error
-
-//     return data
-//   }, {enabled})
-// }
-// export const useGetWalletData = ({userId, enabled = true}:{userId: string; enabled?: boolean}) => {
-//   return useFetch(["wallet", userId], async () => {
-//     const { data, error } = await supabase
-//       .rpc('get_user_wallet', { uid: userId });
-
-//     if (error) throw error
-
-//     return data
-//   }, {enabled})
-// }
-// export const useGetWalletSummary = ({enabled = true}:{enabled: boolean}) => {
-//   return useFetch(["wallet_summary"], async () => {
-//     const { data, error } = await supabase.rpc('get_wallet_summary');
-
-//     if (error) throw error
-
-//     return data
-//   }, {enabled})
-// }
-// export const useGetTransactions = ({ params }: { params: Transaction['Args'] }) => {
-//   return useFetch(["transactions", params], async () => {
-//     const { data, error } = await supabase
-//       .rpc('get_call_sessions_with_transactions', params);
-//     if (error) throw error
-
-//     return data
-//   })
-// }
-// export const useGetSellers = () => {
-//   return useFetch(["sellers"], async () => {
-//     const { data, error } = await supabase
-//       .rpc('get_users_by_role', { target_role: "seller" });
-//     if (error) throw error
-
-//     return data
-//   })
-// }
-
-
-// export const useGetBuyers = () => {
-//   return useFetch(["buyers"], async () => {
-//     const { data, error } = await supabase
-//       .rpc('get_users_by_role', { target_role: "buyer" });
-//     if (error) throw error
-
-//     return data
-//   })
-// }
-
-// /**
-//  * Hook to get users by any role (not just sellers/buyers)
-//  */
-// export const useGetUsersByRole = ({ role }: { role: Exclude<UserRole, null> }) => {
-//   return useFetch([`users_by_role`, role], async () => {
-//     const { data, error } = await supabase
-//       .rpc('get_users_by_role', { target_role: role });
-//     if (error) throw error;
-//     return data;
-//   }, {
-//     enabled: !!role,
-//   });
-// };
-
-// /**
-//  * Hook to get moderators
-//  */
-// export const useGetModerators = () => {
-//   return useFetch(["moderators"], async () => {
-//     const { data, error } = await supabase
-//       .rpc('get_users_by_role', { target_role: "moderator" });
-//     if (error) throw error;
-//     return data;
-//   });
-// };
-
-// /**
-//  * Hook to get admins
-//  */
-// export const useGetAdmins = () => {
-//   return useFetch(["admins"], async () => {
-//     const { data, error } = await supabase
-//       .rpc('get_users_by_role', { target_role: "admin" });
-//     if (error) throw error;
-//     return data;
-//   });
-// };
-
-// /**
-//  * Hook to get complete user profile with role and wallet
-//  */
-// export const useGetCompleteUserProfile = ({ userId }: { userId: string | undefined }) => {
-//   return useFetch(["complete_profile", userId], async () => {
-//     if (!userId) throw new Error("User ID is required");
-
-//     const [profileResponse, roleResponse, walletResponse] = await Promise.all([
-//       supabase.from('profiles').select('*').eq('id', userId).single(),
-//       supabase.rpc('get_user_role', { uid: userId }),
-//       supabase.rpc('get_user_wallet', { uid: userId })
-//     ]);
-
-//     if (profileResponse.error) throw profileResponse.error;
-//     if (roleResponse.error) throw roleResponse.error;
-//     if (walletResponse.error) throw walletResponse.error;
-
-//     return {
-//       profile: profileResponse.data,
-//       role: roleResponse.data,
-//       wallet: walletResponse.data
-//     };
-//   }, {
-//     enabled: !!userId,
-//   });
-// };
-
-// /**
-//  * Hook to check if user has a specific role
-//  */
-// export const useUserHasRole = ({ userId, role }: { userId: string | undefined; role: UserRole }) => {
-//   const { data: userRole } = useGetUserRole({ userId });
-//   return {
-//     hasRole: userRole === role,
-//     userRole,
-//     isLoading: !userRole && !!userId
-//   };
-// };
-
-// /**
-//  * Hook to get current session user
-//  */
-// export const useCurrentUser = () => {
-//   return useFetch(["current_user"], async () => {
-//     const { data: { user }, error } = await supabase.auth.getUser();
-//     if (error) throw error;
-//     return user;
-//   });
-// };
-
-// /**
-//  * Hook for resetting password
-//  */
-// export const useResetPassword = () => {
-//   return useMutate(async ({ email }: { email: string }) => {
-//     const { error } = await supabase.auth.resetPasswordForEmail(email);
-//     if (error) throw error;
-//   });
-// };
-
-// /**
-//  * Hook for updating password
-//  */
-// export const useUpdatePassword = () => {
-//   return useMutate(async ({ password }: { password: string }) => {
-//     const { error } = await supabase.auth.updateUser({ password });
-//     if (error) throw error;
-//   });
-// };

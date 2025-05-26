@@ -4,16 +4,18 @@ import { ScrollArea } from './scroll-area';
 import { UseFormReturn } from 'react-hook-form';
 import { Button } from './button';
 
+
 interface Props extends PropsWithChildren {
     dialogTitle: ReactNode;
-    form?: UseFormReturn<any>
+    form?: UseFormReturn<any>;
     onSubmit?: () => Promise<void>;
     submitButtonText?: string;
-    onCancel?: () => void;
+    onCancel?: (setState: (value: boolean) => void) => void;
     open: boolean;
-    onOpenChange: (arg: boolean) => void;
+    onOpenChange: (value: boolean) => void;
     showSubmitButton: boolean;
-}
+  }
+
 const CustomDialog: React.FC<Props> = ({ showSubmitButton = false, onOpenChange, open, dialogTitle, children, form, onCancel, onSubmit, submitButtonText }) => {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -37,7 +39,7 @@ const CustomDialog: React.FC<Props> = ({ showSubmitButton = false, onOpenChange,
                         <Button
                             type="button"
                             variant="outline"
-                            onClick={onCancel}
+                            onClick={() => onCancel(() => onOpenChange(open))}
                             disabled={form && form.formState.isSubmitting}
                         >
                             Cancel

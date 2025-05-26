@@ -6,14 +6,42 @@ export interface Market {
   image?: string;
 }
 
+export type MarketWithAnalytics = {
+  id: string;
+  place_id: string;
+  name: string;
+  address: string;
+  location: string;
+  user_count: number | null;
+  created_at: string;
+  updated_at: string;
+  impressions: number | null;
+  recent_count: number;
+  last_24hrs: boolean;
+  impressions_per_user: number;
+  age_hours: number;
+  updated_recently: boolean;
+  belongs_to_market: boolean;
+};
+
 export interface Category {
   id: string;
   name: string;
   icon: string;
   color: string;
+  description?: string;
+  popular?: boolean
+  belongs_to_category: boolean;
 }
 
-export interface Seller  {
+export interface SellerMarketAndCategory {
+  "markets": (Pick<MarketWithAnalytics, "id" | "name" | "address" | "place_id"> & { impressions: number })[];
+  "categories": Pick<Category, "id" | "name">[],
+  "total_markets": number,
+  "total_categories": number
+}
+
+export interface Seller {
   id: string;
   name: string;
   avatar?: string;
@@ -121,10 +149,68 @@ export interface CallSession {
 
 
 export interface Transaction {
-    id: string, 
-    type: string, 
-    amount: number, 
-    description: string, 
-    status: string, 
-    date: Date
+  id: string,
+  type: string,
+  amount: number,
+  description: string,
+  status: string,
+  date: Date
+}
+
+export type ExpandedTransaction = {
+  call_session_id: string;
+  duration: string; // ISO 8601 duration string or custom format
+  started_at: string; // ISO date string
+  ended_at: string;   // ISO date string
+
+  seller_id: string;
+  seller_name: string;
+  seller_avatar: string;
+
+  buyer_id: string;
+  buyer_name: string;
+  buyer_avatar: string;
+
+  agent_id: string | null;
+  agent_name: string | null;
+  agent_avatar: string | null;
+
+  transaction_id: string;
+  amount: number;
+  status: 'held' | 'completed' | 'cancelled' | string; // Expand as needed
+  reference: string;
+
+  description: {
+    feedback?: string;
+    metadata: {
+      itemTitle: string;
+      itemDescription: string;
+    };
+  }
+  transaction_created_at: string; // ISO date string
+};
+
+export interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  category: string;
+  inStock: boolean;
+  // likes: number;
+}
+
+export interface Feedback {
+  id: string; // UUID
+  feedback_text: string;
+  rating: number;
+  call_duration: string; // ISO 8601 duration format e.g. "00:06:00"
+  created_at: string; // ISO timestamp
+  buyer_id: string;
+  buyer_name: string;
+  buyer_avatar: string;
+  seller_id: string;
+  seller_name: string;
+  seller_avatar: string;
 }

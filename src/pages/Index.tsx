@@ -10,12 +10,61 @@ import SEO from '@/components/SEO';
 import { Card, CardContent } from '@/components/ui/card';
 import Logo from '@/components/Logo';
 import { useNotifications } from '@/hooks/useNotification';
+import { toast } from 'sonner';
 
 const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { user, signOut, userRole, isAuthenticated } = useAuth();
-  const {isInitialized, requestPermission } = useNotifications()
   const [isLoading] = useState<boolean>(false);
+
+// useEffect(() => {
+//   async function catMe() {
+//     const formatted = categories.map(cat => ({
+//       name: cat.name,
+//       icon: cat.icon,
+//       description: cat.description,
+//       color: cat.color,
+//       popular: cat.popular ?? false
+//     }));
+
+//     const { data, error } = await supabase.from('categories').insert(formatted);
+//     console.log("catMe", { data, error } );
+    
+//   }
+//   catMe()
+// }, [])
+/**
+ * select 
+  m.name as market_name,
+  c.name as category_name
+from seller_market_category smc
+join markets m on m.id = smc.market_id
+join categories c on c.id = smc.category_id
+where smc.seller_id = 'some-seller-uuid';
+
+create table public.seller_market_category (
+  id uuid primary key default gen_random_uuid(),
+  seller_id uuid not null references profiles(id) on delete cascade,
+  market_id uuid not null references markets(id) on delete cascade,
+  category_id uuid not null references categories(id) on delete cascade,
+  created_at timestamp with time zone default now(),
+
+  unique (seller_id, market_id, category_id) -- no duplicates
+);
+
+ */
+
+  const { isInitialized, requestPermission } = useNotifications()
+
+  useEffect(() => {
+   
+    console.log({ isAuthenticated });
+
+    if (!isAuthenticated || !isInitialized) return;
+
+    requestPermission()
+  }, [isAuthenticated, requestPermission])
+
 
   const userHomeUrl = `/${userRole}/landing`
 
@@ -33,19 +82,13 @@ const Index = () => {
     window.location.reload()
   };
 
-
-  useEffect(() => {
-    if (!isAuthenticated || !isInitialized) return;
-
-    requestPermission()
-  }, [isAuthenticated, requestPermission])
-
   useEffect(() => {
     const handleShowInstructions = (event: CustomEvent) => {
       // const { instructions } = event.detail;
       // console.log('Received instructions:', instructions);
 
       // You can trigger a modal, toast, etc.
+      toast.info("Please enable notifications")
     };
 
     // Attach listener

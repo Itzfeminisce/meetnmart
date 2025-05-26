@@ -140,7 +140,9 @@ export function toLivekitRoomName(input: string): string {
 export const formatCurrency = (amount: number, currency: string = 'NGN') => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: currency
+    currency: currency,
+    currencySign: "accounting",
+    currencyDisplay: "narrowSymbol"
   }).format(amount);
 };
 

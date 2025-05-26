@@ -94,6 +94,7 @@ export type Database = {
           description: string | null
           id: string
           is_online: boolean | null
+          is_reachable: boolean | null
           name: string | null
           phone_number: string | null
           updated_at: string

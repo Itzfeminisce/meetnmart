@@ -9,7 +9,6 @@ import { SocketProvider } from "./contexts/SocketContext";
 import { getEnvVar } from "./lib/utils";
 import { LiveCallProvider as LiveCallProvider_V2 } from "./contexts/live-call-context";
 import { PaystackProvider } from "./contexts/paystack-context";
-import { useAutoScrollToTop } from "./hooks/scroll-top";
 import { ScrollToTop } from "./components/ScrollTop";
 
 const queryClient = new QueryClient({

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import NotificationManager, { NotificationOptions } from '../engines/NotificationManager';
+import { useAuth } from '@/contexts/AuthContext';
 // import {  } from 'react-router-dom';
 
 /**
@@ -11,6 +12,7 @@ export const useNotifications = () => {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const notificationManager = NotificationManager.getInstance();
+  const { isAuthenticated, isInitialized: isAuthInitialized } = useAuth()
 
   // const history = {
   //   push() {
@@ -41,16 +43,18 @@ export const useNotifications = () => {
             console.log('Notification received in app:', payload);
           },
         });
-        
+
         setIsInitialized(success);
-        
+
         if (success) {
           // Get current permission status
           setPermissionStatus(notificationManager.getPermissionStatus());
-          
+
           // Get token if already available
-          const currentToken = await notificationManager.getToken();
-          setToken(currentToken);
+          if (isAuthInitialized && isAuthenticated) {
+            const currentToken = await notificationManager.getToken();
+            setToken(currentToken);
+          }
         }
       } catch (err) {
         console.error('Failed to initialize notifications:', err);
