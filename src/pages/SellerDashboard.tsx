@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,7 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { WalletSummary as WalletSummaryComponent } from '@/components/WalletSummary';
 import Loader from '@/components/ui/loader';
 import RecentCallCard from '@/components/RecentCallCard';
-import { useFetch, useGetTransactions } from '@/hooks/api-hooks';
+import { useCreateProduct, useDeleteProduct, useFetch, useGetCategories, useGetProducts, useGetTransactions, useUpdateProduct } from '@/hooks/api-hooks';
 import ErrorComponent from '@/components/ErrorComponent';
 import {
   Plus,
@@ -37,12 +37,15 @@ import {
   Edit,
   LogOut,
   Upload,
-  X
+  X,
+  ShieldQuestionIcon
 } from 'lucide-react';
 import SellerProductCatalogCard from '@/components/SellerProductCatalogCard';
 import { Product } from '@/types';
 import { mockProducts } from '@/lib/mockData';
 import { formatTimeAgo } from '@/lib/utils';
+import { getShortName } from '../lib/utils';
+import { ImageUploadField } from '@/components/ui/image-upload-field';
 
 // Product form schema
 const productSchema = z.object({
@@ -51,7 +54,7 @@ const productSchema = z.object({
   price: z.coerce.number().min(1, 'Price is required'),
   category: z.string().min(1, 'Category is required'),
   image: z.string().url('Please enter a valid image URL').optional().or(z.literal('')),
-  inStock: z.boolean().default(true),
+  in_stock: z.boolean().default(true),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -60,12 +63,16 @@ type ProductFormValues = z.infer<typeof productSchema>;
 const SellerDashboard = () => {
   const { user, profile, signOut, isLoading, fetchTransactions } = useAuth();
   const navigate = useNavigate();
+  const { data: products, isLoading: isProductLoading } = useGetProducts()
+  const {data: categories} = useGetCategories()
+  const productCreateMutation = useCreateProduct()
+  const productDeleteMutation = useDeleteProduct()
+  const productUpdateMutation = useUpdateProduct()
   const [likesSeller, setLikedSeller] = useState<string[]>([]);
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  // const [products, setProducts] = useState<Product[]>(mockProducts);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-
-  console.log({ profile });
+  const [productImageUrl, setProductImageUrl] = useState('')
 
 
   const form = useForm<ProductFormValues>({
@@ -75,8 +82,8 @@ const SellerDashboard = () => {
       description: '',
       price: 0,
       category: '',
-      image: '',
-      inStock: true,
+      image: productImageUrl,
+      in_stock: true,
     },
   });
 
@@ -106,40 +113,42 @@ const SellerDashboard = () => {
       description: '',
       price: 0,
       category: '',
-      image: '',
-      inStock: true,
+      image: productImageUrl,
+      in_stock: true,
     });
     setDialogOpen(true);
   };
 
-  const handleEditProduct = (product: typeof mockProducts[0]) => {
+  const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
     form.reset({
       name: product.name,
       description: product.description,
       price: product.price,
       category: product.category,
-      image: product.image,
-      inStock: product.inStock,
+      image: productImageUrl,
+      in_stock: product.in_stock,
     });
     setDialogOpen(true);
   };
 
-  const onSubmit = (values: ProductFormValues) => {
-    const newProduct = {
-      id: editingProduct ? editingProduct.id : Date.now(),
-      name: values.name,
-      description: values.description,
-      price: `${values.price}`,
-      category: values.category,
-      image: values.image || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop",
-      inStock: values.inStock,
-    };
+  const onSubmit = async (values: ProductFormValues) => {
 
     if (editingProduct) {
       // setProducts(prev => prev.map(p => p.id === editingProduct.id ? newProduct : p));
       toast.success('Product updated successfully!');
     } else {
+      await productCreateMutation.mutateAsync({
+        data: {
+          category: values.category,
+          description: values.description,
+          image: productImageUrl,
+          in_stock: values.in_stock,
+          name: values.name,
+          price: values.price,
+          seller_id: user.id
+        }
+      })
       // setProducts(prev => [...prev, newProduct]);
       toast.success('Product added successfully!');
     }
@@ -150,85 +159,94 @@ const SellerDashboard = () => {
 
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="mb-[5rem]">
       <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Profile Section */}
           <div className="lg:col-span-1 space-y-6">
             {/* Profile Card */}
-            <Card className="overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="relative">
-                    <Avatar className="h-24 w-24 border-4 border-border">
+            <Card className="overflow-hidden shadow-sm border rounded-xl">
+              <CardContent className="p-6 space-y-6">
+                {/* Profile Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between sm:gap-6 text-center sm:text-left">
+                  <div className="flex flex-col items-center sm:items-start space-y-3">
+                    <Avatar className="h-24 w-24 border-4 border-border shadow">
                       {profile.avatar ? (
                         <AvatarImage src={profile.avatar} alt={profile.name} />
                       ) : (
                         <AvatarFallback className="text-2xl font-bold">
-                          {profile.name ? profile.name.charAt(0).toUpperCase() : 'S'}
+                          {profile.name?.charAt(0).toUpperCase() || 'S'}
                         </AvatarFallback>
                       )}
                     </Avatar>
-                  </div>
 
-                  <div className="space-y-2">
-                    <h1 className="text-2xl font-bold">
-                      {profile.name || 'MeetnMart Seller'}
-                    </h1>
-                    <Badge variant="secondary" className="mb-2">
-                      <Package className="w-3 h-3 mr-1" />
-                      {profile.category || 'General Store'}
-                    </Badge>
-                    <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
-                      <Star className="w-4 h-4 fill-current" />
-                      <span className="font-medium">4.8</span>
-                      <span>(127 reviews)</span>
-                    </div>
-                  </div>
+                    <div className="space-y-1">
+                      <h1 className="text-2xl font-bold tracking-tight">{getShortName(profile.name)}</h1>
+                      <Badge variant="secondary" className="text-xs px-2 py-0.5 inline-flex items-center">
+                        <Package className="w-3 h-3 mr-1" />
+                        {profile.category || 'General Store'}
+                      </Badge>
 
-                  
-                     {/* Action Buttons */}
-                     <div className="flex items-center justify-center gap-x-2">
-                        <Button
-                          size='icon'
-                          variant='ghost'
-                          className='p-0 m-0'
-                          onClick={handleEditProfile}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-
-                        <Button
-                          size='icon'
-                          variant='ghost'
-                          className='p-0 m-0'
-                          disabled={isLoading}
-                          onClick={handleSignOut}
-                        >
-                          <LogOut className="w-4 h-4" />
-                        </Button>
-                      </div>
-
-                  <div className="w-full space-y-3 text-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center justify-start gap-x-2">
-                        <Phone className="w-4 h-4 text-muted-foreground" />
-                        <span>{profile.phone_number || user?.phone || "No Phone"}</span>
+                      <div className="flex items-center justify-center sm:justify-start gap-1 text-sm text-muted-foreground">
+                        <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
+                        <span className="font-medium">4.8</span>
+                        <span className="opacity-70">(127 reviews)</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-muted-foreground" />
-                      <span>Local Seller</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span>Joined {formatTimeAgo(profile.created_at)}</span>
-                    </div>
                   </div>
-                  {!profile.is_reachable && <Badge variant='destructive' className=''>You are currently not visible to buyers</Badge>}
+
                 </div>
+
+                {/* Contact Info */}
+                <div className="grid gap-3 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4" />
+                    <span>{profile.phone_number || user?.phone || 'No Phone'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    <span>Local Seller</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    <span>Joined {formatTimeAgo(profile.created_at)}</span>
+                  </div>
+                </div>
+
+                {/* Status Warning */}
+                {!profile.is_reachable && (
+                  <Badge variant="destructive" className="block w-full text-center">
+                    You are currently not visible to buyers
+                  </Badge>
+                )}
               </CardContent>
             </Card>
+
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between w-full border border-muted rounded-md p-4">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="hover:bg-muted"
+                onClick={handleEditProfile}
+              >
+                <Edit className="w-5 h-5" />
+                Edit Profile
+              </Button>
+
+              <Button
+                size="sm"
+                variant="ghost"
+                className="hover:bg-muted"
+                disabled={isLoading}
+                onClick={handleSignOut}
+              >
+                <LogOut className="w-5 h-5" />
+                Logout
+              </Button>
+            </div>
+
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 gap-4">
@@ -247,10 +265,6 @@ const SellerDashboard = () => {
                 </Card>
               ))}
             </div>
-
-            {/* Wallet Summary */}
-            <WalletSummaryComponent userRole='seller' />
-
           </div>
 
           {/* Right Column - Product Catalog */}
@@ -259,18 +273,32 @@ const SellerDashboard = () => {
               {/* Catalog Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold">Product Catalog</h2>
+                  <h2 className="text-balance md:text-2xl font-bold">Product Catalog</h2>
                   <p className="text-muted-foreground">Manage your product listings</p>
                 </div>
-                <Button onClick={handleAddProduct}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Product
+                <Button onClick={handleAddProduct} className='bg-primary'>
+                  <Plus className="w-4 h-4" />
+                  <span className='hidden md:flex'> Add Product</span>
                 </Button>
               </div>
 
               {/* Product Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {products.map((product) => (
+                {isProductLoading ? <Loader /> : products.length == 0 ? (
+                  <Card className="group border-none p-8 text-center flex flex-col items-center justify-center min-h-[280px]">
+                    <CardContent className="flex flex-col items-center justify-center h-full gap-4">
+                      <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <ShieldQuestionIcon className="w-6 h-6 text-market-orange" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-market-orange">
+                        Your catalog is empty
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Sellers with product listings stand a higher chance of engaging buyers.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : products.map((product) => (
                   <SellerProductCatalogCard
                     product={product}
                     handleEditProduct={() => handleEditProduct(product)}
@@ -342,16 +370,9 @@ const SellerDashboard = () => {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="Food">Food</SelectItem>
-                            <SelectItem value="Vegetables">Vegetables</SelectItem>
-                            <SelectItem value="Fruits">Fruits</SelectItem>
-                            <SelectItem value="Bakery">Bakery</SelectItem>
-                            <SelectItem value="Beverages">Beverages</SelectItem>
-                            <SelectItem value="Crafts">Crafts</SelectItem>
-                            <SelectItem value="Electronics">Electronics</SelectItem>
-                            <SelectItem value="Clothing">Clothing</SelectItem>
-                            <SelectItem value="Books">Books</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
+                            {categories.map(it => (
+                            <SelectItem value={it.id}>{it.name}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -406,7 +427,7 @@ const SellerDashboard = () => {
 
                   <FormField
                     control={form.control}
-                    name="inStock"
+                    name="in_stock"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
@@ -426,7 +447,19 @@ const SellerDashboard = () => {
                   />
                 </div>
 
-                <FormField
+                <ImageUploadField
+                  filePreferedName={`${user.id}`}
+                  onChange={(url) => setProductImageUrl(url)}
+                  value={productImageUrl}
+                  required={true}
+                  showPreview={true}
+                  maxSizeMB={2}
+                  placeholder='https://example.com/image.jpg'
+                  label='Product Image URL (Max: 2MB, PNG/JPEG/JPG)'
+                  helperText='Upload a clear photo to showcase your product'
+                />
+
+                {/* <FormField
                   control={form.control}
                   name="image"
                   render={({ field }) => (
@@ -458,7 +491,7 @@ const SellerDashboard = () => {
                       <FormMessage />
                     </FormItem>
                   )}
-                />
+                /> */}
 
                 <div className="flex gap-3 pt-4">
                   <Button type="submit" className="flex-1">

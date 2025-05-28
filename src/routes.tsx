@@ -1,5 +1,5 @@
 import Index from "./pages/Index";
-import MarketSelection from "./pages/MarketSelection";
+import MarketSelection from "./pages/BuyerLanding";
 import CategorySelection from "./pages/CategorySelection";
 import SellersList from "./pages/SellersList";
 import RatingFeedback from "./pages/RatingFeedback";
@@ -16,18 +16,18 @@ import Activity from "./pages/Activity";
 import BottomNavigation from "./components/BottomNavigation";
 import RecentVisits from "./pages/RecentVisits";
 import { LiveCall_V2 } from "./pages/LiveCall";
-import { TransactionDetails } from "./components/TransactionDetail";
+import {EntrySlides} from "./components/EntrySlides";
 import CallsList from "./pages/CallsList";
-import SellerMarketSelection from "./pages/_SellerMarketSelection";
 import SellerCategorySelection from "./pages/_SellerCategorySelection";
 import SellerLanding from "./pages/SellerLanding";
 import SellerSetup from "./pages/SellerSetup";
 import Transactions from "./pages/Transaction";
-import BuyerMarketSelection from "./pages/MarketSelection";
+import BuyerLanding from "./pages/BuyerLanding";
 
 export const appRoutes: RouteObject[] = [
   // Guest Routes
   { path: "/", element: <Index /> },
+  { path: "/good-to-know", element: <EntrySlides />},
 
 
 
@@ -42,7 +42,12 @@ export const appRoutes: RouteObject[] = [
       { path: "/explore", element: <Explore /> },
       { path: "/activity", element: <Activity /> },
       { path: "/calls/:callId?", element: <LiveCall_V2 /> },
+      
+      { path: "/recent-visits", element: <RecentVisits /> },
+      { path: "/transactions/:tx_id?", element: <Transactions /> },
+      { path: "/recent-calls", element: <CallsList /> },
 
+      
       // Seller specific routes
       {
         element: <SellerRoute />,
@@ -63,15 +68,12 @@ export const appRoutes: RouteObject[] = [
           { path: "/categories", element: <CategorySelection /> },
           { path: "/rating", element: <RatingFeedback /> },
 
-          { path: "/buyer/landing", element: <BuyerMarketSelection /> },
+          { path: "/buyer/landing", element: <BuyerLanding /> },
           { path: "/buyer-dashboard", element: <BuyerDashboard /> },
           { path: "/edit-buyer-profile", element: <EditBuyerProfile /> },
         ]
       },
 
-      { path: "/recent-visits", element: <RecentVisits /> },
-      { path: "/transactions/:tx_id?", element: <Transactions /> },
-      { path: "/recent-calls", element: <CallsList /> },
       // Role Selection Route (protected but no role check)
       {
         element: <RoleSelectionRoute />,

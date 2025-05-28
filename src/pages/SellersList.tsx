@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, BellOff, PhoneCall, Star, Package, Heart, X, MapPin, Clock, Award, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Bell, BellOff, PhoneCall, Star, Package, Heart, X, MapPin, Clock, Award, ShoppingBag, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -16,6 +16,7 @@ import ErrorComponent from '@/components/ErrorComponent';
 import { useEffect, useState } from 'react';
 import { useSocket } from '@/contexts/SocketContext';
 import SellerProductCatalogCard from '@/components/SellerProductCatalogCard';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Mock data for demonstration
 const mockReviews = [
@@ -32,11 +33,11 @@ const SellersList = () => {
   const { market, categoryId } = location.state as { market: Market; categoryId: string };
   const [selectedSeller, setSelectedSeller] = useState<UsersByRole | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'reviews' | 'catalog'>('reviews');
+  const [activeTab, setActiveTab] = useState<string>('reviews');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
 
-  const feedbacks = useGetUserFeedbacks({p_seller_id: selectedSeller?.id});
+  const feedbacks = useGetUserFeedbacks({ p_seller_id: selectedSeller?.id });
 
   // console.log({feedbacks});
 
@@ -52,6 +53,10 @@ const SellersList = () => {
         caller: { id: profile.id, name: profile.name },
         room: toLivekitRoomName(`call_${Date.now()}_${seller.id}`),
         receiver: { name: seller.name, id: seller.id },
+        data:{
+          marketId: market.id,
+          categoryId: categoryId
+        }
       } as CallData,
     });
   };
@@ -92,7 +97,7 @@ const SellersList = () => {
             <ArrowLeft size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gradient">{market.name}</h1>
+            <h1 className="font-bold text-gradient text-base md:text-xl xl:text-2xl">{market.name}</h1>
             <p className="text-sm text-muted-foreground">
               {category?.name || 'All Categories'}
             </p>
@@ -113,17 +118,17 @@ const SellersList = () => {
             filteredSellers.map(seller => (
               <div
                 key={seller.id}
-                className="glass-morphism rounded-xl p-5 relative overflow-hidden group hover:shadow-lg transition-all duration-300"
+                className="glass-morphism rounded-xl p-4 sm:p-5 relative overflow-hidden group hover:shadow-lg transition-all duration-300"
               >
                 {/* Background gradient accent */}
                 <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-market-orange/10 to-transparent rounded-bl-full" />
 
                 {/* Header section */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center flex-1">
-                    <Avatar className="h-14 w-14 mr-4 border-2 border-secondary ring-2 ring-market-orange/20">
+                <div className="flex flex-col sm:flex-row items-start justify-between mb-4 gap-4">
+                  <div className="flex items-start sm:items-center flex-1 min-w-0">
+                    <Avatar className="h-12 w-12 sm:h-14 sm:w-14 mr-3 border-2 border-secondary ring-2 ring-market-orange/20 shrink-0">
                       {seller.avatar ? (
-                        <AvatarImage src={seller.avatar} alt={seller.name} className='object-contain' />
+                        <AvatarImage src={seller.avatar} alt={seller.name} className="object-contain" />
                       ) : (
                         <AvatarFallback className="bg-gradient-to-br from-market-orange/20 to-secondary text-foreground font-semibold">
                           {getInitials(seller.name)}
@@ -131,9 +136,9 @@ const SellersList = () => {
                       )}
                     </Avatar>
 
-                    <div className="flex-grow">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-lg">{seller.name}</h3>
+                    <div className="flex-grow min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-base sm:text-lg truncate">{seller.name}</h3>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -143,41 +148,37 @@ const SellersList = () => {
                           <Heart
                             size={16}
                             className={`transition-colors ${favorites.has(seller.id)
-                                ? 'text-red-500 fill-red-500'
-                                : 'text-muted-foreground hover:text-red-400'
+                              ? 'text-red-500 fill-red-500'
+                              : 'text-muted-foreground hover:text-red-400'
                               }`}
                           />
                         </Button>
                       </div>
 
-                      <div className="flex items-center mt-1 mb-2">
-                        <div className="flex items-center mr-3">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm">
+                        <div className="flex items-center">
                           {seller.is_online ? (
                             <Bell size={14} className="text-market-green mr-1" />
                           ) : (
                             <BellOff size={14} className="text-muted-foreground mr-1" />
                           )}
                           <Badge
-                            variant={seller.is_online ? "default" : "secondary"}
+                            variant={seller.is_online ? 'default' : 'secondary'}
                             className={`text-xs px-2 py-0.5 ${seller.is_online
-                                ? 'bg-market-green/10 text-market-green border-market-green/20'
-                                : 'bg-muted text-muted-foreground'
+                              ? 'bg-market-green/10 text-market-green border-market-green/20'
+                              : 'bg-muted text-muted-foreground'
                               }`}
                           >
                             {seller.is_online ? 'Available' : 'Unavailable'}
                           </Badge>
                         </div>
 
-                        <div className="flex items-center text-sm">
-                          <div className="flex items-center mr-2">
-                            <span className='text-market-orange text-base'>
-                              {'★'.repeat(Math.floor(seller?.avg_rating || 0))}
-                            </span>
-                            {(seller?.avg_rating || 0) % 1 > 0 && <span className='text-market-orange/40'>☆</span>}
-                            <span className="ml-1 text-muted-foreground text-xs">
-                              ({seller?.total_reviews || 0})
-                            </span>
-                          </div>
+                        <div className="flex items-center text-xs">
+                          <span className="text-market-orange text-base">
+                            {'★'.repeat(Math.floor(seller?.avg_rating || 0))}
+                          </span>
+                          {(seller?.avg_rating || 0) % 1 > 0 && <span className="text-market-orange/40">☆</span>}
+                          <span className="ml-1 text-muted-foreground">({seller?.total_reviews || 0})</span>
                         </div>
                       </div>
                     </div>
@@ -185,12 +186,12 @@ const SellersList = () => {
                 </div>
 
                 {/* Description */}
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                  {seller.description || "No Description"}
+                <p className="text-sm text-muted-foreground mb-4 line-clamp-2 sm:line-clamp-3">
+                  {seller.description || 'No Description'}
                 </p>
 
                 {/* Quick stats */}
-                <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
+                <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 text-xs text-muted-foreground mb-4">
                   <div className="flex items-center">
                     <MapPin size={12} className="mr-1" />
                     <span>2.5km away</span>
@@ -206,8 +207,8 @@ const SellersList = () => {
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-4">
+                  <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -232,13 +233,13 @@ const SellersList = () => {
                   <Button
                     onClick={() => handleCall(seller)}
                     size="sm"
-                    className={`${seller.is_online
-                        ? 'bg-market-green hover:bg-market-green/90 shadow-lg shadow-market-green/20'
-                        : 'bg-muted text-muted-foreground cursor-not-allowed'
+                    className={`w-full sm:w-auto h-8 px-3 ${seller.is_online
+                      ? 'bg-market-green hover:bg-market-green/90 shadow-lg shadow-market-green/20'
+                      : 'bg-muted text-muted-foreground cursor-not-allowed'
                       } transition-all duration-200`}
                     disabled={!seller.is_online}
                   >
-                    <PhoneCall size={14} className="mr-2" />
+                    <PhoneCall size={14} />
                     Talk Now
                   </Button>
                 </div>
@@ -256,7 +257,9 @@ const SellersList = () => {
 
       {/* Seller Details Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="min-w-[50vw] max-w-1/2">
+        <SheetContent
+          className="w-full max-w-[100vw] sm:max-w-[90vw] md:max-w-[70vw] lg:max-w-[50vw] px-4 sm:px-6 md:px-8 overflow-y-auto pb-0"
+        >
           {selectedSeller && (
             <>
               <SheetHeader className="pb-4">
@@ -273,8 +276,8 @@ const SellersList = () => {
                       <Heart
                         size={18}
                         className={`${favorites.has(selectedSeller.id)
-                            ? 'text-red-500 fill-red-500'
-                            : 'text-muted-foreground'
+                          ? 'text-red-500 fill-red-500'
+                          : 'text-muted-foreground'
                           }`}
                       />
                     </Button>
@@ -299,8 +302,8 @@ const SellersList = () => {
                     <Badge
                       variant={selectedSeller.is_online ? "default" : "secondary"}
                       className={`mr-2 ${selectedSeller.is_online
-                          ? 'bg-market-green/10 text-market-green border-market-green/20'
-                          : 'bg-muted text-muted-foreground'
+                        ? 'bg-market-green/10 text-market-green border-market-green/20'
+                        : 'bg-muted text-muted-foreground'
                         }`}
                     >
                       {selectedSeller.is_online ? 'Available' : 'Unavailable'}
@@ -323,55 +326,48 @@ const SellersList = () => {
               </div>
 
               {/* Tab navigation */}
-              <div className="flex border-b border-border mb-6">
-                <Button
-                  variant={activeTab === 'reviews' ? 'default' : 'ghost'}
-                  className={`rounded-none border-b-2 ${activeTab === 'reviews'
-                      ? 'border-market-orange'
-                      : 'border-transparent'
-                    }`}
-                  onClick={() => setActiveTab('reviews')}
-                >
-                  <Star size={16} className="mr-2" />
-                  Reviews & Ratings
-                </Button>
-                <Button
-                  variant={activeTab === 'catalog' ? 'default' : 'ghost'}
-                  className={`rounded-none border-b-2 ${activeTab === 'catalog'
-                      ? 'border-market-orange'
-                      : 'border-transparent'
-                    }`}
-                  onClick={() => setActiveTab('catalog')}
-                >
-                  <Package size={16} className="mr-2" />
-                  Product Catalog
-                </Button>
-              </div>
+              <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className=''>
+                <TabsList className="w-full bg-transparent border-b rounded-none justify-start space-x-4 overflow-x-auto scrollbar-small max-w-full overflow-y-hidden">
+                  <TabsTrigger
+                    value="reviews"
+                    className={`border-b-2 px-4 py-2 rounded-none text-sm font-medium data-[state=active]:border-market-orange data-[state=active]:text-foreground border-transparent`}
+                  >
+                    <Star size={16} className="mr-2" />
+                    Reviews & Ratings
+                  </TabsTrigger>
 
-              {/* Tab content */}
-              <div className="flex-1 overflow-y-auto h-[calc(100vh-60%)] scrollbar-small p-4">
-                {activeTab === 'reviews' ? (
+                  <TabsTrigger
+                    value="catalog"
+                    className={`border-b-2 px-4 py-2 rounded-none text-sm font-medium data-[state=active]:border-market-orange data-[state=active]:text-foreground border-transparent`}
+                  >
+                    <Package size={16} className="mr-2" />
+                    Product Catalog
+                  </TabsTrigger>
+                </TabsList>
+
+               <TabsContent value="reviews">
                   <div className="space-y-4">
-                    {feedbacks.isLoading ? <Loader /> : feedbacks?.data && feedbacks.data.length === 0 ? 
+                    {feedbacks.isLoading ? <Loader /> : feedbacks?.data && feedbacks.data.length === 0 ?
                       <p className='text-sm text-market-orange text-center'>No Feedbacks yet.</p>
-                    : feedbacks.data.map(review => (
-                      <div key={review.id} className="glass-morphism rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center">
-                            <span className="font-medium text-sm mr-2">{review.buyer_name}</span>
+                      : feedbacks.data.map(review => (
+                        <div key={review.id} className="glass-morphism rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center">
-                              <span className='text-market-orange text-sm'>
-                                {'★'.repeat(review.rating)}
-                              </span>
+                              <span className="font-medium text-sm mr-2">{review.buyer_name}</span>
+                              <div className="flex items-center">
+                                <span className='text-market-orange text-sm'>
+                                  {'★'.repeat(review.rating)}
+                                </span>
+                              </div>
                             </div>
+                            <span className="text-xs text-muted-foreground">{formatTimeAgo(review.created_at)}</span>
                           </div>
-                          <span className="text-xs text-muted-foreground">{formatTimeAgo(review.created_at)}</span>
+                          <p className="text-sm text-muted-foreground">{review.feedback_text || "No Description"}</p>
                         </div>
-                        <p className="text-sm text-muted-foreground">{review.feedback_text || "No Description"}</p>
-                      </div>
-                    ))}
+                      ))}
                   </div>
-                ) : (
+                </TabsContent>
+                <TabsContent value="catalog">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {mockProducts.map(product => (
                       <SellerProductCatalogCard
@@ -379,23 +375,29 @@ const SellersList = () => {
                       />
                     ))}
                   </div>
-                )}
-              </div>
+                </TabsContent>
+              </Tabs>
 
               {/* Action button at bottom */}
-              <div className="pt-6 border-t border-border">
+              <div className="grid grid-cols-4 gap-x-2 sticky bottom-0 bg-background py-2 md:px-4 self-end z-10">
+                <Button
+                  variant='outline'
+                  onClick={() => setSheetOpen(false)}
+                >
+                  <ChevronLeft size={16} className="" />
+                </Button>
                 <Button
                   onClick={() => {
                     handleCall(selectedSeller);
                     setSheetOpen(false);
                   }}
-                  className={`w-full ${selectedSeller.is_online
-                      ? 'bg-market-green hover:bg-market-green/90'
-                      : 'bg-muted text-muted-foreground'
+                  className={`w-full col-span-3 ${selectedSeller.is_online
+                    ? 'bg-market-green hover:bg-market-green/90'
+                    : 'bg-muted text-muted-foreground'
                     }`}
                   disabled={!selectedSeller.is_online}
                 >
-                  <PhoneCall size={16} className="mr-2" />
+                  <PhoneCall size={16} />
                   Start Conversation
                 </Button>
               </div>

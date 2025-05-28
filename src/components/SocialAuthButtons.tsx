@@ -42,7 +42,7 @@ export function SocialAuthButtons({
         );
       })}
 
-      {providers.length > 0 && (
+      {/* {providers.length > 0 && (
         <div className="relative my-2">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t " />
@@ -53,7 +53,7 @@ export function SocialAuthButtons({
             </span>
           </div>
         </div>
-      )}
+      )} */}
     </>
   );
 }

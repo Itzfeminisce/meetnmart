@@ -26,6 +26,10 @@ export function getInitials(name: string): string {
     .join('');
 }
 
+export function getShortName(name: string) {
+  return name?.split(" ")?.[0] + " " + getInitials(name)
+}
+
 /**
  * Formats seconds into a MM:SS format
  * @param seconds - Total seconds
@@ -148,7 +152,7 @@ export const formatCurrency = (amount: number, currency: string = 'NGN') => {
 
 
 
-const formatDateTime = (dateString) => {
+export const formatDateTime = (dateString) => {
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-US', {
     day: 'numeric',
@@ -162,9 +166,9 @@ const formatDateTime = (dateString) => {
 
 
 export const logger = (message?: any, ...optionalParams: any[]) => {
-const env = getEnvVar("NODE_ENV")
+  const env = getEnvVar("NODE_ENV")
 
-if(env === "production") return;
+  if (env === "production") return;
 
-console.log(message, optionalParams)
+  console.log(message, optionalParams)
 }

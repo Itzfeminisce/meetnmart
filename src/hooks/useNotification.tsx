@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import NotificationManager, { NotificationOptions } from '../engines/NotificationManager';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 // import {  } from 'react-router-dom';
 
 /**
@@ -23,52 +24,45 @@ export const useNotifications = () => {
   //   }
   // }
 
-  // Initialize notification services
-  useEffect(() => {
-    const initializeNotifications = async () => {
-      try {
-        // Pass history to DeepLinkManager for navigation
-        const DeepLinkManager = (await import('../engines/DeepLinkManager')).default;
-        DeepLinkManager.getInstance().setHistory(history);
 
-        // Initialize notification manager with handlers
-        const success = await notificationManager.initialize({
-          onPermissionChanged: (status) => {
-            setPermissionStatus(status);
-          },
-          onTokenRefreshed: (newToken) => {
-            setToken(newToken);
-          },
-          onNotificationReceived: (payload) => {
-            console.log('Notification received in app:', payload);
-          },
-        });
 
-        setIsInitialized(success);
+  const  initializeNotifications = useCallback(async () => {
+    try {
+      // Pass history to DeepLinkManager for navigation
+      const DeepLinkManager = (await import('../engines/DeepLinkManager')).default;
+      DeepLinkManager.getInstance().setHistory(history);
 
-        if (success) {
-          // Get current permission status
-          setPermissionStatus(notificationManager.getPermissionStatus());
+      // Initialize notification manager with handlers
+      const success = await notificationManager.initialize({
+        onPermissionChanged: (status) => {
+          setPermissionStatus(status);
+        },
+        onTokenRefreshed: (newToken) => {
+          setToken(newToken);
+        },
+        onNotificationReceived: (payload) => {
+          console.log('Notification received in app:', payload);
+        },
+      });
 
-          // Get token if already available
-          if (isAuthInitialized && isAuthenticated) {
-            const currentToken = await notificationManager.getToken();
-            setToken(currentToken);
-          }
+      setIsInitialized(success);
+
+      if (success) {
+        // Get current permission status
+        setPermissionStatus(notificationManager.getPermissionStatus());
+
+        // Get token if already available
+        if (isAuthInitialized && isAuthenticated) {
+          const currentToken = await notificationManager.getToken();
+          setToken(currentToken);
         }
-      } catch (err) {
-        console.error('Failed to initialize notifications:', err);
-        setError('Failed to initialize notification services');
       }
-    };
+    } catch (err) {
+      console.error('Failed to initialize notifications:', err);
+      toast.error('Failed to initialize notification services');
+    }
+  },[])
 
-    initializeNotifications();
-
-    // Clean up on unmount
-    return () => {
-      // Nothing to clean up here as the NotificationManager is a singleton
-    };
-  }, [history]);
 
   // Request notification permissions
   const requestPermission = useCallback(async () => {
@@ -162,6 +156,7 @@ export const useNotifications = () => {
     token,
     error,
     requestPermission,
+    initializeNotifications,
     subscribeToTopic,
     unsubscribeFromTopic,
     showNotification,

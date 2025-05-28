@@ -1,36 +1,55 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, redirect, useNavigate } from 'react-router-dom';
 import { User, ShoppingBag, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useUpdateUserRole } from '@/hooks/api-hooks';
+import { supabase } from '@/integrations/supabase/client';
 
 const RoleSelection = () => {
-  const { user, fetchUserProfile, updateUserRole} = useAuth();
+  const { user, fetchUserProfile, updateUserRole } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'buyer' | 'seller' | null>(null); // Default to seller
-
-
+  const updateRoleMutation = useUpdateUserRole();
+  
+  
   const handleConfirmSelection = async () => {
+    if (!selectedRole) {
+      toast.error('Please select a role before confirming.');
+      return;
+    }
+
     try {
-
       setIsLoading(true);
+      const { data: { user }, error } = await supabase.auth.getUser();
 
-      // Update user role in the database
-      await updateUserRole(selectedRole);
+      if (error || !user) {
+        toast.error('Authentication error. Please try again.');
+        navigate("/", { replace: true });
+        return;
+      }
 
-      // Refresh the user profile
+      await updateRoleMutation.mutateAsync({ 
+        userId: user.id, 
+        role: selectedRole 
+      });
+
       await fetchUserProfile();
-
       toast.success(`You're now set up as a ${selectedRole}!`);
-
-      // Redirect based on role
-      navigate(`/${selectedRole}-dashboard`);
+      navigate(0);
 
     } catch (error: any) {
+      if (error?.message?.includes("duplicate key")) {
+        toast.success(`You're now set up as a ${selectedRole}!`);
+        await fetchUserProfile();
+        navigate(`/${selectedRole}-dashboard`, { replace: true });
+        return;
+      }
+
       console.error('Error setting role:', error);
       toast.error('Failed to set your role. Please try again.');
     } finally {
@@ -61,8 +80,8 @@ const RoleSelection = () => {
         <Card
           className={cn(
             "glass-morphism cursor-pointer transition-all duration-300 relative overflow-hidden",
-            selectedRole === 'buyer' 
-              ? 'border-2 border-market-blue shadow-lg shadow-market-blue/20 scale-105 z-10' 
+            selectedRole === 'buyer'
+              ? 'border-2 border-market-blue shadow-lg shadow-market-blue/20 scale-105 z-10'
               : 'hover:border-market-blue/50 hover:shadow-md'
           )}
           onClick={() => handleCardSelect('buyer')}
@@ -78,12 +97,12 @@ const RoleSelection = () => {
           )}>
             <div className={cn(
               "w-20 h-20 rounded-full flex items-center justify-center mb-4 transition-all duration-300",
-              selectedRole === 'buyer' 
-                ? 'bg-market-blue/30' 
+              selectedRole === 'buyer'
+                ? 'bg-market-blue/30'
                 : 'bg-market-blue/20'
             )}>
               <ShoppingBag className={cn(
-                "h-10 w-10 transition-all duration-300", 
+                "h-10 w-10 transition-all duration-300",
                 selectedRole === 'buyer' ? 'text-market-blue scale-110' : 'text-market-blue'
               )} />
             </div>
@@ -102,8 +121,8 @@ const RoleSelection = () => {
         <Card
           className={cn(
             "glass-morphism cursor-pointer transition-all duration-300 relative overflow-hidden",
-            selectedRole === 'seller' 
-              ? 'border-2 border-market-orange shadow-lg shadow-market-orange/20 scale-105 z-10' 
+            selectedRole === 'seller'
+              ? 'border-2 border-market-orange shadow-lg shadow-market-orange/20 scale-105 z-10'
               : 'hover:border-market-orange/50 hover:shadow-md'
           )}
           onClick={() => handleCardSelect('seller')}
@@ -119,12 +138,12 @@ const RoleSelection = () => {
           )}>
             <div className={cn(
               "w-20 h-20 rounded-full flex items-center justify-center mb-4 transition-all duration-300",
-              selectedRole === 'seller' 
-                ? 'bg-market-orange/30' 
+              selectedRole === 'seller'
+                ? 'bg-market-orange/30'
                 : 'bg-market-orange/20'
             )}>
               <User className={cn(
-                "h-10 w-10 transition-all duration-300", 
+                "h-10 w-10 transition-all duration-300",
                 selectedRole === 'seller' ? 'text-market-orange scale-110' : 'text-market-orange'
               )} />
             </div>
@@ -141,13 +160,13 @@ const RoleSelection = () => {
         </Card>
       </div>
 
-      <Button 
+      <Button
         className={cn(
           "w-full max-w-md transition-all duration-300",
           selectedRole === 'buyer' ? 'bg-market-blue hover:bg-market-blue/90' : 'bg-market-orange hover:bg-market-orange/90'
         )}
         size="lg"
-        disabled={isLoading} 
+        disabled={isLoading}
         onClick={handleConfirmSelection}
       >
         {isLoading ? 'Setting up your account...' : `Continue as ${selectedRole === 'buyer' ? 'Buyer' : 'Seller'}`}

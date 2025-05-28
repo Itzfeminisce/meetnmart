@@ -190,15 +190,31 @@ export type ExpandedTransaction = {
   transaction_created_at: string; // ISO date string
 };
 
+
+
+export type ProductCRUDAction = "create" | "read" | "update" | "delete";
+
+export type ProductCrudData<A extends ProductCRUDAction> =
+  A extends "create" ? Omit<Product, "id"> :
+  A extends "read" ? never :
+  A extends "update" ? Required<Pick<Product, "id">> & Partial<Omit<Product, "id">> :
+  A extends "delete" ? Pick<Product, "id"> :
+  never;
+
+export type ProductCrud<A extends ProductCRUDAction> = {
+  action: A;
+  data: ProductCrudData<A>;
+};
+
 export interface Product {
-  id: string;
+  id: string; // UUID
   name: string;
   description: string;
   price: number;
   image: string;
-  category: string;
-  inStock: boolean;
-  // likes: number;
+  category: string; // UUID
+  in_stock: boolean;
+  seller_id: string; // UUID
 }
 
 export interface Feedback {
@@ -213,4 +229,19 @@ export interface Feedback {
   seller_id: string;
   seller_name: string;
   seller_avatar: string;
+}
+
+
+export interface WeeklyStatusChart {
+  week: string; // e.g., "2025-W20"
+  status: 'released' | 'disputed' | 'rejected' | 'held'; // add more if needed
+  occurrence: number;
+}
+
+export interface StatsOverview {
+  calls: number;
+  charts: WeeklyStatusChart[];
+  feedbacks: number;
+  this_week: number;
+  transactions: number;
 }

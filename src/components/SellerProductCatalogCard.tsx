@@ -18,71 +18,84 @@ const SellerProductCatalogCard: React.FC<SellerProductCatalogCardProps> = ({ pro
     return (
         <Card
             key={product.id}
-            className={cn('group overflow-hidden', handleEditProduct && 'hover:shadow-lg transition-all duration-300 cursor-pointer')}
             onClick={() => handleEditProduct?.(product)}
+            className={cn(
+                'group overflow-hidden rounded-2xl border shadow-sm transition-shadow duration-300 hover:shadow-md',
+                handleEditProduct && 'cursor-pointer'
+            )}
         >
-            <div className="relative overflow-hidden">
+            {/* Image & Interactive Icons */}
+            <div className="relative aspect-[4/3] w-full overflow-hidden">
                 <img
                     src={product.image}
                     alt={product.name}
-                    className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
-                {
-                    likesSeller && likesSeller.length > 0 && (
-                        <div className="absolute top-2 right-2 flex gap-2">
-                            <Button
-                                size="sm"
-                                variant="secondary"
-                                className="h-8 w-8 p-0 bg-background/80 backdrop-blur-sm"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleLikeSeller?.(product.id);
-                                }}
-                            >
-                                <Heart className={`w-4 h-4 ${likesSeller.includes(product.id) ? 'fill-current text-red-500' : ''} transition-colors`} />
-                            </Button>
-                        </div>
-                    )
-                }
-                <div className="absolute top-2 left-2">
-                    <Badge variant={product.inStock ? "default" : "secondary"}>
-                        {product.inStock ? 'In Stock' : 'Out of Stock'}
+
+                {/* Like Button */}
+                {likesSeller?.length > 0 && (
+                    <div className="absolute top-2 right-2 z-10">
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="bg-background/80 backdrop-blur-sm hover:bg-background"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleLikeSeller?.(product.id);
+                            }}
+                        >
+                            <Heart
+                                className={cn(
+                                    'w-4 h-4 transition-colors',
+                                    likesSeller.includes(product.id) && 'fill-red-500 text-red-500'
+                                )}
+                            />
+                        </Button>
+                    </div>
+                )}
+
+                {/* Stock Badge */}
+                <div className="absolute top-2 left-2 z-10">
+                    <Badge
+                        variant={product.in_stock ? 'default' : 'secondary'}
+                        className={cn(
+                            'text-xs',
+                            product.in_stock
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-muted text-muted-foreground'
+                        )}
+                    >
+                        {product.in_stock ? 'In Stock' : 'Out of Stock'}
                     </Badge>
                 </div>
-                {handleLikeSeller && (
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                        <Edit className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>)
-                }
+
+                {/* Hover Overlay for Edit */}
+                {handleEditProduct && (
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200 flex items-center justify-center">
+                        <Edit className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                    </div>
+                )}
             </div>
 
-            <CardContent className="p-4">
-                <div className="space-y-3">
-                    <div>
-                        <h3 className="font-semibold text-lg line-clamp-1">
-                            {product.name}
-                        </h3>
-                        <Badge variant="outline" className="text-xs mt-1">
-                            {product.category}
-                        </Badge>
-                    </div>
+            {/* Content */}
+            <CardContent className="p-4 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <h3 className="font-semibold text-lg line-clamp-1">{product.name}</h3>
+                    {/* <Badge variant="outline" className="text-xs mt-1 sm:mt-0 w-fit">
+                        {product.category}
+                    </Badge> */}
+                </div>
 
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                        {product.description}
-                    </p>
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                    {product.description}
+                </p>
 
-                    <div className="flex items-center justify-between pt-2 border-t">
-                        <span className="text-lg font-bold">
-                            {formatCurrency(product.price)}
-                        </span>
-                        {/* <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Heart className="w-3 h-3" />
-                            {product.likes}
-                        </div> */}
-                    </div>
+                <div className="flex items-center justify-between pt-3 border-t">
+                    <span className="text-lg font-bold">{formatCurrency(product.price)}</span>
                 </div>
             </CardContent>
         </Card>
+
     )
 }
 

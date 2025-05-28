@@ -32,16 +32,7 @@ export const markets: Market[] = [
   },
 ];
 
-// export const categories: Category[] = [
-//   { id: '1', name: 'Food & Produce', icon: '🍎', color: 'market-orange' },
-//   { id: '2', name: 'Delivery Services', icon: '🚚', color: 'market-blue' },
-//   { id: '3', name: 'Gadgets & Tech', icon: '📱', color: 'market-green' },
-//   { id: '4', name: 'Home Services', icon: '🔧', color: 'market-purple' },
-//   { id: '5', name: 'Fashion', icon: '👕', color: 'market-pink' },
-//   { id: '6', name: 'Transportation', icon: '🏍️', color: 'market-orange' },
-//   { id: '7', name: 'Health & Beauty', icon: '💄', color: 'market-blue' },
-//   { id: '8', name: 'Art & Crafts', icon: '🎨', color: 'market-green' },
-// ];
+
 
 export const categories: Category[] = [
   // Food & Grocery
@@ -215,7 +206,7 @@ export const mockProducts = [
     price: 12.99,
     image: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=300&h=200&fit=crop",
     category: "Vegetables",
-    inStock: true,
+    in_stock: true,
     // likes: 24
   },
   {
@@ -225,7 +216,7 @@ export const mockProducts = [
     price: 8.50,
     image: "https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=300&h=200&fit=crop",
     category: "Bakery",
-    inStock: true,
+    in_stock: true,
     // likes: 18
   },
   {
@@ -235,7 +226,7 @@ export const mockProducts = [
     price: 24.99,
     image: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&h=200&fit=crop",
     category: "Beverages",
-    inStock: false,
+    in_stock: false,
     // likes: 31
   },
   {
@@ -245,7 +236,7 @@ export const mockProducts = [
     price: 89.99,
     image: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=300&h=200&fit=crop",
     category: "Crafts",
-    inStock: true,
+    in_stock: true,
     // likes: 12
   },
   {
@@ -255,7 +246,7 @@ export const mockProducts = [
     price: 15.99,
     image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=300&h=200&fit=crop",
     category: "Food",
-    inStock: true,
+    in_stock: true,
     // likes: 28
   }
 ];

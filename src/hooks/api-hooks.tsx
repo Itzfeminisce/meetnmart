@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
-import { Category, ExpandedTransaction, Feedback, MarketWithAnalytics, SellerMarketAndCategory } from '@/types';
+import { Category, ExpandedTransaction, Feedback, MarketWithAnalytics, Product, ProductCrud, SellerMarketAndCategory } from '@/types';
 import {
   useQuery,
   useMutation,
@@ -10,6 +10,11 @@ import {
   QueryKey,
   useQueryClient
 } from '@tanstack/react-query';
+import { StatsOverview } from '../types';
+import { MarketResult } from '@/services/marketsService';
+import { useAxios } from '@/lib/axiosUtils';
+
+const axiosUtil = useAxios()
 
 export type UserRole = 'buyer' | 'seller' | 'moderator' | 'admin' | null;
 export type UserProfile = Database['public']['Tables']['profiles']['Row']
@@ -346,6 +351,77 @@ export const useSubmitFeedback = () => {
   );
 };
 
+
+export const useCreateProduct = () => {
+  return useMutate(
+    async (payload: Omit<ProductCrud<"create">, "action">) => {
+      const { data, error } = await supabase.rpc('product_crud', {
+        action: "create",
+        data: payload.data
+      });
+      if (error) throw error;
+      return data
+    }, {
+    async onSuccess() {
+      await queryClient.invalidateQueries({
+        queryKey: ['products']
+      })
+    }
+  }
+  );
+};
+
+export const useUpdateProduct = () => {
+  return useMutate(
+    async (payload: Omit<ProductCrud<"update">, "action">): Promise<Product> => {
+      const { data, error } = await supabase.rpc('product_crud', {
+        action: "update",
+        data: payload.data
+      });
+      if (error) throw error;
+      return data
+    }, {
+    async onSuccess(_, variables) {
+      await queryClient.invalidateQueries({ queryKey: ["products", variables.data.id] })
+    },
+  }
+  );
+};
+export const useDeleteProduct = () => {
+  return useMutate(
+    async (payload: Omit<ProductCrud<"delete">, "action">): Promise<Product> => {
+      const { data, error } = await supabase.rpc('product_crud', {
+        action: "delete",
+        data: payload.data
+      });
+      if (error) throw error;
+      return data
+    }, {
+    async onSuccess(_, variables) {
+      await queryClient.invalidateQueries({ queryKey: ["products"] })
+    },
+  }
+  );
+};
+
+
+export const useGetProducts = () => {
+  return useFetch(
+    ["products"],
+    async (): Promise<Product[]> => {
+      const { data, error } = await supabase.rpc('product_crud', {
+        action: "read",
+        data: []
+      });
+      if (error) throw error;
+      return data || []
+    },
+    {
+      cacheTime: 'DEFAULT',
+    }
+  );
+};
+
 // ===================
 // USER DATA FETCHING HOOKS
 // ===================
@@ -540,7 +616,7 @@ export interface GetFeedbacksParams {
   p_min_rating?: number; // default: 1
 }
 
-export const useGetUserFeedbacks = (params?:GetFeedbacksParams ) => {
+export const useGetUserFeedbacks = (params?: GetFeedbacksParams) => {
   return useFetch<Feedback[]>(
     cacheKeys.feedbacks(params),
     async () => {
@@ -691,6 +767,60 @@ export const useGetMarkets = ({ userId, limit = 5 }: { userId?: string; limit?: 
 };
 
 
+type GetNearbyMarketsBaseSearchParams = {
+  page?: number;
+  pageSize?: number;
+};
+
+type GetNearbyMarketsNearbySearchParams = {
+  nearby: true;
+  lat: number;
+  lng: number;
+} & GetNearbyMarketsBaseSearchParams;
+
+type GetNearbyMarketsGlobalSearchParams = {
+  nearby?: false;
+} & GetNearbyMarketsBaseSearchParams;
+
+export type GetNearbyMarketsSearchParamsProps = GetNearbyMarketsNearbySearchParams | GetNearbyMarketsGlobalSearchParams;
+
+function normalizeSearchParams(params: Partial<GetNearbyMarketsSearchParamsProps>): GetNearbyMarketsSearchParamsProps {
+  return {
+    nearby: params.nearby ?? false,
+    page: params.page ?? 1,
+    pageSize: params.pageSize ?? 10,
+    ...(params.nearby ? { lat: params.lat!, lng: params.lng! } : {})
+  } as GetNearbyMarketsSearchParamsProps;
+}
+export const useGetNearbyMarkets = (
+  params?: GetNearbyMarketsSearchParamsProps,
+  enabled = false
+) => {
+  return useFetch<MarketWithAnalytics[]>(
+    ["nearby_markets", params],
+    async () => {
+      // const { data, error } = await supabase.functions.invoke("search-markets", {
+      //   body: normalizeSearchParams(params),
+      // });
+
+      const response = await axiosUtil.Post<{ data: MarketWithAnalytics[] }>("/search", {
+        body: normalizeSearchParams(params),
+      }).then(it => it.data)
+
+      return response;
+    },
+    {
+      enabled,
+      cacheTime: 'DEFAULT',
+      throwOnError() {
+        return true
+      }
+    }
+  );
+};
+
+
+
 export const useGetCategories = ({ userId = undefined, limit = 5 }: { userId?: string; limit?: number; } = {}) => {
   return useFetch<Category[]>(
     ["categories"],
@@ -735,6 +865,24 @@ export const useGetSellerMarketAndCategories = ({ seller, ...filters }: {
       return data;
     },
     {
+      cacheTime: 'DEFAULT',
+    }
+  );
+};
+export const useGetSellerStats = ({ userId }: { userId: string }) => {
+  return useFetch<StatsOverview>(
+    ["seller_stats"],
+    async () => {
+      const { data, error } = await supabase
+        .rpc('get_seller_stats', {
+          p_seller_id: userId
+        });
+
+      if (error) throw error;
+      return data;
+    },
+    {
+      enabled: !!userId,
       cacheTime: 'DEFAULT',
     }
   );
@@ -826,6 +974,7 @@ export const cacheUtils = {
       }),
     ]);
   },
+
 
   /**
    * Clear user-specific cache

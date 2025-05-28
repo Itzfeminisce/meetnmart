@@ -13,11 +13,22 @@ export default {
 	theme: {
 		container: {
 			center: true,
-			padding: '2rem',
+			padding: {
+			  DEFAULT: '1rem',      // fallback
+			  sm: '.5rem',           // phones
+			//   md: '1rem',           // tablets
+			//   lg: '2rem',           // laptops
+			//   xl: '3rem',           // desktops
+			//   '2xl': '4rem',        // big screens
+			},
 			screens: {
-				'2xl': '1400px'
-			}
-		},
+			  sm: '100%',           // mobile-first full width
+			  md: '640px',
+			  lg: '768px',
+			  xl: '1024px',
+			  '2xl': '1280px',
+			},
+		  },
 		extend: {
 			colors: {
 				border: 'hsl(var(--border))',

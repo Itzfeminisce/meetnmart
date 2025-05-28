@@ -138,7 +138,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    */
   const updateUserRole = useCallback(async (role: Exclude<UserRole, null>) => {
     if (!user) {
-      toast.error('You must be logged in to update your role');
       throw new Error('No user logged in');
     }
 

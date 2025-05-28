@@ -18,8 +18,10 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
     allowedRoles,
     redirectTo
 }) => {
+    
     const { isAuthenticated, userRole, user, isLoading, isInitialized } = useAuth();
     const location = useLocation();
+
 
     // Show loading screen while auth is initializing or loading
     if (!isInitialized || isLoading) {
@@ -51,7 +53,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
     // If authentication is required and user is authenticated
     if (requiresAuth && isAuthenticated) {
         // If role is required but user has no role, redirect to role selection
-        if (requiresRole && !userRole) {
+        if (requiresRole && !userRole && location.pathname !== "/role-selection") {
             return <Navigate to="/role-selection" replace />;
         }
 

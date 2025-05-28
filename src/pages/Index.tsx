@@ -11,54 +11,40 @@ import { Card, CardContent } from '@/components/ui/card';
 import Logo from '@/components/Logo';
 import { useNotifications } from '@/hooks/useNotification';
 import { toast } from 'sonner';
+import { Form } from '@/components/ui/form';
+import { LoginOrRegisterForm } from '@/components/LoginOrRegisterForm';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { supabase } from '@/integrations/supabase/client';
+
+
+const formSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+type AuthFormValues = z.infer<typeof formSchema>;
+
 
 const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { user, signOut, userRole, isAuthenticated } = useAuth();
   const [isLoading] = useState<boolean>(false);
 
-// useEffect(() => {
-//   async function catMe() {
-//     const formatted = categories.map(cat => ({
-//       name: cat.name,
-//       icon: cat.icon,
-//       description: cat.description,
-//       color: cat.color,
-//       popular: cat.popular ?? false
-//     }));
-
-//     const { data, error } = await supabase.from('categories').insert(formatted);
-//     console.log("catMe", { data, error } );
-    
-//   }
-//   catMe()
-// }, [])
-/**
- * select 
-  m.name as market_name,
-  c.name as category_name
-from seller_market_category smc
-join markets m on m.id = smc.market_id
-join categories c on c.id = smc.category_id
-where smc.seller_id = 'some-seller-uuid';
-
-create table public.seller_market_category (
-  id uuid primary key default gen_random_uuid(),
-  seller_id uuid not null references profiles(id) on delete cascade,
-  market_id uuid not null references markets(id) on delete cascade,
-  category_id uuid not null references categories(id) on delete cascade,
-  created_at timestamp with time zone default now(),
-
-  unique (seller_id, market_id, category_id) -- no duplicates
-);
-
- */
-
   const { isInitialized, requestPermission } = useNotifications()
 
+  const authForm = useForm<AuthFormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+
+
   useEffect(() => {
-   
-    console.log({ isAuthenticated });
 
     if (!isAuthenticated || !isInitialized) return;
 
@@ -66,16 +52,12 @@ create table public.seller_market_category (
   }, [isAuthenticated, requestPermission])
 
 
-  const userHomeUrl = `/${userRole}/landing`
+  const userHomeUrl = userRole ? `/${userRole}/landing` : "/role-selection"
 
   const navigate = useNavigate();
 
   const handleGetStarted = () => {
-    if (isAuthenticated) {
       navigate(userHomeUrl);
-    } else {
-      setShowAuthModal(true);
-    }
   };
 
   const handleAuthSuccess = async () => {
@@ -100,7 +82,44 @@ create table public.seller_market_category (
     };
   }, []);
 
+  async function onAuthFormSubmit(values: AuthFormValues) {
+    try {
+      const { email, password } = values;
 
+      // Attempt to sign in
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        // If sign in fails, try to sign up
+        const {error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+
+        if (signUpError) {
+          toast.error(signUpError.message);
+          return;
+        }
+        toast.success("Account created! Please check your email for verification.");
+
+        navigate("/good-to-know", {
+          replace: true,
+          state: {
+            email
+          }
+        })
+      } else {
+        toast.success("Successfully signed in!");
+        handleAuthSuccess();
+      }
+    } catch (error) {
+      console.error("Auth error:", error);
+      toast.error("An error occurred during authentication");
+    }
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -139,22 +158,50 @@ create table public.seller_market_category (
                       <PhoneCall className="mr-2 h-4 w-4" />
                       Continue with Phone
                     </Button>
+
+                    <div className="relative my-2">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t " />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="px-2 text-muted-foreground">
+                          Or continue with
+                        </span>
+                      </div>
+                    </div>
+
+                    <Form {...authForm}>
+                      <form onSubmit={authForm.handleSubmit(onAuthFormSubmit)} className="space-y-6">
+                        <LoginOrRegisterForm form={authForm} />
+
+
+                        <Button
+                          type="submit"
+                          className="w-full bg-market-orange hover:bg-market-orange/90"
+                          disabled={authForm.formState.isSubmitting}
+                        >
+                          {authForm.formState.isSubmitting ? 'Authenticating...' : 'Sign In/Sign Up'}
+                        </Button>
+                      </form>
+                    </Form>
                   </>
                 )}
 
 
-              <Button disabled={isLoading}
-                size="lg"
-                onClick={handleGetStarted}
-                className="bg-market-orange hover:bg-market-orange/90"
-              >
-                <ShoppingBasket className="mr-2 h-4 w-4" />
-                {user ? 'Browse Markets' : 'Get Started'}
-              </Button>
+
 
               {
                 isAuthenticated && (
                   <>
+                    <Button disabled={isLoading}
+                      size="lg"
+                      onClick={handleGetStarted}
+                      className="bg-market-orange hover:bg-market-orange/90"
+                    >
+                      <ShoppingBasket className="mr-2 h-4 w-4" />
+                      Browse Markets
+                    </Button>
+
                     <Button disabled={isLoading}
                       variant="outline"
                       onClick={signOut}
