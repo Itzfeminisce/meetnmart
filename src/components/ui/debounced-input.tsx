@@ -4,13 +4,14 @@ import { Input } from "./input"
 
 interface DebouncedInputProps {
     onChangeText: (query: string) => void;
+    delay?: number;
     placeholder: string;
 }
 
-export const DebouncedInput: React.FC<DebouncedInputProps> = ({ onChangeText, placeholder }) => {
+export const DebouncedInput: React.FC<DebouncedInputProps> = ({ onChangeText, delay = 500, placeholder }) => {
     const [query, setQuery] = useState('')
 
-    const debouncedSearch = useDebounce(onChangeText, 500)
+    const debouncedSearch = useDebounce(onChangeText, delay)
 
     useEffect(() => {
         debouncedSearch(query)

@@ -32,7 +32,6 @@ const Index = () => {
   const { user, signOut, userRole, isAuthenticated } = useAuth();
   const [isLoading] = useState<boolean>(false);
 
-  const { isInitialized, requestPermission } = useNotifications()
 
   const authForm = useForm<AuthFormValues>({
     resolver: zodResolver(formSchema),
@@ -42,14 +41,6 @@ const Index = () => {
     },
   });
 
-
-
-  useEffect(() => {
-
-    if (!isAuthenticated || !isInitialized) return;
-
-    requestPermission()
-  }, [isAuthenticated, requestPermission])
 
 
   const userHomeUrl = userRole ? `/${userRole}/landing` : "/role-selection"
@@ -64,23 +55,7 @@ const Index = () => {
     window.location.reload()
   };
 
-  useEffect(() => {
-    const handleShowInstructions = (event: CustomEvent) => {
-      // const { instructions } = event.detail;
-      // console.log('Received instructions:', instructions);
 
-      // You can trigger a modal, toast, etc.
-      toast.info("Please enable notifications")
-    };
-
-    // Attach listener
-    window.addEventListener('show-notification-instructions', handleShowInstructions as EventListener);
-
-    // Clean up listener on unmount
-    return () => {
-      window.removeEventListener('show-notification-instructions', handleShowInstructions as EventListener);
-    };
-  }, []);
 
   async function onAuthFormSubmit(values: AuthFormValues) {
     try {
@@ -103,7 +78,7 @@ const Index = () => {
           toast.error(signUpError.message);
           return;
         }
-        toast.success("Account created! Please check your email for verification.");
+        toast.success("Account created! Please check your email for more details.");
 
         navigate("/good-to-know", {
           replace: true,

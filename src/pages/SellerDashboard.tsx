@@ -238,7 +238,7 @@ const SellerDashboard = () => {
               <Button
                 size="sm"
                 variant="ghost"
-                className="hover:bg-muted"
+                className="hover:bg-muted text-destructive"
                 disabled={isLoading}
                 onClick={handleSignOut}
               >

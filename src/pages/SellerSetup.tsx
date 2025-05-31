@@ -4,14 +4,15 @@ import {
   Loader2, SignpostIcon, Package,
   ArrowLeft,
   Trash2,
-  ArrowUp
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { useDeleteMarketSelection, useGetCategories, useGetMarkets, useGetSellerMarketAndCategories, useSellerCatrgoryMutation } from '@/hooks/api-hooks';
+import { useDeleteMarketSelection, useGetCategories, useGetMarkets, useGetSellerMarketAndCategories, useSellerCatrgoryMutation, useGetNearbyMarkets } from '@/hooks/api-hooks';
 import Loader from '@/components/ui/loader';
 import { Category } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,6 +21,8 @@ import { Separator } from '@/components/ui/separator';
 import MarketInsightsDialog from '@/components/MarketInsightsDialog';
 import CustomDialog from '@/components/ui/custom-dialog';
 import { cn } from '@/lib/utils';
+import { MarketTabs } from './BuyerLanding';
+import { DebouncedInput } from '@/components/ui/debounced-input';
 
 type MarketWithAnalytics = {
   id: string;
@@ -36,60 +39,58 @@ type MarketWithAnalytics = {
   impressions_per_user: number;
   age_hours: number;
   updated_recently: boolean;
+  belongs_to_market?: boolean;
 };
 
-
-const SellerSetup = () => {
-  const { user } = useAuth()
-  const { data: availableMarkets = [], isLoading: isMarketLoading, refetch } = useGetMarkets({ userId: user?.id, limit: 50 })
-  const { data: availableCategories = [], isLoading: isCategoryLoading } = useGetCategories({ userId: user?.id, limit: 50 })
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchCategoryQuery, setSearchCategoryQuery] = useState('');
-  const [location, setLocation] = useState<{ latitude: number, longitude: number } | null>(null);
-  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+// Custom hooks for seller-specific functionality
+const useSellerMarketSelection = () => {
   const [selectedMarkets, setSelectedMarkets] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<'markets' | 'categories'>('markets');
-  const [showLearnMarketStatDialog, setShowLearnMarketStatsDialog] = useState(false)
-  const [scrolled, setScrolled] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
+  const handleMarketToggle = useCallback((marketId: string) => {
+    setSelectedMarkets(prev =>
+      prev.includes(marketId)
+        ? prev.filter(id => id !== marketId)
+        : [...prev, marketId]
+    );
+  }, []);
 
-  const sellerMaketCategory = useSellerCatrgoryMutation()
-  const sellerMarketSelectionDelete = useDeleteMarketSelection()
-
-  const filteredMarkets = useMemo(() => {
-    // Create a Map to deduplicate by market id
-    const marketMap = new Map();
-
-    availableMarkets.forEach(market => {
-      const existing = marketMap.get(market.id);
-      if (!existing || (market.belongs_to_market && !existing.belongs_to_market)) {
-        marketMap.set(market.id, market);
-      }
-    });
-
-    const uniqueMarkets = Array.from(marketMap.values());
-
-    if (searchQuery.length === 0) return uniqueMarkets;
-    return uniqueMarkets.filter(market =>
+  const filterMarkets = useCallback((markets: MarketWithAnalytics[] = []) => {
+    if (!markets || searchQuery.length === 0) return markets;
+    return markets.filter(market =>
       market.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       market.address.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchQuery, availableMarkets]);
+  }, [searchQuery]);
 
-  const initialSelectedMarketCount = useMemo(() => filteredMarkets.filter(it => it.belongs_to_market).length + selectedMarkets.length, [selectedMarkets])
+  return {
+    selectedMarkets,
+    searchQuery,
+    setSearchQuery,
+    handleMarketToggle,
+    filterMarkets,
+  };
+};
 
+const useSellerCategorySelection = (availableCategories: Category[]) => {
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleCategoryToggle = useCallback((categoryId: string) => {
+    setSelectedCategories(prev =>
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  }, []);
 
   const filteredCategories = useMemo(() => {
-    if (searchCategoryQuery.length === 0) return availableCategories;
+    if (searchQuery.length === 0) return availableCategories;
     return availableCategories.filter(category =>
-      category.name.toLowerCase().includes(searchCategoryQuery.toLowerCase()) ||
-      category.description.toLowerCase().includes(searchCategoryQuery.toLowerCase())
+      category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      category.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchCategoryQuery, availableCategories]);
-
-  const initialSelectedCategoryCount = useMemo(() => filteredCategories.filter(it => it.belongs_to_category).length + selectedCategories.length, [selectedCategories])
+  }, [searchQuery, availableCategories]);
 
   const popularCategories = useMemo(() =>
     filteredCategories.filter(cat => cat.popular),
@@ -101,33 +102,240 @@ const SellerSetup = () => {
     [filteredCategories]
   );
 
-  const handleLocationDetection = () => {
-    if (!confirm("We are showing you markets and products that at least on buyer already engaged with so you can find buyers faster. We do not guarantee that a buyer will communicate from your search results anytime soon. Ensure you are sure about this detection results. Click OK to continue or CANCEL now.")) return;
+  return {
+    selectedCategories,
+    searchQuery,
+    setSearchQuery,
+    handleCategoryToggle,
+    filteredCategories,
+    popularCategories,
+    otherCategories,
+  };
+};
+
+// Update SellerHeader props interface
+interface SellerHeaderProps {
+  scrolled: boolean;
+  onContinue: () => void;
+  selectedMarkets: string[];
+  selectedCategories: string[];
+  onBack: () => void;
+  buttonText: string;
+}
+
+// Update SellerHeader component
+const SellerHeader: React.FC<SellerHeaderProps> = ({
+  scrolled,
+  onContinue,
+  selectedMarkets,
+  selectedCategories,
+  onBack,
+  buttonText
+}) => {
+  const showRightArrow = buttonText === "Complete Setup";
+  const showDownArrow = buttonText === "Choose Product Category";
+
+  return (
+    <header className="mb-6 md:flex items-center justify-between gap-4 space-y-2 sticky top-0 z-50 bg-background/95 backdrop-blur-sm transition-all duration-300">
+      <div className={`transition-all duration-300 overflow-hidden flex items-center justify-start gap-2 ${scrolled ? 'opacity-0 max-h-0' : 'opacity-100 max-h-32'}`}>
+        <div className="">
+          <Button onClick={onBack} size='icon' variant='outline'>
+            <ArrowLeft className='w-4 h-4' />
+          </Button>
+        </div>
+        <div className="">
+          <h1 className="text-xl md:text-3xl font-bold">Discover Markets</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">
+            Select one or more markets and product categories to engage in
+          </p>
+        </div>
+      </div>
+
+      <div className='z-10 pb-2 grid grid-cols-4 gap-x-2'>
+        <Button
+          size="lg"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          variant='outline'
+          className={cn(!scrolled && 'hidden')}
+        >
+          <ArrowUp className="h-4 w-4" />
+        </Button>
+        <Button
+          size="lg"
+          onClick={onContinue}
+          disabled={selectedMarkets.length === 0 || selectedCategories.length === 0}
+          className={cn(
+            `w-full bg-market-orange hover:bg-market-orange/90 col-span-3`,
+            !scrolled && 'col-span-4',
+            showDownArrow && 'animate-bounce-subtle'
+          )}
+        >
+          {buttonText}
+          {showRightArrow && <ArrowRight className="ml-2 h-4 w-4" />}
+          {showDownArrow && <ArrowDown className="ml-2 h-4 w-4" />}
+        </Button>
+      </div>
+    </header>
+  );
+};
+
+// Selection summary component
+const SelectionSummary: React.FC<{
+  count: number;
+  type: 'market' | 'category';
+  message: string;
+}> = ({ count, type, message }) => {
+  if (count === 0) return null;
+  
+  return (
+    <Card className="bg-market-orange/10 border-market-orange/20">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-medium text-market-orange">
+              {count} {type}{count !== 1 ? 's' : ''} selected
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {message}
+            </p>
+          </div>
+          <CheckCircle className="h-5 w-5 text-market-orange" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const SellerSetup = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [scrolled, setScrolled] = useState(false);
+  const [activeTab, setActiveTab] = useState<'markets' | 'categories'>('markets');
+  const [levelTwoActiveTab, setLevelTwoActiveTab] = useState<'trending' | 'nearby'>('nearby');
+  const [showLearnMarketStatDialog, setShowLearnMarketStatsDialog] = useState(false);
+  const [location, setLocation] = useState<{ latitude: number, longitude: number } | null>(null);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+
+  // Custom hooks for selection management
+  const {
+    selectedMarkets,
+    searchQuery,
+    setSearchQuery,
+    handleMarketToggle,
+    filterMarkets,
+  } = useSellerMarketSelection();
+
+  // API hooks with proper typing
+  const { data: availableMarkets = {} as Record<string, MarketWithAnalytics[]>, isLoading: isMarketLoading } = useGetMarkets({ userId: user?.id, limit: 50 });
+  const { data: availableCategories = [] as Category[], isLoading: isCategoryLoading } = useGetCategories({ userId: user?.id, limit: 50 });
+  const { data: nearbyMarkets, isLoading: isLoadingNearbyMarkets } = useGetNearbyMarkets(
+    levelTwoActiveTab === 'nearby' ?
+      (location && !searchQuery ?
+        { lat: location.latitude, lng: location.longitude, nearby: true, pageSize: 20, query: searchQuery } :
+        searchQuery.length > 2 ?
+          { query: searchQuery, nearby: false, pageSize: 20 } :
+          undefined
+      ) :
+      searchQuery.length > 2 ?
+        { query: searchQuery, nearby: false, pageSize: 20 } :
+        undefined,
+    (levelTwoActiveTab === 'nearby' && !!location) || searchQuery.length > 2
+  );
+
+  const sellerMaketCategory = useSellerCatrgoryMutation();
+  const sellerMarketSelectionDelete = useDeleteMarketSelection();
+
+  const {
+    selectedCategories,
+    searchQuery: categorySearchQuery,
+    setSearchQuery: setCategorySearchQuery,
+    handleCategoryToggle,
+    filteredCategories,
+    popularCategories,
+    otherCategories,
+  } = useSellerCategorySelection(availableCategories);
+
+  // Filtered markets with deduplication and proper null checks
+  const filteredMarkets = useMemo(() => {
+    const marketMap = new Map<string, MarketWithAnalytics>();
+    
+    // Process general markets with null check
+    const generalMarkets = Array.isArray(availableMarkets?.general) ? availableMarkets.general : [];
+    for (const market of generalMarkets) {
+      if (!market?.id) continue; // Skip invalid markets
+      const existing = marketMap.get(market.id);
+      if (!existing || (market.belongs_to_market && !existing.belongs_to_market)) {
+        marketMap.set(market.id, market);
+      }
+    }
+
+    // Process nearby markets with null check
+    const nearbyMarketsList = Array.isArray(nearbyMarkets?.markets) ? nearbyMarkets.markets : [];
+    for (const market of nearbyMarketsList) {
+      if (!market?.id) continue; // Skip invalid markets
+      const existing = marketMap.get(market.id);
+      if (!existing || (market.belongs_to_market && !existing.belongs_to_market)) {
+        marketMap.set(market.id, market);
+      }
+    }
+
+    const uniqueMarkets = Array.from(marketMap.values());
+    return filterMarkets(uniqueMarkets);
+  }, [availableMarkets, nearbyMarkets, filterMarkets]);
+
+  // Count selected items including existing memberships with proper null checks
+  const initialSelectedMarketCount = useMemo(() => 
+    filteredMarkets.filter(it => it?.belongs_to_market).length + selectedMarkets.length, 
+    [selectedMarkets, filteredMarkets]
+  );
+
+  const initialSelectedCategoryCount = useMemo(() => 
+    filteredCategories.filter(it => it?.belongs_to_category).length + selectedCategories.length, 
+    [selectedCategories, filteredCategories]
+  );
+
+  // Memoized market finding logic
+  const findMarketById = useCallback((marketId: string): MarketWithAnalytics | undefined => {
+    if (!marketId) return undefined;
+    const generalMarkets = Array.isArray(availableMarkets?.general) ? availableMarkets.general : [];
+    return generalMarkets.find(market => market?.id === marketId);
+  }, [availableMarkets]);
+
+  // Handlers
+  const handleLocationDetection = useCallback(() => {
+    if (!confirm("We are showing you markets and products that at least one buyer already engaged with so you can find buyers faster. We do not guarantee that a buyer will communicate from your search results anytime soon. Ensure you are sure about this detection results. Click OK to continue or CANCEL now.")) return;
     setIsDetectingLocation(true);
     setTimeout(() => {
       setLocation({ latitude: 40.7128, longitude: -74.0060 });
       setIsDetectingLocation(false);
     }, 1500);
-  };
+  }, []);
 
-  const handleMarketToggle = (marketId: string) => {
-    setSelectedMarkets(prev =>
-      prev.includes(marketId)
-        ? prev.filter(id => id !== marketId)
-        : [...prev, marketId]
-    );
-  };
-
-  const handleCategoryToggle = (categoryId: string) => {
-    setSelectedCategories(prev =>
-      prev.includes(categoryId)
-        ? prev.filter(id => id !== categoryId)
-        : [...prev, categoryId]
-    );
-  };
+  const getButtonText = useCallback(() => {
+    if (selectedMarkets.length === 0) {
+      return "Select a Market";
+    }
+    if (selectedCategories.length === 0) {
+      return "Choose Product Category";
+    }
+    return "Complete Setup";
+  }, [selectedMarkets.length, selectedCategories.length]);
 
   const handleContinue = useCallback(async () => {
+    if (selectedMarkets.length === 0) {
+      // If no market selected, switch to markets tab
+      setActiveTab('markets');
+      return;
+    }
+    if (selectedCategories.length === 0) {
+      // If market selected but no category, switch to categories tab
+      setActiveTab('categories');
+      // Scroll to top to ensure the category section is visible
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
 
+    // If both selected, proceed with setup
     try {
       await sellerMaketCategory.mutateAsync({
         sellerId: user?.id,
@@ -135,34 +343,34 @@ const SellerSetup = () => {
           selectedMarkets,
           selectedCategories
         }
-      })
-      toast.success(`Success: You will be visible to buyers browsing your selected market sale-points and categories`)
+      });
+      toast.success(`Success: You will be visible to buyers browsing your selected market sale-points and categories`);
+      navigate(-1); // Go back after successful setup
     } catch (error) {
-      toast.error("Unable to complete this request. Please try again")
+      toast.error("Unable to complete this request. Please try again");
     }
-  }, [sellerMaketCategory])
-
+  }, [sellerMaketCategory, user?.id, selectedMarkets, selectedCategories, navigate]);
 
   const handleDeleteSelection = useCallback(async ({ criteria, selectionId }: { criteria: "category_id" | "market_id"; selectionId: string; }) => {
     try {
-
       await sellerMarketSelectionDelete.mutateAsync({
         criteria,
         selectionId,
         userId: user?.id
-      })
-      toast.success(`Success. Item removed`)
+      });
+      toast.success(`Success. Item removed`);
     } catch (error) {
-      toast.error("Unable to delete selection. Please try again")
+      toast.error("Unable to delete selection. Please try again");
     }
-  }, [sellerMarketSelectionDelete])
+  }, [sellerMarketSelectionDelete, user?.id]);
 
-  const handleLearnMarketStat = (ev: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
-    ev.stopPropagation()
-    ev.preventDefault()
+  const handleLearnMarketStat = useCallback((ev: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+    ev.stopPropagation();
+    ev.preventDefault();
+    setShowLearnMarketStatsDialog(true);
+  }, []);
 
-    setShowLearnMarketStatsDialog(true)
-  }
+  // Scroll detection
   useEffect(() => {
     const onScroll = () => {
       setScrolled(window.scrollY > 10);
@@ -172,50 +380,21 @@ const SellerSetup = () => {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  if (isMarketLoading || isCategoryLoading) {
+    return <Loader />;
+  }
 
   return (
     <>
       <div className="container mx-auto pt-4 mb-[5rem]">
-        <header className="mb-6 md:flex items-center justify-between gap-4 space-y-2 sticky top-0 z-50 bg-background/95 backdrop-blur-sm transition-all duration-300">
-          {/* This part fades out on scroll */}
-          <div
-            className={`transition-all duration-300 overflow-hidden flex items-center justify-start gap-2 ${scrolled ? 'opacity-0 max-h-0' : 'opacity-100 max-h-32'
-              }`}
-          >
-            <div className="">
-              <Button onClick={() => navigate(-1)} size='icon' variant='outline'>
-                <ArrowLeft className='w-4 h-4' />
-              </Button>
-            </div>
-            <div className="">
-              <h1 className="text-xl md:text-3xl font-bold">Discover Markets</h1>
-              <p className="text-xs md:text-sm text-muted-foreground">
-                Select one or more markets and product categories to engage in
-              </p>
-            </div>
-          </div>
-
-          {/* Continue Button */}
-          <div className='z-10 pb-2 grid grid-cols-4 gap-x-2'>
-            <Button
-              size="lg"
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              variant='outline'
-              className={cn(!scrolled && 'hidden')}
-            >
-              <ArrowUp className=" h-4 w-4" />
-            </Button>
-            <Button
-              size="lg"
-              onClick={handleContinue}
-              disabled={selectedMarkets.length === 0 || selectedCategories.length === 0}
-              className={cn(`w-full bg-market-orange hover:bg-market-orange/90 col-span-3`, !scrolled && 'col-span-4')}
-            >
-              Complete Setup
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </header>
+        <SellerHeader
+          scrolled={scrolled}
+          onContinue={handleContinue}
+          selectedMarkets={selectedMarkets}
+          selectedCategories={selectedCategories}
+          onBack={() => navigate(-1)}
+          buttonText={getButtonText()}
+        />
 
         {/* Tabs */}
         <div className="flex border-b border-white/10 mb-6">
@@ -234,6 +413,7 @@ const SellerSetup = () => {
           <button
             className={`py-2 px-4 font-medium text-sm flex items-center gap-2 ${activeTab === 'categories' ? 'border-b-2 border-market-orange' : 'text-muted-foreground'}`}
             onClick={() => setActiveTab('categories')}
+            disabled={selectedMarkets.length === 0}
           >
             <Package className="h-4 w-4" />
             Categories
@@ -252,12 +432,13 @@ const SellerSetup = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search markets..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-secondary/50 border-none"
-                />
+                <div className="pl-9 bg-secondary/50 border-none">
+                  <DebouncedInput
+                    placeholder="Search markets..."
+                    delay={levelTwoActiveTab === 'nearby' ? 800 : 500}
+                    onChangeText={setSearchQuery}
+                  />
+                </div>
               </div>
               <Button
                 variant="outline"
@@ -275,23 +456,11 @@ const SellerSetup = () => {
             </div>
 
             {/* Selection Summary */}
-            {isMarketLoading ? <Loader /> : initialSelectedMarketCount > 0 && (
-              <Card className="bg-market-orange/10 border-market-orange/20">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-market-orange">
-                        {(initialSelectedMarketCount)} market{initialSelectedMarketCount !== 1 ? 's' : ''} selected
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        You'll appear in these markets
-                      </p>
-                    </div>
-                    <CheckCircle className="h-5 w-5 text-market-orange" />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            <SelectionSummary
+              count={initialSelectedMarketCount}
+              type="market"
+              message="You'll appear in these markets"
+            />
 
             {/* Markets List */}
             <div className="space-y-4">
@@ -300,27 +469,18 @@ const SellerSetup = () => {
                 Available Markets
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredMarkets.map(market => (
-                  <MarketCard
-                    handleDeleteSelection={handleDeleteSelection}
-                    isMember={market.belongs_to_market}
-                    handleLearnMarketStat={handleLearnMarketStat}
-                    key={market.id}
-                    market={market}
-                    isSelected={selectedMarkets.includes(market.id)}
-                    onToggle={handleMarketToggle}
-                  />
-                ))}
-              </div>
-
-              {filteredMarkets.length === 0 && (
-                <div className="text-center py-12">
-                  <Store className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No markets found</p>
-                  <p className="text-sm text-muted-foreground">Try adjusting your search</p>
-                </div>
-              )}
+              <MarketTabs
+                activeTab={levelTwoActiveTab}
+                onTabChange={(value) => setLevelTwoActiveTab(value as 'trending' | 'nearby')}
+                markets={{
+                  nearby: nearbyMarkets?.markets || [],
+                  ...availableMarkets
+                }}
+                selectedMarkets={selectedMarkets}
+                onMarketToggle={handleMarketToggle}
+                onLocationDetect={handleLocationDetection}
+                isLocationDetecting={isDetectingLocation || isLoadingNearbyMarkets}
+              />
             </div>
           </div>
         )}
@@ -331,12 +491,13 @@ const SellerSetup = () => {
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search categories..."
-                value={searchCategoryQuery}
-                onChange={(e) => setSearchCategoryQuery(e.target.value)}
-                className="pl-9 bg-secondary/50 border-none"
-              />
+              <div className="pl-9 bg-secondary/50 border-none">
+                <DebouncedInput
+                  placeholder="Search categories..."
+                  delay={500}
+                  onChangeText={setCategorySearchQuery}
+                />
+              </div>
             </div>
 
             {/* Selected Markets Summary */}
@@ -350,7 +511,7 @@ const SellerSetup = () => {
                       </h3>
                       <div className="flex gap-2 flex-wrap">
                         {selectedMarkets.map((marketId, index) => {
-                          const market = availableMarkets.find(m => m.id === marketId);
+                          const market = findMarketById(marketId);
                           return market ? (
                             <Badge key={index} variant="secondary" className="bg-market-blue/10 text-market-blue">
                               {market.name}
@@ -365,24 +526,12 @@ const SellerSetup = () => {
               </Card>
             )}
 
-            {/* Categories Selection */}
-            {initialSelectedCategoryCount > 0 && (
-              <Card className="bg-market-orange/10 border-market-orange/20">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-market-orange">
-                        {initialSelectedCategoryCount} categor{initialSelectedCategoryCount !== 1 ? 'ies' : 'y'} selected
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        Buyers will find you in these categories
-                      </p>
-                    </div>
-                    <CheckCircle className="h-5 w-5 text-market-orange" />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* Categories Selection Summary */}
+            <SelectionSummary
+              count={initialSelectedCategoryCount}
+              type="category"
+              message="Buyers will find you in these categories"
+            />
 
             {/* Categories List */}
             <div className="space-y-6">
@@ -401,12 +550,12 @@ const SellerSetup = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {popularCategories.map(category => (
                       <CategoryCard
-                        handleDeleteSelection={handleDeleteSelection}
-                        belongsToCategory={category.belongs_to_category}
                         key={category.id}
                         category={category}
                         isSelected={selectedCategories.includes(category.id)}
-                        onToggle={!category.belongs_to_category && handleCategoryToggle}
+                        belongsToCategory={category.belongs_to_category}
+                        onToggle={!category.belongs_to_category ? handleCategoryToggle : undefined}
+                        handleDeleteSelection={handleDeleteSelection}
                       />
                     ))}
                   </div>
@@ -423,12 +572,12 @@ const SellerSetup = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {otherCategories.map(category => (
                       <CategoryCard
-                        handleDeleteSelection={handleDeleteSelection}
-                        belongsToCategory={category.belongs_to_category}
                         key={category.id}
                         category={category}
                         isSelected={selectedCategories.includes(category.id)}
+                        belongsToCategory={category.belongs_to_category}
                         onToggle={handleCategoryToggle}
+                        handleDeleteSelection={handleDeleteSelection}
                       />
                     ))}
                   </div>
@@ -445,14 +594,12 @@ const SellerSetup = () => {
             </div>
           </div>
         )}
-
       </div>
-      {
-        <MarketInsightsDialog
-          onOpenChange={setShowLearnMarketStatsDialog}
-          open={showLearnMarketStatDialog}
-        />
-      }
+
+      <MarketInsightsDialog
+        onOpenChange={setShowLearnMarketStatsDialog}
+        open={showLearnMarketStatDialog}
+      />
     </>
   );
 };
@@ -466,7 +613,6 @@ const MarketCard = ({
   isMember,
   handleDeleteSelection
 }: {
-
   market: MarketWithAnalytics;
   isSelected: boolean;
   isMember: boolean;
@@ -485,9 +631,6 @@ const MarketCard = ({
         }`}
       onClick={() => !isMember && onToggle(market.id)}
     >
-
-
-
       {market.updated_recently && (
         <div className="absolute top-2 right-2 sm:top-3 sm:right-3">
           <div className="relative">
@@ -566,7 +709,6 @@ const MarketCard = ({
         </div>
       </div>
 
-
       <Separator className='my-4' />
       <div className='w-full flex items-center justify-between'>
         <p className='text-xs text-muted-foreground'>
@@ -593,7 +735,6 @@ const CategoryCard = ({
     selectionId: string;
   }) => Promise<void>
 }) => {
-
   return (
     <div
       className={`glass-morphism rounded-lg p-4 cursor-pointer transition-all group ${isSelected || belongsToCategory
@@ -605,7 +746,6 @@ const CategoryCard = ({
       <div className="flex items-start justify-between mb-3">
         <div className={`p-3 rounded-lg ${category.color}`}>
           {category.icon}
-          {/* <IconComponent className="h-6 w-6" /> */}
         </div>
 
         <div className="flex-shrink-0">

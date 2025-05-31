@@ -287,13 +287,22 @@ export const useUpdateUserRole = () => {
 export const useUpdateProfile = () => {
   return useMutate(
     async ({ userId, update }: {
-      userId: string;
-      update: { name: string; category: string; description: string }
+      userId?: string;
+      update: Partial<{ name: string; category: string; description: string; lng: number; lat: number }>
     }) => {
+      let _userId: string | undefined = userId;
+
+      if (!_userId) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session && session.user) {
+          _userId = session.user.id
+        }
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update(update)
-        .eq('id', userId);
+        .eq('id', _userId);
       if (error) throw error;
       return { userId, update };
     },
@@ -749,16 +758,22 @@ export const useGetMarketRecentVisits = ({ limit = 5, userId = null }: { limit?:
 
 
 export const useGetMarkets = ({ userId, limit = 5 }: { userId?: string; limit?: number; } = {}) => {
-  return useFetch<MarketWithAnalytics[]>(
+  return useFetch(
     ["markets"],
     async () => {
 
-      const { data, error } = await supabase.rpc('get_available_markets', {
-        p_seller_id: userId,
-        p_limit: 50
-      });
-      if (error) throw error;
-      return data;
+      const queryParams = new URLSearchParams();
+      if (userId) queryParams.append('userId', userId);
+      queryParams.append('limit', limit.toString());
+
+      const results = await axiosUtil.Get<{ data: Record<string | "general", MarketWithAnalytics[]> }>(`/markets/get-available-markets?${queryParams.toString()}`).then(response => response.data)
+
+      // const { data, error } = await supabase.rpc('get_available_markets', {
+      //   p_seller_id: userId,
+      //   p_limit: 50
+      // });
+      // if (error) throw error;
+      return results;
     },
     {
       cacheTime: 'MARKETS',
@@ -766,10 +781,10 @@ export const useGetMarkets = ({ userId, limit = 5 }: { userId?: string; limit?: 
   );
 };
 
-
 type GetNearbyMarketsBaseSearchParams = {
   page?: number;
   pageSize?: number;
+  query?: string;
 };
 
 type GetNearbyMarketsNearbySearchParams = {
@@ -779,7 +794,8 @@ type GetNearbyMarketsNearbySearchParams = {
 } & GetNearbyMarketsBaseSearchParams;
 
 type GetNearbyMarketsGlobalSearchParams = {
-  nearby?: false;
+  nearby: false;
+  query: string;
 } & GetNearbyMarketsBaseSearchParams;
 
 export type GetNearbyMarketsSearchParamsProps = GetNearbyMarketsNearbySearchParams | GetNearbyMarketsGlobalSearchParams;
@@ -789,24 +805,20 @@ function normalizeSearchParams(params: Partial<GetNearbyMarketsSearchParamsProps
     nearby: params.nearby ?? false,
     page: params.page ?? 1,
     pageSize: params.pageSize ?? 10,
-    ...(params.nearby ? { lat: params.lat!, lng: params.lng! } : {})
+    ...(params.nearby ? { lat: params.lat!, lng: params.lng! } : { query: params.query ?? '' }),
   } as GetNearbyMarketsSearchParamsProps;
 }
+
+
 export const useGetNearbyMarkets = (
   params?: GetNearbyMarketsSearchParamsProps,
-  enabled = false
+  enabled = false,
+  locationUpdateCount = 0
 ) => {
-  return useFetch<MarketWithAnalytics[]>(
-    ["nearby_markets", params],
+  return useFetch(
+    ["nearby_markets", params, locationUpdateCount],
     async () => {
-      // const { data, error } = await supabase.functions.invoke("search-markets", {
-      //   body: normalizeSearchParams(params),
-      // });
-
-      const response = await axiosUtil.Post<{ data: MarketWithAnalytics[] }>("/search", {
-        body: normalizeSearchParams(params),
-      }).then(it => it.data)
-
+      const response = await axiosUtil.Post<{ data: { markets: MarketWithAnalytics[], nextPageTokens: string } }>("/search", normalizeSearchParams(params)).then(it => it.data)
       return response;
     },
     {
@@ -939,6 +951,35 @@ export const useDeleteMarketSelection = () => {
     }
   });
 };
+
+
+
+export const useJoinMarket = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (market: MarketResult) => {
+      const { data, error } = await supabase.rpc(
+        'increment_market_user_count',
+        {
+          market_place_id: market.place_id,
+          name: market.name,
+          location: market.location, //market.location,
+          address: market.address,
+        }
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      // Invalidate relevant queries after mutation
+      queryClient.invalidateQueries({
+        queryKey: cacheKeys.markets(),
+      });
+    },
+  });
+};
+
 // ===================
 // UTILITY FUNCTIONS FOR CACHE MANAGEMENT
 // ===================

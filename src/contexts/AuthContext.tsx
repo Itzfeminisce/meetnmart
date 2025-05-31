@@ -45,7 +45,7 @@ interface AuthContextType {
   fetchUsersByRole: (role: Exclude<UserRole, null>) => Promise<UsersByRole[]>;
   fetchUserRole: (userId?: string) => Promise<string | null>;
   updateUserRole: (role: Exclude<UserRole, null>) => Promise<void>;
-  fetchWalletSummary: () => Promise<WalletSummary | null>;
+  // fetchWalletSummary: () => Promise<WalletSummary | null>;
   fetchTransactions: (args: Transaction['Args']) => Promise<Transaction['Returns'] | null>;
 }
 
@@ -69,7 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Pre-fetch sellers and buyers for better UX
   const { data: sellers, error: sellersError } = useGetSellers();
   const { data: buyers, error: buyersError } = useGetBuyers();
-  const { data: walletSummary, error: walletSummaryError } = useGetWalletSummary({enabled: !!user?.id});
+  // const { data: walletSummary, error: walletSummaryError } = useGetWalletSummary({enabled: !!user?.id});
 
   // Mutation hooks
   const signInMutation = useSignInWithPhone();
@@ -87,6 +87,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       userRoleToLocalStorage(userRole);
     }
   }, [userRole]);
+
+  useEffect(() => {
+    const handleShowInstructions = (event: CustomEvent) => {
+      // const { instructions } = event.detail;
+      // console.log('Received instructions:', instructions);
+
+      // You can trigger a modal, toast, etc.
+      toast.info("Please enable notifications")
+    };
+
+    // Attach listener
+    window.addEventListener('show-notification-instructions', handleShowInstructions as EventListener);
+
+    // Clean up listener on unmount
+    return () => {
+      window.removeEventListener('show-notification-instructions', handleShowInstructions as EventListener);
+    };
+  }, []);
 
   /**
    * Sign in with phone number - uses hook
@@ -228,16 +246,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /**
    * Fetch wallet summary - uses cached data
    */
-  const fetchWalletSummary = useCallback(async (): Promise<WalletSummary | null> => {
-    // Return cached data or trigger fresh fetch
-    if (walletSummary) {
-      return walletSummary;
-    }
+  // const fetchWalletSummary = useCallback(async (): Promise<WalletSummary | null> => {
+  //   // Return cached data or trigger fresh fetch
+  //   if (walletSummary) {
+  //     return walletSummary;
+  //   }
     
-    await queryClient.invalidateQueries({ queryKey: ["wallet_summary"] });
-    const data = queryClient.getQueryData(["wallet_summary"]) as WalletSummary;
-    return data || null;
-  }, []);
+  //   await queryClient.invalidateQueries({ queryKey: ["wallet_summary"] });
+  //   const data = queryClient.getQueryData(["wallet_summary"]) as WalletSummary;
+  //   return data || null;
+  // }, []);
 
   /**
    * Fetch transactions - uses cached data
@@ -326,7 +344,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchUsersByRole,
     updateUserRole,
     fetchUserRole,
-    fetchWalletSummary,
+    // fetchWalletSummary,
     fetchTransactions
   };
 

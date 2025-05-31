@@ -10,6 +10,8 @@ import { getEnvVar } from "./lib/utils";
 import { LiveCallProvider as LiveCallProvider_V2 } from "./contexts/live-call-context";
 import { PaystackProvider } from "./contexts/paystack-context";
 import { ScrollToTop } from "./components/ScrollTop";
+import { Suspense } from "react";
+import Loader from "./components/ui/loader";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,18 +49,20 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner position="top-right" />
-      <AuthProvider>
-        <SocketProviderWithAuth>
-          <BrowserRouter>
-            <PaystackProvider>
-              <ScrollToTop />
-              <LiveCallProvider_V2>
-                <Router />
-              </LiveCallProvider_V2>
-            </PaystackProvider>
-          </BrowserRouter>
-        </SocketProviderWithAuth>
-      </AuthProvider>
+      <Suspense fallback={<Loader />}>
+        <AuthProvider>
+          <SocketProviderWithAuth>
+            <BrowserRouter>
+              <PaystackProvider>
+                <ScrollToTop />
+                <LiveCallProvider_V2>
+                  <Router />
+                </LiveCallProvider_V2>
+              </PaystackProvider>
+            </BrowserRouter>
+          </SocketProviderWithAuth>
+        </AuthProvider>
+      </Suspense>
     </TooltipProvider>
   </QueryClientProvider>
 );

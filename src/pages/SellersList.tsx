@@ -85,7 +85,7 @@ const SellersList = () => {
   if (error) return <ErrorComponent error={error} onRetry={() => navigate(0)} />
 
   return (
-    <div className="px-4 pt-6 animate-fade-in mb-[5rem]">
+    <div className="container pt-6 animate-fade-in mb-[5rem]">
       <header className="mb-6">
         <div className="flex items-center mb-4">
           <Button
@@ -261,147 +261,172 @@ const SellersList = () => {
           className="w-full max-w-[100vw] sm:max-w-[90vw] md:max-w-[70vw] lg:max-w-[50vw] px-4 sm:px-6 md:px-8 overflow-y-auto pb-0"
         >
           {selectedSeller && (
-            <>
-              <SheetHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <SheetTitle className="text-xl font-bold truncate">
-                    {selectedSeller.name}
-                  </SheetTitle>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => toggleFavorite(selectedSeller.id)}
-                    >
-                      <Heart
-                        size={18}
-                        className={`${favorites.has(selectedSeller.id)
-                          ? 'text-red-500 fill-red-500'
-                          : 'text-muted-foreground'
+            <div className="flex flex-col h-full">
+              <div className="flex-grow overflow-y-auto">
+                <SheetHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <SheetTitle className="text-xl font-bold truncate">
+                      {selectedSeller.name}
+                    </SheetTitle>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => toggleFavorite(selectedSeller.id)}
+                      >
+                        <Heart
+                          size={18}
+                          className={`${favorites.has(selectedSeller.id)
+                            ? 'text-red-500 fill-red-500'
+                            : 'text-muted-foreground'
+                            }`}
+                        />
+                      </Button>
+                    </div>
+                  </div>
+                </SheetHeader>
+
+                {/* Seller info header */}
+                <div className="flex items-center mb-6">
+                  <Avatar className="h-16 w-16 mr-4 border-2 border-secondary">
+                    {selectedSeller.avatar ? (
+                      <AvatarImage src={selectedSeller.avatar} alt={selectedSeller.name} className=' object-contain w-full' />
+                    ) : (
+                      <AvatarFallback className="bg-gradient-to-br from-market-orange/20 to-secondary text-foreground text-lg font-semibold">
+                        {getInitials(selectedSeller.name)}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+
+                  <div className="flex-grow">
+                    <div className="flex items-center mb-1">
+                      <Badge
+                        variant={selectedSeller.is_online ? "default" : "secondary"}
+                        className={`mr-2 ${selectedSeller.is_online
+                          ? 'bg-market-green/10 text-market-green border-market-green/20'
+                          : 'bg-muted text-muted-foreground'
                           }`}
-                      />
-                    </Button>
+                      >
+                        {selectedSeller.is_online ? 'Available' : 'Unavailable'}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center mb-2">
+                      <span className='text-market-orange text-lg mr-2'>
+                        {'★'.repeat(Math.floor(selectedSeller?.avg_rating || 0))}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {selectedSeller?.avg_rating?.toFixed(1)} ({selectedSeller?.total_reviews || 0} reviews)
+                      </span>
+                    </div>
+
+                    <p className="text-sm text-muted-foreground">
+                      {selectedSeller.description}
+                    </p>
                   </div>
                 </div>
-              </SheetHeader>
 
-              {/* Seller info header */}
-              <div className="flex items-center mb-6">
-                <Avatar className="h-16 w-16 mr-4 border-2 border-secondary">
-                  {selectedSeller.avatar ? (
-                    <AvatarImage src={selectedSeller.avatar} alt={selectedSeller.name} className=' object-contain w-full' />
-                  ) : (
-                    <AvatarFallback className="bg-gradient-to-br from-market-orange/20 to-secondary text-foreground text-lg font-semibold">
-                      {getInitials(selectedSeller.name)}
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-
-                <div className="flex-grow">
-                  <div className="flex items-center mb-1">
-                    <Badge
-                      variant={selectedSeller.is_online ? "default" : "secondary"}
-                      className={`mr-2 ${selectedSeller.is_online
-                        ? 'bg-market-green/10 text-market-green border-market-green/20'
-                        : 'bg-muted text-muted-foreground'
-                        }`}
+                {/* Tab navigation */}
+                <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className=''>
+                  <TabsList className="w-full bg-transparent border-b rounded-none justify-start space-x-4 overflow-x-auto scrollbar-small max-w-full overflow-y-hidden">
+                    <TabsTrigger
+                      value="reviews"
+                      className={`border-b-2 px-4 py-2 rounded-none text-sm font-medium data-[state=active]:border-market-orange data-[state=active]:text-foreground border-transparent`}
                     >
-                      {selectedSeller.is_online ? 'Available' : 'Unavailable'}
-                    </Badge>
-                  </div>
+                      <Star size={16} className="mr-2" />
+                      Reviews & Ratings
+                    </TabsTrigger>
 
-                  <div className="flex items-center mb-2">
-                    <span className='text-market-orange text-lg mr-2'>
-                      {'★'.repeat(Math.floor(selectedSeller?.avg_rating || 0))}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {selectedSeller?.avg_rating?.toFixed(1)} ({selectedSeller?.total_reviews || 0} reviews)
-                    </span>
-                  </div>
+                    <TabsTrigger
+                      value="catalog"
+                      className={`border-b-2 px-4 py-2 rounded-none text-sm font-medium data-[state=active]:border-market-orange data-[state=active]:text-foreground border-transparent`}
+                    >
+                      <Package size={16} className="mr-2" />
+                      Product Catalog
+                    </TabsTrigger>
+                  </TabsList>
 
-                  <p className="text-sm text-muted-foreground">
-                    {selectedSeller.description}
-                  </p>
-                </div>
-              </div>
-
-              {/* Tab navigation */}
-              <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className=''>
-                <TabsList className="w-full bg-transparent border-b rounded-none justify-start space-x-4 overflow-x-auto scrollbar-small max-w-full overflow-y-hidden">
-                  <TabsTrigger
-                    value="reviews"
-                    className={`border-b-2 px-4 py-2 rounded-none text-sm font-medium data-[state=active]:border-market-orange data-[state=active]:text-foreground border-transparent`}
-                  >
-                    <Star size={16} className="mr-2" />
-                    Reviews & Ratings
-                  </TabsTrigger>
-
-                  <TabsTrigger
-                    value="catalog"
-                    className={`border-b-2 px-4 py-2 rounded-none text-sm font-medium data-[state=active]:border-market-orange data-[state=active]:text-foreground border-transparent`}
-                  >
-                    <Package size={16} className="mr-2" />
-                    Product Catalog
-                  </TabsTrigger>
-                </TabsList>
-
-               <TabsContent value="reviews">
-                  <div className="space-y-4">
-                    {feedbacks.isLoading ? <Loader /> : feedbacks?.data && feedbacks.data.length === 0 ?
-                      <p className='text-sm text-market-orange text-center'>No Feedbacks yet.</p>
-                      : feedbacks.data.map(review => (
-                        <div key={review.id} className="glass-morphism rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center">
-                              <span className="font-medium text-sm mr-2">{review.buyer_name}</span>
-                              <div className="flex items-center">
-                                <span className='text-market-orange text-sm'>
-                                  {'★'.repeat(review.rating)}
-                                </span>
-                              </div>
-                            </div>
-                            <span className="text-xs text-muted-foreground">{formatTimeAgo(review.created_at)}</span>
+                  <TabsContent value="reviews">
+                    <div className="space-y-4 pb-20">
+                      {feedbacks.isLoading ? <Loader /> : feedbacks?.data && feedbacks.data.length === 0 ?
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                          <div className="bg-secondary/50 rounded-full p-4 mb-4">
+                            <Star className="h-8 w-8 text-muted-foreground" />
                           </div>
-                          <p className="text-sm text-muted-foreground">{review.feedback_text || "No Description"}</p>
+                          <h3 className="text-lg font-medium mb-2">No Reviews Yet</h3>
+                          <p className="text-muted-foreground max-w-sm">
+                            Be the first to share your experience with this seller
+                          </p>
                         </div>
-                      ))}
-                  </div>
-                </TabsContent>
-                <TabsContent value="catalog">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {mockProducts.map(product => (
-                      <SellerProductCatalogCard
-                        product={product}
-                      />
-                    ))}
-                  </div>
-                </TabsContent>
-              </Tabs>
+                        : feedbacks.data.map(review => (
+                          <div key={review.id} className="glass-morphism rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center">
+                                <span className="font-medium text-sm mr-2">{review.buyer_name}</span>
+                                <div className="flex items-center">
+                                  <span className='text-market-orange text-sm'>
+                                    {'★'.repeat(review.rating)}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="text-xs text-muted-foreground">{formatTimeAgo(review.created_at)}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{review.feedback_text || "No Description"}</p>
+                          </div>
+                        ))}
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="catalog">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-20">
+                      {mockProducts.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-center col-span-2">
+                          <div className="bg-secondary/50 rounded-full p-4 mb-4">
+                            <Package className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                          <h3 className="text-lg font-medium mb-2">No Products Listed</h3>
+                          <p className="text-muted-foreground max-w-sm">
+                            This seller hasn't added any products to their catalog yet
+                          </p>
+                        </div>
+                      ) : (
+                        mockProducts.map(product => (
+                          <SellerProductCatalogCard
+                            key={product.id}
+                            product={product}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
 
               {/* Action button at bottom */}
-              <div className="grid grid-cols-4 gap-x-2 sticky bottom-0 bg-background py-2 md:px-4 self-end z-10">
-                <Button
-                  variant='outline'
-                  onClick={() => setSheetOpen(false)}
-                >
-                  <ChevronLeft size={16} className="" />
-                </Button>
-                <Button
-                  onClick={() => {
-                    handleCall(selectedSeller);
-                    setSheetOpen(false);
-                  }}
-                  className={`w-full col-span-3 ${selectedSeller.is_online
-                    ? 'bg-market-green hover:bg-market-green/90'
-                    : 'bg-muted text-muted-foreground'
-                    }`}
-                  disabled={!selectedSeller.is_online}
-                >
-                  <PhoneCall size={16} />
-                  Start Conversation
-                </Button>
+              <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-border mt-auto">
+                <div className="grid grid-cols-4 gap-x-2 p-4">
+                  <Button
+                    variant='outline'
+                    onClick={() => setSheetOpen(false)}
+                  >
+                    <ChevronLeft size={16} className="" />
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      handleCall(selectedSeller);
+                      setSheetOpen(false);
+                    }}
+                    className={`w-full col-span-3 ${selectedSeller.is_online
+                      ? 'bg-market-green hover:bg-market-green/90'
+                      : 'bg-muted text-muted-foreground'
+                      }`}
+                    disabled={!selectedSeller.is_online}
+                  >
+                    <PhoneCall size={16} className="mr-2" />
+                    Start Conversation
+                  </Button>
+                </div>
               </div>
-            </>
+            </div>
           )}
         </SheetContent>
       </Sheet>

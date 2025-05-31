@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,21 +10,27 @@ import { formatDuration, getInitials } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { CallParticipant } from '@/contexts/live-call-context';
+import Loader from '@/components/ui/loader';
 
 const RatingFeedback = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false)
-  const {userRole} = useAuth()
+  const [isLoading, setIsLoading] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
+  const { userRole } = useAuth();
   const { seller, callDuration } = location.state as { seller: CallParticipant, callDuration: number };
 
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState('');
 
-  if (!(seller && callDuration)) {
-    navigate(`/${userRole}/landing`)
-  }
-
+  useEffect(() => {
+    if (!seller || !callDuration) {
+      toast.error("Invalid feedback session. Redirecting...");
+      navigate(`/${userRole}/landing`);
+    } else {
+      setIsChecking(false);
+    }
+  }, [seller, callDuration, navigate, userRole]);
 
   const handleSubmit = async () => {
     if (rating === 0) {
@@ -34,7 +39,7 @@ const RatingFeedback = () => {
     }
 
     try {
-      setIsLoading(true)
+      setIsLoading(true);
       const { error } = await supabase.rpc('submit_call_feedback', {
         p_seller_id: seller.id,
         p_rating: rating,
@@ -43,25 +48,28 @@ const RatingFeedback = () => {
       });
 
       if (error) {
-        toast.error("Feedback could not be saved. Please try again")
-
+        toast.error("Feedback could not be saved. Please try again");
         return;
       }
 
       toast.success(`Thank you! Your ${rating}-star rating has been submitted.`);
-       navigate(`/${userRole}/landing`)
+      navigate(`/${userRole}/landing`);
     } catch (error) {
-      console.error("[FeedbackSubmitError]", error)
-      toast.error("Something went wrong. Please try again")
+      console.error("[FeedbackSubmitError]", error);
+      toast.error("Something went wrong. Please try again");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   };
 
   const handleSkip = () => {
     toast.info("Rating skipped");
-     navigate(`/${userRole}/landing`)
+    navigate(`/${userRole}/landing`);
   };
+
+  if (isChecking) {
+    return <Loader />;
+  }
 
   return (
     <div className="app-container px-4 pt-6 animate-fade-in">
@@ -83,6 +91,7 @@ const RatingFeedback = () => {
         <div className="flex justify-center mb-6">
           {[1, 2, 3, 4, 5].map(star => (
             <button
+              type='button'
               key={star}
               onClick={() => setRating(star)}
               className="mx-1 transition-transform hover:scale-110"
@@ -113,11 +122,12 @@ const RatingFeedback = () => {
           <Button
             disabled={isLoading}
             onClick={handleSubmit}
-            className="w-full bg-market-orange hover:bg-market-orange/90  disabled:cursor-not-allowed"
+            className="w-full bg-market-orange hover:bg-market-orange/90 disabled:cursor-not-allowed"
           >
-            Submit Rating
+            {isLoading ? 'Submitting...' : 'Submit Rating'}
           </Button>
           <Button
+            type='button'
             disabled={isLoading}
             variant="ghost"
             onClick={handleSkip}

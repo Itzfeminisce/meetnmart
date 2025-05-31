@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, Store } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, ArrowUp } from 'lucide-react';
+import { ArrowRight, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Search, MapPin, Loader2, CheckCircle, SignpostIcon } from 'lucide-react';
 import { DebouncedInput } from '@/components/ui/debounced-input';
@@ -12,14 +12,16 @@ import { Category } from '@/types';
 
 import { categories } from '@/lib/mockData';
 import { useNavigate } from 'react-router-dom';
-import { queryClient, useGetMarkets, useGetNearbyMarkets } from '@/hooks/api-hooks';
+import { useGetMarkets, useGetNearbyMarkets, useJoinMarket, useUpdateProfile } from '@/hooks/api-hooks';
 import Loader from '@/components/ui/loader';
-import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useLocation = () => {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
+  const [locationUpdateCount, setLocationUpdateCount] = useState(0);
+  const updateProfile = useUpdateProfile()
 
   const detectLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -35,7 +37,14 @@ export const useLocation = () => {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         });
+        setLocationUpdateCount(prev => prev + 1);
         setIsDetecting(false);
+        updateProfile.mutate({
+          update: {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          }
+        })
       },
       (error) => {
         setIsDetecting(false);
@@ -65,6 +74,7 @@ export const useLocation = () => {
     location,
     isDetecting,
     detectLocation,
+    locationUpdateCount,
   };
 };
 
@@ -89,6 +99,9 @@ export type MarketWithAnalytics = {
 export const useMarketSelection = () => {
   const [selectedMarkets, setSelectedMarkets] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // console.log({searchQuery});
+
 
   const handleMarketToggle = useCallback((marketId: string) => {
     setSelectedMarkets([marketId]);
@@ -151,15 +164,22 @@ export const useCategorySelection = () => {
 
 interface HeaderSectionProps {
   scrolled: boolean;
+  isLoading: boolean;
   onContinue: () => void;
   canContinue: boolean;
+  buttonText?: string;
 }
 
 export const HeaderSection: React.FC<HeaderSectionProps> = ({
   scrolled,
+  isLoading,
   onContinue,
   canContinue,
+  buttonText = "Continue"
 }) => {
+  const showRightArrow = buttonText === "Find Sellers";
+  const showDownArrow = buttonText === "Choose Product Category";
+
   return (
     <header className="mb-6 md:flex items-center justify-between gap-4 space-y-2 sticky top-0 z-50 bg-background/95 backdrop-blur-sm transition-all duration-300">
       <div className={`transition-all duration-300 overflow-hidden ${scrolled ? 'opacity-0 max-h-0' : 'opacity-100 max-h-32'}`}>
@@ -181,11 +201,16 @@ export const HeaderSection: React.FC<HeaderSectionProps> = ({
         <Button
           size="lg"
           onClick={onContinue}
-          disabled={!canContinue}
-          className={cn(`w-full bg-market-orange hover:bg-market-orange/90 col-span-3`, !scrolled && 'col-span-4')}
+          disabled={!canContinue || isLoading}
+          className={cn(
+            `w-full bg-market-orange hover:bg-market-orange/90 col-span-3`,
+            !scrolled && 'col-span-4',
+            showDownArrow && 'animate-bounce-subtle'
+          )}
         >
-          Find Sellers
-          <ArrowRight className="ml-2 h-4 w-4" />
+          {buttonText}
+          {showRightArrow && <ArrowRight className="ml-2 h-4 w-4" />}
+          {showDownArrow && <ArrowDown className="ml-2 h-4 w-4" />}
         </Button>
       </div>
     </header>
@@ -215,6 +240,7 @@ export const SearchAndLocation: React.FC<SearchAndLocationProps> = ({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <DebouncedInput
           placeholder={placeholder}
+          delay={isLocationDetectable ? 800 : 500} // higher debounce if searching for markets (GOOGLE MAP API) else use normal debouncing
           onChangeText={onSearchChange}
         />
       </div>
@@ -229,7 +255,7 @@ export const SearchAndLocation: React.FC<SearchAndLocationProps> = ({
         ) : (
           <MapPin size={16} className="mr-2 text-market-blue" />
         )}
-        {isDetecting ? 'Detecting...' : 'Auto Detect'}
+        {isDetecting ? 'Detecting...' : 'Detect'}
       </Button>
     </div>
   );
@@ -295,7 +321,7 @@ export const MarketCard: React.FC<MarketCardProps> = ({
             <div className="text-center p-1 sm:p-2 bg-market-blue/5 rounded-lg">
               <div className="text-sm sm:text-base font-medium text-market-blue">
                 {market.impressions}
-                <span className="text-[0.6rem] sm:text-xs ml-1">({market.impressions_per_user}/user)</span>
+                <span className="text-[0.6rem] sm:text-xs ml-1">({Number(market.impressions_per_user).toFixed(1)}/user)</span>
               </div>
               <div className="text-[0.6rem] sm:text-xs text-muted-foreground">Views</div>
             </div>
@@ -387,10 +413,9 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
 };
 
 interface MarketTabsProps {
-  activeTab: 'trending' | 'nearby';
-  onTabChange: (value: 'trending' | 'nearby') => void;
-  trendingMarkets: MarketWithAnalytics[];
-  nearbyMarkets: MarketWithAnalytics[];
+  activeTab: string;
+  onTabChange: (value: string) => void;
+  markets: Record<string, MarketWithAnalytics[]>;
   selectedMarkets: string[];
   onMarketToggle: (id: string) => void;
   onLocationDetect: () => void;
@@ -400,142 +425,70 @@ interface MarketTabsProps {
 export const MarketTabs: React.FC<MarketTabsProps> = ({
   activeTab,
   onTabChange,
-  trendingMarkets,
-  nearbyMarkets,
+  markets,
   selectedMarkets,
   onMarketToggle,
   onLocationDetect,
   isLocationDetecting,
 }) => {
   // Trigger location detection when nearby tab becomes active
-  // useEffect(() => {
-  //   if (activeTab === 'nearby' && !isLocationDetecting && nearbyMarkets.length === 0) {
-  //     // onLocationDetect();
-  //   }
-  // }, [activeTab,  nearbyMarkets.length]);
+  useEffect(() => {
+    if (activeTab === 'nearby' && !isLocationDetecting && (!markets.nearby || markets.nearby.length === 0)) {
+      onLocationDetect();
+    }
+  }, [activeTab, markets.nearby?.length]);
+
+  // Function to format tab title
+  const formatTabTitle = (key: string) => {
+    return key.split("_").join(" ")
+  };
 
   return (
     <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
-      <TabsList className="flex items-start justify-start gap-2 bg-transparent border-b border-b-muted rounded-none mb-4">
-        <TabsTrigger value="nearby" className="rounded-none text-sm font-medium px-4 py-1.5 data-[state=active]:border-b-2 border-b-market-orange">
-          Markets Near You
-        </TabsTrigger>
-        <TabsTrigger value="trending" className="rounded-none text-sm font-medium px-4 py-1.5 data-[state=active]:border-b-2 border-b-market-orange">
-          Trending Markets
-        </TabsTrigger>
+      <TabsList className="scrollbar-small h-full overflow-x-auto flex items-start justify-start gap-2 bg-transparent border-b border-b-muted rounded-none mb-4">
+        {Object.entries(markets).map(([key, marketList]) => (
+          <TabsTrigger
+            key={key}
+            value={key}
+            className="capitalize rounded-none text-sm font-medium px-4 py-1.5 data-[state=active]:border-b-2 border-b-market-orange"
+          >
+            {formatTabTitle(key)} {" "} {marketList.length > 0 && (
+              <span className='text-market-orange ml-2 text-[0.5rem] align-super uppercase animate-pulse'>Top {marketList.length}</span>
+            )}
+          </TabsTrigger>
+        ))}
       </TabsList>
 
-      <TabsContent value="nearby">
-        {nearbyMarkets.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {nearbyMarkets.map(market => (
-              <MarketCard
-                key={market.id}
-                market={market}
-                isSelected={selectedMarkets.includes(market.id)}
-                onToggle={onMarketToggle}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <Store className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              {isLocationDetecting ? 'Finding nearby markets...' : 'No markets found'}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {isLocationDetecting ? 'Please wait' : 'Allow location services to see nearby markets'}
-            </p>
-          </div>
-        )}
-      </TabsContent>
-
-      <TabsContent value="trending">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {trendingMarkets.map(market => (
-            <MarketCard
-              key={market.id}
-              market={market}
-              isSelected={selectedMarkets.includes(market.id)}
-              onToggle={onMarketToggle}
-            />
-          ))}
-        </div>
-
-        {trendingMarkets.length === 0 && (
-          <div className="text-center py-12">
-            <Store className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No markets found</p>
-            <p className="text-sm text-muted-foreground">Try adjusting your search</p>
-          </div>
-        )}
-      </TabsContent>
+      {Object.entries(markets).map(([key, marketList]) => (
+        <TabsContent key={key} value={key}>
+          {marketList.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {marketList.map(market => (
+                <MarketCard
+                  key={market.id}
+                  market={market}
+                  isSelected={selectedMarkets.includes(market.id)}
+                  onToggle={onMarketToggle}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Store className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">
+                {key === 'nearby' && isLocationDetecting ? 'Finding nearby markets...' : 'No markets found'}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {key === 'nearby' && isLocationDetecting ? 'Please wait' : 'Try adjusting your search'}
+              </p>
+            </div>
+          )}
+        </TabsContent>
+      ))}
     </Tabs>
   );
 };
 
-interface SelectionSummaryProps {
-  selectedMarkets?: string[];
-  selectedCategories?: string[];
-  availableMarkets?: MarketWithAnalytics[];
-  type: 'markets' | 'categories';
-}
-
-export const SelectionSummary: React.FC<SelectionSummaryProps> = ({
-  selectedMarkets = [],
-  selectedCategories = [],
-  availableMarkets = [],
-  type,
-}) => {
-  if (type === 'markets' && selectedMarkets.length > 0) {
-    return (
-      <Card className="bg-market-blue/5 border-market-blue/20">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-market-blue mb-1">
-                Selected Markets ({selectedMarkets.length})
-              </h3>
-              <div className="flex gap-2 flex-wrap">
-                {selectedMarkets.map((marketId, index) => {
-                  const market = availableMarkets.find(m => m.id === marketId);
-                  return market ? (
-                    <Badge key={index} variant="secondary" className="bg-market-blue/10 text-market-blue">
-                      {market.name}
-                    </Badge>
-                  ) : null;
-                })}
-              </div>
-            </div>
-            <CheckCircle className="h-5 w-5 text-market-blue" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (type === 'categories' && selectedCategories.length > 0) {
-    return (
-      <Card className="bg-market-orange/10 border-market-orange/20">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-market-orange">
-                {selectedCategories.length} categor{selectedCategories.length !== 1 ? 'ies' : 'y'} selected
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Buyers will find you in these categories
-              </p>
-            </div>
-            <CheckCircle className="h-5 w-5 text-market-orange" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return null;
-};
 
 interface CategorySectionProps {
   title: string;
@@ -582,17 +535,12 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   );
 };
 const BuyerLanding = () => {
+  const { user } = useAuth()
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [levelOneActiveTab, setLevelOneActiveTab] = useState<'markets' | 'categories'>('markets');
   const [levelTwoActiveTab, setLevelTwoActiveTab] = useState<'trending' | 'nearby'>('nearby');
-  const { location, isDetecting: isDetectingLocation, detectLocation } = useLocation();
-  const nearbyMarkets = useGetNearbyMarkets(
-    location ? { lat: location.latitude, lng: location.longitude, nearby: true, pageSize: 20 } : undefined,
-    !!location 
-  );
-
-// console.log({nearbyMarkets});
+  const joinMarket = useJoinMarket()
 
   const {
     selectedMarkets,
@@ -601,6 +549,25 @@ const BuyerLanding = () => {
     handleMarketToggle,
     filterMarkets,
   } = useMarketSelection();
+
+  const { location, isDetecting: isDetectingLocation, detectLocation, locationUpdateCount } = useLocation();
+
+  // Only make API call when nearby tab is active and search query is long enough
+  const shouldFetchNearbyMarkets = levelTwoActiveTab === 'nearby' &&
+    (!!location || marketSearchQuery.length > 2);
+
+  const { data: nearbyMarkets, isLoading: isLoadingNearbyMarkets } = useGetNearbyMarkets(
+    shouldFetchNearbyMarkets ?
+      (location && !marketSearchQuery ?
+        { lat: location.latitude, lng: location.longitude, nearby: true, pageSize: 20, query: marketSearchQuery } :
+        marketSearchQuery.length > 2 ?
+          { query: marketSearchQuery, nearby: false, pageSize: 20 } :
+          undefined
+      ) :
+      undefined,
+    shouldFetchNearbyMarkets,
+    locationUpdateCount
+  );
 
   const {
     selectedCategories,
@@ -613,18 +580,81 @@ const BuyerLanding = () => {
   } = useCategorySelection();
 
   // API calls
-  const { data: availableMarkets = [], isLoading: isMarketLoading } = useGetMarkets({ limit: 10 });
+  const { data: availableMarkets, isLoading: isMarketLoading } = useGetMarkets({ limit: 10, userId: user?.id });
 
-  // Filtered markets
-  const filteredTrendingMarkets = filterMarkets(availableMarkets);
-  const filteredNearbyMarkets = []; // This should be populated based on location
+  // Filtered markets with proper null checks and client-side filtering
+  // const filteredTrendingMarkets = useMemo(() => {
+  //   const generalMarkets = Array.isArray(availableMarkets?.general) ? availableMarkets.general : [];
+  //   // Only apply search filter if not in nearby tab
+  //   if (levelTwoActiveTab === 'nearby') {
+  //     return generalMarkets;
+  //   }
+  //   return filterMarkets(generalMarkets);
+  // }, [availableMarkets, filterMarkets, levelTwoActiveTab]);
 
-  const canContinue = selectedMarkets.length > 0 && selectedCategories.length > 0;
+  const filteredNearbyMarkets = useMemo(() => {
+    return Array.isArray(nearbyMarkets?.markets) ? nearbyMarkets.markets : [];
+  }, [nearbyMarkets]);
 
-  const handleContinue = () => {
-    navigate('/sellers', {
+  // Handle search query changes based on active tab
+  const handleMarketSearch = useCallback((query: string) => {
+    setMarketSearchQuery(query);
+    // If not in nearby tab, we don't need to trigger an API call
+    if (levelTwoActiveTab !== 'nearby') {
+      return;
+    }
+    // For nearby tab, API call is handled by the useGetNearbyMarkets hook
+  }, [levelTwoActiveTab, setMarketSearchQuery]);
+
+  const getButtonText = () => {
+    if (selectedMarkets.length === 0) {
+      return "Select a Market";
+    }
+    if (selectedCategories.length === 0) {
+      return "Choose Products";
+    }
+    return "Find Sellers";
+  };
+
+  const handleContinue = async () => {
+    if (selectedMarkets.length === 0) {
+      // If no market selected, switch to markets tab
+      setLevelOneActiveTab('markets');
+      return;
+    }
+    if (selectedCategories.length === 0) {
+      // If market selected but no category, switch to categories tab
+      setLevelOneActiveTab('categories');
+      // Scroll to top to ensure the category section is visible
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    // If both selected, navigate to sellers page
+    const selectedMarketId = selectedMarkets[0];
+
+    // Find the selected market in all available markets
+    const marketChosen = Object.values(availableMarkets || {})
+      .flat()
+      .find(mkt => mkt.id === selectedMarketId) ||
+      filteredNearbyMarkets.find(mkt => mkt.id === selectedMarketId);
+
+    if (!marketChosen) {
+      toast.error('Selected market not found. Please try selecting again.');
+      return;
+    }
+
+    await joinMarket.mutateAsync({
+      address: marketChosen.address,
+      id: marketChosen.id,
+      name: marketChosen.name,
+      place_id: marketChosen.place_id,
+      location: marketChosen.location
+    })
+
+    navigate(`/sellers/${encodeURIComponent(marketChosen.name)}`, {
       state: {
-        market: availableMarkets.find(mkt => mkt.id === selectedMarkets[0]),
+        market: marketChosen,
         categoryId: selectedCategories[0]
       }
     });
@@ -648,12 +678,14 @@ const BuyerLanding = () => {
     <div className="bg-background py-4 pb-[5rem] animate-fade-in">
       <div className="container mx-auto">
         <HeaderSection
+          buttonText={getButtonText()}
           scrolled={scrolled}
+          isLoading={joinMarket.isPending}
           onContinue={handleContinue}
-          canContinue={canContinue}
+          canContinue={(selectedMarkets.length > 0 || selectedCategories.length > 0) && !joinMarket.isPending}
         />
 
-        <Tabs defaultValue="markets" onValueChange={tab => setLevelOneActiveTab(tab as any)} className="w-full">
+        <Tabs value={levelOneActiveTab} onValueChange={tab => setLevelOneActiveTab(tab as any)} className="w-full">
           <TabsList className="flex items-start justify-start gap-2 bg-transparent border-b border-b-muted rounded-none mb-4">
             <TabsTrigger
               value="markets"
@@ -673,7 +705,7 @@ const BuyerLanding = () => {
               className={cn('rounded-none text-sm font-medium px-4 py-1.5 data-[state=active]:border-b-2 border-b-market-orange gap-x-2')}
             >
               <Package className="h-4 w-4" />
-              Categories
+              Products
               {selectedCategories.length > 0 && (
                 <span className="bg-market-orange/10 text-market-orange text-xs px-2 py-0.5 rounded-full">
                   {selectedCategories.length}
@@ -687,27 +719,24 @@ const BuyerLanding = () => {
               <SearchAndLocation
                 isLocationDetectable={levelTwoActiveTab === "nearby" && levelOneActiveTab === "markets"}
                 searchQuery={marketSearchQuery}
-                onSearchChange={setMarketSearchQuery}
+                onSearchChange={handleMarketSearch}
                 onLocationDetect={detectLocation}
-                isDetecting={isDetectingLocation || nearbyMarkets.isFetching}
+                isDetecting={isDetectingLocation || isLoadingNearbyMarkets}
                 placeholder="Search markets..."
-              />
-
-              <SelectionSummary
-                selectedMarkets={selectedMarkets}
-                availableMarkets={availableMarkets}
-                type="markets"
               />
 
               <MarketTabs
                 activeTab={levelTwoActiveTab}
+                //@ts-ignore
                 onTabChange={setLevelTwoActiveTab}
-                trendingMarkets={filteredTrendingMarkets}
-                nearbyMarkets={filteredNearbyMarkets}
+                markets={{
+                  nearby: filteredNearbyMarkets,
+                  ...availableMarkets
+                }}
                 selectedMarkets={selectedMarkets}
                 onMarketToggle={handleMarketToggle}
                 onLocationDetect={detectLocation}
-                isLocationDetecting={isDetectingLocation || nearbyMarkets.isFetching}
+                isLocationDetecting={isDetectingLocation || isLoadingNearbyMarkets}
               />
             </div>
           </TabsContent>
@@ -719,22 +748,9 @@ const BuyerLanding = () => {
                 searchQuery={categorySearchQuery}
                 onSearchChange={setCategorySearchQuery}
                 onLocationDetect={detectLocation}
-                isDetecting={isDetectingLocation || nearbyMarkets.isFetching}
+                isDetecting={isDetectingLocation || isLoadingNearbyMarkets}
                 placeholder="Search categories..."
               />
-
-              <div className="grid grid-cols-2 gap-4">
-                <SelectionSummary
-                  selectedMarkets={selectedMarkets}
-                  availableMarkets={availableMarkets}
-                  type="markets"
-                />
-                <SelectionSummary
-                  selectedCategories={selectedCategories}
-                  type="categories"
-                />
-              </div>
-
               <div className="space-y-8">
                 {popularCategories.length > 0 && (
                   <CategorySection

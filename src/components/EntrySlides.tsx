@@ -57,7 +57,7 @@ export function EntrySlides() {
       const permissionGranted = await requestPermission()
 
       if (!permissionGranted) {
-        toast.info("No worries! You can enable notifications later in settings. Let's continue setting up your account.")
+        toast.info("PERMISSION DENIED: No worries! You can enable notifications later in settings. Let's continue setting up your account.")
       }
 
       // Navigate to role selection after handling permissions
