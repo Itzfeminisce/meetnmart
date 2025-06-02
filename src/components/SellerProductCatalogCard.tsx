@@ -1,4 +1,4 @@
-import { Product } from '@/types';
+import { NearbySellerProduct } from '@/types';
 import React from 'react'
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from './ui/badge';
@@ -8,8 +8,8 @@ import { cn, formatCurrency } from '@/lib/utils';
 
 
 interface SellerProductCatalogCardProps {
-    product: Product;
-    handleEditProduct?: (product: Product) => void;
+    product: NearbySellerProduct;
+    handleEditProduct?: (product: NearbySellerProduct) => void;
     handleLikeSeller?: (productId: string) => void;
     likesSeller?: string[]
 }

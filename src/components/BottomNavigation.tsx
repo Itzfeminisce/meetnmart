@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import AuthModal from "./AuthModal";
 import ErrorComponent from "./ErrorComponent";
+import Whispa from "./Whispa";
 
 const BottomNavigation = () => {
   const location = useLocation();
@@ -41,6 +42,8 @@ const BottomNavigation = () => {
             <Search size={20} />
             <span className="text-xs mt-1">Explore</span>
           </button>
+
+          <Whispa />
 
           <button
             onClick={() => navigate('/activity')}

@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, ShoppingBasket, PhoneCall, Star, Users, ShieldCheck, CheckCircle, Badge } from 'lucide-react';
@@ -26,11 +25,10 @@ const formSchema = z.object({
 
 type AuthFormValues = z.infer<typeof formSchema>;
 
-
 const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { user, signOut, userRole, isAuthenticated } = useAuth();
-  const [isLoading] = useState<boolean>(false);
+  const [isLoading, setIsloading] = useState<boolean>(false);
 
 
   const authForm = useForm<AuthFormValues>({
@@ -41,8 +39,6 @@ const Index = () => {
     },
   });
 
-
-
   const userHomeUrl = userRole ? `/${userRole}/landing` : "/role-selection"
 
   const navigate = useNavigate();
@@ -52,13 +48,32 @@ const Index = () => {
   };
 
   const handleAuthSuccess = async () => {
-    window.location.reload()
+    window.location.reload();
   };
 
-
+  const onSocialAuthFormSubmit = useCallback(async (provider: 'google') => {
+    setIsloading(true)
+    try {
+     await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          // skipBrowserRedirect: true,
+          redirectTo: `${window.location.origin}/?${new URLSearchParams({
+            provider,
+          }).toString()}`,
+        },
+      });
+    } catch (error) {
+      console.error("Social Auth error:", error);
+      toast.error("An error occurred during authentication");
+    }finally{
+      setIsloading(false)
+    }
+  }, []);
 
   async function onAuthFormSubmit(values: AuthFormValues) {
     try {
+      setIsloading(true)
       const { email, password } = values;
 
       // Attempt to sign in
@@ -93,6 +108,8 @@ const Index = () => {
     } catch (error) {
       console.error("Auth error:", error);
       toast.error("An error occurred during authentication");
+    }finally{
+      setIsloading(false)
     }
   }
 
@@ -124,7 +141,7 @@ const Index = () => {
               {!isAuthenticated &&
                 (
                   <>
-                    <SocialAuthButtons redirectTo={window.location.origin} flow='login' providers={['google']} />
+                    <SocialAuthButtons onAuthRequested={onSocialAuthFormSubmit} isLoading={isLoading}  providers={['google']} />
                     <Button disabled={isLoading}
                       variant="outline"
                       onClick={() => setShowAuthModal(true)}

@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
-import { Category, ExpandedTransaction, Feedback, MarketWithAnalytics, Product, ProductCrud, SellerMarketAndCategory } from '@/types';
+import { Category, ExpandedTransaction, Feedback, MarketWithAnalytics, NearbySellerResponse, Product, ProductCrud, SellerMarketAndCategory, WhispaResponse } from '@/types';
 import {
   useQuery,
   useMutation,
@@ -284,39 +284,33 @@ export const useUpdateUserRole = () => {
   );
 };
 
+export const useUpdateProfileLocation = () => {
+  return useMutate(
+    async ({ update }: {
+      update: Partial<{ lng: number; lat: number }>
+    }) => {
+      await axiosUtil.Patch("/users/location", update)
+    }
+  );
+};
 export const useUpdateProfile = () => {
   return useMutate(
-    async ({ userId, update }: {
-      userId?: string;
+    async ({ update }: {
       update: Partial<{ name: string; category: string; description: string; lng: number; lat: number }>
     }) => {
-      let _userId: string | undefined = userId;
-
-      if (!_userId) {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session && session.user) {
-          _userId = session.user.id
-        }
-      }
-
-      const { error } = await supabase
-        .from('profiles')
-        .update(update)
-        .eq('id', _userId);
-      if (error) throw error;
-      return { userId, update };
+      await axiosUtil.Patch("/users/profile", update)
     },
     {
-      onSuccess: async ({ userId, update }) => {
+      onSuccess: async (_, {update}) => {
         // Optimistically update the cache
         queryClient.setQueryData(
-          cacheKeys.userProfile(userId),
+          cacheKeys.userProfile(JSON.stringify(update)),
           (oldData: any) => oldData ? { ...oldData, ...update } : undefined
         );
 
         // Invalidate related queries
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: cacheKeys.completeProfile(userId) }),
+          queryClient.invalidateQueries({ queryKey: cacheKeys.completeProfile(JSON.stringify(update)) }),
           queryClient.invalidateQueries({ queryKey: ['users', 'by_role'] }),
         ]);
       },
@@ -658,6 +652,18 @@ export const useGetSellers = () => {
     }
   );
 };
+export const useGetNearbySellers = (params: Record<string, string>) => {
+  return useFetch(
+    ["nearby_sellers", params],
+    async () => {
+      const sellers = await axiosUtil.Get<{ data: NearbySellerResponse[] }>("/markets/get-nearby-sellers", { params }).then(res => res.data)
+      return sellers;
+    },
+    {
+      cacheTime: 'DEFAULT',
+    }
+  );
+};
 
 export const useGetBuyers = () => {
   return useFetch(
@@ -980,6 +986,20 @@ export const useJoinMarket = () => {
   });
 };
 
+
+
+export const useWhispaAIMutation = () => {
+  return useMutation({
+    mutationFn: async ({ message }: { message: string }) => {
+      return axiosUtil.Post<{ data: WhispaResponse }>(`/whispa/ai`, { message }).then(it => it.data)
+    },
+    onSuccess: (_, { message }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["whispa_ai", message],
+      });
+    },
+  })
+}
 // ===================
 // UTILITY FUNCTIONS FOR CACHE MANAGEMENT
 // ===================

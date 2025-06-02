@@ -1,0 +1,415 @@
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Mic, MicOff, Send, X, Volume2, VolumeX, Zap, Sparkles, MessageCircle, Loader2 } from 'lucide-react';
+import { WhispaSpeechManager } from '@/engines/WhispaSpeechManager';
+import { useWhispaAIMutation } from '@/hooks/api-hooks';
+
+// Memoized Message Component
+const Message = React.memo(({ message, isStreaming }: { message: { type: string; content: string }; isStreaming?: boolean }) => (
+  <div className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+    <div
+      className={`max-w-[85%] sm:max-w-[80%] p-2.5 sm:p-3 rounded-xl sm:rounded-2xl ${message.type === 'user'
+        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
+        : 'bg-gradient-to-r from-gray-700 to-gray-600 text-white border border-orange-500/20'
+        }`}
+    >
+      <p className="text-xs sm:text-sm whitespace-pre-wrap break-words">
+        {message.content}
+        {isStreaming && <span className="animate-pulse">|</span>}
+      </p>
+    </div>
+  </div>
+));
+
+Message.displayName = 'Message';
+
+const Greetings = [
+  `Hey! It's ${new Date().toLocaleDateString('en-US', { weekday: 'long' })}. How's your day going? 😊`,
+  "Ready to help you find what you need! What can I do for you today? ✨",
+  "Welcome back! I'm here to make your shopping experience better. How can I assist? 🛍️",
+  "Hello! I'm your shopping buddy. What would you like to explore today? 🌟",
+  "Hi there! Need help finding something special? I'm here to help! 🎯"
+];
+
+const _suggestedActions = [
+  { icon: Sparkles, text: "Find nearby sellers", action: "find-nearby-sellers" },
+  { icon: MessageCircle, text: "Browse popular products", action: "browse-popular-products" },
+]
+
+const NextGreeting = Greetings[Math.floor(Math.random() * Greetings.length)];
+
+const Whispa = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [messages, setMessages] = useState<Array<{ type: string; content: string; timestamp: Date }>>([]);
+  const [inputText, setInputText] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [currentStreamMessage, setCurrentStreamMessage] = useState('');
+  const [showGreeting, setShowGreeting] = useState(false);
+  const [suggestedActions, setSuggestedActions] = useState(_suggestedActions);
+
+
+
+  const { mutateAsync: whisperAI, isPending: isWhisperAIPending } = useWhispaAIMutation();
+
+  const speechManagerRef = useRef<WhispaSpeechManager | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Initialize SpeechManager
+  useEffect(() => {
+    speechManagerRef.current = new WhispaSpeechManager({
+      voiceGender: 'female',
+      voiceName: 'Aisha',
+      rate: 0.9,
+      pitch: 1.15,
+      volume: 0.85,
+      language: 'en-US',
+      interimResults: true,
+      personality: 'professional',
+      responseStyle: 'conversational',
+      enthusiasm: 0.8,
+      onSpeechStart: () => {
+        setIsRecording(true);
+        setIsListening(true);
+      },
+      onSpeechEnd: () => {
+        setIsRecording(false);
+        setIsListening(false);
+      },
+      onSpeechResult: (transcript, isFinal) => {
+        setInputText(transcript);
+        if (isFinal) {
+          setTimeout(() => handleSendMessage(transcript), 100);
+        }
+      },
+      onSpeechError: (error) => {
+        console.error('Speech error:', error);
+        setIsRecording(false);
+        setIsListening(false);
+        if (error === 'Permission denied') {
+          alert('Please allow microphone access to use speech recognition.');
+        }
+      },
+      onSpeakStart: () => setIsSpeaking(true),
+      onSpeakEnd: () => setIsSpeaking(false),
+    });
+
+    return () => {
+      if (speechManagerRef.current) {
+        speechManagerRef.current.destroy();
+      }
+    };
+  }, []);
+
+  // Show greeting on page load
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowGreeting(true);
+      // Auto-hide after 3 seconds
+      setTimeout(() => setShowGreeting(false), 5000);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Auto scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, currentStreamMessage]);
+
+
+  // Memoize handlers
+  const startListening = useCallback(async () => {
+    if (speechManagerRef.current && !isRecording && !isStreaming) {
+      // Stop any ongoing AI speech before starting user speech
+      if (isSpeaking) {
+        speechManagerRef.current.stopSpeaking();
+      }
+      await speechManagerRef.current.startListening();
+    }
+  }, [isRecording, isStreaming, isSpeaking]);
+
+  const stopListening = useCallback(() => {
+    if (speechManagerRef.current && isRecording) {
+      speechManagerRef.current.stopListening();
+    }
+  }, [isRecording]);
+
+  const stopSpeaking = useCallback(() => {
+    if (speechManagerRef.current) {
+      speechManagerRef.current.stopSpeaking();
+    }
+  }, []);
+
+  const simulateAiResponse = useCallback(async (userMessage: string) => {
+    // Don't start speaking if user is currently speaking
+    if (isRecording) {
+      return;
+    }
+
+    let intelligence = await whisperAI({ message: userMessage })
+
+    let fullResponse = intelligence.response || "Sorry, There's an issue processing your request. Pleae try again"
+    let actions = intelligence.user_guidance.suggestions;
+
+    // if (speechManagerRef.current) {
+    //   fullResponse = speechManagerRef.current.enhanceResponse(fullResponse);
+    // }
+
+    setIsStreaming(true);
+    setCurrentStreamMessage('');
+
+
+    const streamResponse = async () => {
+      const chunkSize = 3; // Process multiple characters at once for smoother animation
+      for (let i = 0; i <= fullResponse.length; i += chunkSize) {
+        if (isRecording) {
+          setIsStreaming(false);
+          setCurrentStreamMessage('');
+          return;
+        }
+
+        const chunk = fullResponse.substring(0, Math.min(i + chunkSize, fullResponse.length));
+        setCurrentStreamMessage(chunk);
+        await new Promise(resolve => setTimeout(resolve, 50)); // Slightly faster for better UX
+      }
+    };
+
+    await streamResponse();
+
+    setIsStreaming(false);
+
+    const aiMessage = {
+      type: 'ai',
+      content: fullResponse,
+      timestamp: new Date()
+    };
+
+
+
+    setMessages(prev => [...prev, aiMessage]);
+    setCurrentStreamMessage('');
+    setSuggestedActions(actions.map(it => ({
+      action: it.replace(" ", "_"),
+      icon: Sparkles,
+      text: it
+    })))
+    // Only speak if user is not speaking
+    if (audioEnabled && speechManagerRef.current && !isRecording) {
+      setTimeout(() => speechManagerRef.current?.speak(fullResponse), 500);
+    }
+  }, [suggestedActions, audioEnabled, isRecording]);
+
+  const handleSendMessage = useCallback(async (text = inputText) => {
+    if (!text.trim()) return;
+
+    // Stop any ongoing AI speech before sending user message
+    if (speechManagerRef.current && isSpeaking) {
+      speechManagerRef.current.stopSpeaking();
+    }
+
+    const userMessage = {
+      type: 'user',
+      content: text,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInputText('');
+    setSuggestedActions([])
+
+    await simulateAiResponse(text);
+  }, [inputText, simulateAiResponse, isSpeaking]);
+
+  const handleSuggestedAction = useCallback((action: string) => {
+    const actionText = suggestedActions.find(a => a.action === action)?.text || action;
+    handleSendMessage(actionText);
+  }, [suggestedActions, handleSendMessage]);
+
+  const toggleBubble = useCallback(() => {
+    setIsOpen(!isOpen);
+    if (!isOpen && messages.length === 0) {
+      setTimeout(() => {
+        const welcomeMsg = {
+          type: 'ai',
+          content: "Welcome! I’m Whispa, your intelligent assistant for all things MeetnMart. Ask me to find sellers, search products, or explore local markets. How can I assist today?",
+          timestamp: new Date()
+        };
+        setMessages([welcomeMsg]);
+        if (audioEnabled && speechManagerRef.current) {
+          speechManagerRef.current.speak(welcomeMsg.content);
+        }
+      }, 300);
+    }
+  }, [isOpen, messages.length, audioEnabled]);
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6">
+      {/* Main AI Bubble Button */}
+      {!isOpen && (
+        <div
+          onClick={toggleBubble}
+          className="relative group cursor-pointer"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-600 rounded-full blur-lg opacity-75 group-hover:opacity-100 transition-opacity duration-300 animate-pulse"></div>
+
+          <div className="relative w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-orange-500 to-orange-700 rounded-full flex items-center justify-center shadow-2xl transform transition-all duration-300 hover:scale-110 hover:rotate-12 border-2 border-orange-300/30">
+            <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-white animate-pulse" />
+
+            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-orange-300 rounded-full animate-bounce opacity-60"></div>
+            <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-orange-400 rounded-full animate-bounce opacity-80" style={{ animationDelay: '0.5s' }}></div>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Interface */}
+      {isOpen && (
+        <div className="w-[calc(100vw-2rem)] sm:w-96 h-[calc(100vh-5rem)] max-h-[600px] sm:h-[600px] bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-2xl sm:rounded-3xl shadow-2xl border border-orange-500/20 backdrop-blur-xl overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-orange-600/20 to-orange-800/20 p-3 sm:p-4 border-b border-orange-500/20 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-500 to-orange-700 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-white font-semibold text-sm sm:text-base truncate">Whispa</h3>
+                  <p className="text-orange-300 text-xs hidden sm:block">Online • {NextGreeting}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0 ml-2">
+                <button
+                  onClick={() => setAudioEnabled(!audioEnabled)}
+                  className="p-1.5 sm:p-2 text-orange-300 hover:text-white transition-colors"
+                >
+                  {audioEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </button>
+
+                {isSpeaking && (
+                  <button
+                    onClick={stopSpeaking}
+                    className="p-1.5 sm:p-2 text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    <VolumeX className="w-4 h-4" />
+                  </button>
+                )}
+
+                <button
+                  onClick={toggleBubble}
+                  className="p-1.5 sm:p-2 text-orange-300 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 p-3 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto scrollbar-small">
+            {messages.map((message, index) => (
+              <Message key={index} message={message} />
+            ))}
+
+            {isStreaming && currentStreamMessage && (
+              <Message message={{ type: 'ai', content: currentStreamMessage }} isStreaming />
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Suggested Actions */}
+          {suggestedActions.length > 0 && (
+            <div className="px-3 sm:px-4 py-2">
+              <p className="text-orange-300 text-xs mb-2">Try asking:</p>
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                {suggestedActions.map((action, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSuggestedAction(action.action)}
+                    className="flex items-center space-x-1 px-2 sm:px-3 py-1 bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/30 rounded-full text-orange-300 text-xs transition-all duration-200 hover:scale-105"
+                  >
+                    <action.icon className="w-3 h-3" />
+                    <span className="hidden xs:inline sm:inline">{action.text}</span>
+                    <span className="xs:hidden sm:hidden">{action.text.split(' ')[0]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Input Area */}
+          <div className="p-3 sm:p-4 border-t border-orange-500/20 bg-gradient-to-r from-gray-800/50 to-gray-900/50 mt-auto">
+            <div className="flex items-center space-x-2">
+              <div className="flex-1 relative">
+                <textarea
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder="Type or speak your message..."
+                  className="scrollbar-none w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-gray-700/50 border border-orange-500/30 rounded-xl sm:rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 resize-none min-h-[40px] sm:min-h-[44px] md:min-h-[48px] max-h-[100px] sm:max-h-[200px] md:max-h-[400px] overflow-y-auto text-sm sm:text-base placeholder:text-xs sm:placeholder:text-sm md:placeholder:text-base"
+                  style={{
+                    height: 'auto',
+                    minHeight: window.innerWidth < 640 ? '40px' : window.innerWidth < 768 ? '44px' : '48px',
+                    maxHeight: window.innerWidth < 640 ? '100px' : window.innerWidth < 768 ? '200px' : '400px'
+                  }}
+                  rows={1}
+                  disabled={isStreaming}
+                />
+
+                {isRecording && (
+                  <div className="absolute right-2 sm:right-3 top-2 sm:top-2.5">
+                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-500 rounded-full animate-pulse"></div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-x-1.5 sm:gap-x-2">
+                <button
+                  onClick={isListening ? stopListening : startListening}
+                  disabled={isStreaming || isRecording}
+                  className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl transition-all duration-200 ${isRecording
+                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                    : 'bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/30 text-orange-300 hover:text-white'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {isRecording ? <MicOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Mic className="w-4 h-4 sm:w-5 sm:h-5" />}
+                </button>
+
+                <button
+                  onClick={() => handleSendMessage()}
+                  disabled={!inputText.trim() || isStreaming || isRecording || isWhisperAIPending}
+                  className="p-2 sm:p-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl sm:rounded-2xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"
+                >
+                  {isWhisperAIPending ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <Send className="w-4 h-4 sm:w-5 sm:h-5" />}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Simple Greeting Slide */}
+      {showGreeting && !isOpen && (
+        <div className={`absolute bottom-2 transform transition-all duration-500 ${showGreeting ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
+          } right-16 sm:right-20 md:right-24`}>
+          <div className="bg-gradient-to-r from-gray-800/90 to-gray-900/90 backdrop-blur-xl border border-orange-500/30 rounded-xl px-3 py-2 sm:px-4 sm:py-2 shadow-lg max-w-[200px] sm:max-w-[280px] md:max-w-[400px]">
+            <div className="flex items-center space-x-2">
+              <span className="text-orange-400 font-semibold text-xs sm:text-sm">Whispa</span>
+              <span className="text-gray-200 text-xs sm:text-sm truncate">{NextGreeting}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default React.memo(Whispa);

@@ -215,6 +215,7 @@ export interface Product {
   category: string; // UUID
   in_stock: boolean;
   seller_id: string; // UUID
+  created_at: Date;
 }
 
 export interface Feedback {
@@ -244,4 +245,66 @@ export interface StatsOverview {
   feedbacks: number;
   this_week: number;
   transactions: number;
+}
+
+
+// TypeScript interfaces for get_nearby_sellers RPC response
+
+export interface SellerStatus {
+  is_online: boolean;
+  is_reachable: boolean;
+  is_premium: boolean;
+  is_verified: boolean;
+  description: string;
+}
+
+
+export type NearbySellerProduct  = Omit<Product, "seller_id">;
+
+export interface NearbySellerProductProductsResponse {
+  items: NearbySellerProduct[];
+  total_count: number;
+  has_more: boolean;
+}
+
+export interface NearbySellerProductReview {
+  rating: number;
+  feedback_text: string | null;
+  created_at: string; // ISO datetime string
+}
+
+export interface NearbySellerProductReviewsSummary {
+  total_reviews: number;
+  average_rating: number;
+  recent_reviews: NearbySellerProductReview[];
+}
+
+export interface NearbySellerResponse {
+  seller_id: string;
+  name: string;
+  avatar: string | null;
+  distance_km: number;
+  seller_status: SellerStatus;
+  products: NearbySellerProductProductsResponse;
+  reviews_summary: NearbySellerProductReviewsSummary;
+  avg_response_time_minutes: number;
+}
+
+
+export interface WhispaResponse {
+  intent: string;
+  entities: Record<string, any>;
+  response: string;
+  confidence: number;
+  actions: Array<{
+    name: string;
+    params: Record<string, any>;
+    priority: number;
+  }>;
+  data_requests: any[];
+  session_id: string;
+  user_guidance: {
+    suggestions: string[];
+    quick_actions: string[];
+  };
 }

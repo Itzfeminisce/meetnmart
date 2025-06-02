@@ -264,7 +264,7 @@ export const handleAxiosError = (error: unknown): ErrorResponse => {
             const { error: apiError, message, statusCode } = axiosError.response.data;
             return {
                 title: getErrorTitle(apiError?.code),
-                message: apiError.details?.error || message || 'An unexpected error occurred',
+                message:  message || 'An unexpected error occurred',
                 code: apiError?.code || ErrorCodes.UNKNOWN,
                 details: apiError?.details,
                 statusCode: statusCode,

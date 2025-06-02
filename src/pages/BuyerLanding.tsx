@@ -10,73 +10,14 @@ import { DebouncedInput } from '@/components/ui/debounced-input';
 import { Badge } from '@/components/ui/badge';
 import { Category } from '@/types';
 
-import { categories } from '@/lib/mockData';
 import { useNavigate } from 'react-router-dom';
-import { useGetMarkets, useGetNearbyMarkets, useJoinMarket, useUpdateProfile } from '@/hooks/api-hooks';
+import {useGetMarkets, useGetNearbyMarkets, useJoinMarket } from '@/hooks/api-hooks';
 import Loader from '@/components/ui/loader';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-
-export const useLocation = () => {
-  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [isDetecting, setIsDetecting] = useState(false);
-  const [locationUpdateCount, setLocationUpdateCount] = useState(0);
-  const updateProfile = useUpdateProfile()
-
-  const detectLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported by this browser')
-      return
-    }
-
-    setIsDetecting(true);
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        setLocationUpdateCount(prev => prev + 1);
-        setIsDetecting(false);
-        updateProfile.mutate({
-          update: {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          }
-        })
-      },
-      (error) => {
-        setIsDetecting(false);
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            toast.error("Location access denied. Please enable location services.");
-            break;
-          case error.POSITION_UNAVAILABLE:
-            toast.error("Location information is unavailable.");
-            break;
-          case error.TIMEOUT:
-            toast.error("Location request timed out.");
-            break;
-          default:
-            toast.error("An unknown error occurred while detecting location.");
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 600000, // 10 minutes
-      }
-    );
-  }, []);
-
-  return {
-    location,
-    isDetecting,
-    detectLocation,
-    locationUpdateCount,
-  };
-};
+import { useLocation } from '@/hooks/useLocation';
+import { useMarketSelection } from '@/hooks/useMarketSelection';
+import { useCategorySelection } from '@/hooks/useCategorySelection';
 
 
 export type MarketWithAnalytics = {
@@ -96,70 +37,6 @@ export type MarketWithAnalytics = {
   updated_recently: boolean;
 };
 
-export const useMarketSelection = () => {
-  const [selectedMarkets, setSelectedMarkets] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // console.log({searchQuery});
-
-
-  const handleMarketToggle = useCallback((marketId: string) => {
-    setSelectedMarkets([marketId]);
-  }, []);
-
-  const filterMarkets = useCallback((markets: MarketWithAnalytics[]) => {
-    if (searchQuery.length === 0) return markets;
-    return markets.filter(market =>
-      market.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      market.address.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery]);
-
-  return {
-    selectedMarkets,
-    searchQuery,
-    setSearchQuery,
-    handleMarketToggle,
-    filterMarkets,
-  };
-};
-
-export const useCategorySelection = () => {
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const handleCategoryToggle = useCallback((categoryId: string) => {
-    setSelectedCategories([categoryId]);
-  }, []);
-
-  const filteredCategories = useMemo(() => {
-    if (searchQuery.length === 0) return categories;
-    return categories.filter(category =>
-      category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      category.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery]);
-
-  const popularCategories = useMemo(() =>
-    filteredCategories.filter(cat => cat.popular),
-    [filteredCategories]
-  );
-
-  const otherCategories = useMemo(() =>
-    filteredCategories.filter(cat => !cat.popular),
-    [filteredCategories]
-  );
-
-  return {
-    selectedCategories,
-    searchQuery,
-    setSearchQuery,
-    handleCategoryToggle,
-    filteredCategories,
-    popularCategories,
-    otherCategories,
-  };
-};
 
 
 interface HeaderSectionProps {
@@ -363,7 +240,7 @@ export const MarketCard: React.FC<MarketCardProps> = ({
 interface CategoryCardProps {
   category: Category;
   isSelected: boolean;
-  onToggle: (id: string) => void;
+  onToggle: (category: Category) => void;
 }
 
 export const CategoryCard: React.FC<CategoryCardProps> = ({
@@ -377,7 +254,7 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
         ? 'ring-2 ring-market-orange bg-market-orange/5'
         : 'hover:bg-secondary/30'
         }`}
-      onClick={() => onToggle(category.id)}
+      onClick={() => onToggle(category)}
     >
       <div className="flex items-start justify-between mb-3">
         <div className={`p-3 rounded-lg ${category.color}`}>
@@ -432,11 +309,11 @@ export const MarketTabs: React.FC<MarketTabsProps> = ({
   isLocationDetecting,
 }) => {
   // Trigger location detection when nearby tab becomes active
-  useEffect(() => {
-    if (activeTab === 'nearby' && !isLocationDetecting && (!markets.nearby || markets.nearby.length === 0)) {
-      onLocationDetect();
-    }
-  }, [activeTab, markets.nearby?.length]);
+  // useEffect(() => {
+  //   if (activeTab === 'nearby' && !isLocationDetecting && (!markets.nearby || markets.nearby.length === 0)) {
+  //     onLocationDetect();
+  //   }
+  // }, [activeTab, markets.nearby?.length]);
 
   // Function to format tab title
   const formatTabTitle = (key: string) => {
@@ -494,8 +371,8 @@ interface CategorySectionProps {
   title: string;
   subtitle?: string;
   categories: Category[];
-  selectedCategories: string[];
-  onCategoryToggle: (categoryId: string) => void;
+  selectedCategories: Category[];
+  onCategoryToggle: (category: Category) => void;
   colorClass: string;
 }
 
@@ -526,7 +403,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           <CategoryCard
             key={category.id}
             category={category}
-            isSelected={selectedCategories.includes(category.id)}
+            isSelected={selectedCategories.includes(category)}
             onToggle={onCategoryToggle}
           />
         ))}
@@ -652,10 +529,17 @@ const BuyerLanding = () => {
       location: marketChosen.location
     })
 
+
+    console.log({
+      marketChosen,
+      selectedCategories
+    });
+    
+
     navigate(`/sellers/${encodeURIComponent(marketChosen.name)}`, {
       state: {
         market: marketChosen,
-        categoryId: selectedCategories[0]
+        category: selectedCategories[0]
       }
     });
   };

@@ -4,21 +4,18 @@ import { useSocialAuth } from '@/hooks/useSocialAuth';
 import { AuthResponse } from '@supabase/supabase-js';
 
 interface SocialAuthButtonsProps {
-  onSuccess?: (response: AuthResponse) => void;
-  onError?: (error: Error) => void;
-  redirectTo?: string;
-  flow: "login" | "signup"
-  providers?: string[];
+  onAuthRequested: (provider: string) => void;
+  providers: string[];
+  isLoading: boolean;
 }
 
 
 
 export function SocialAuthButtons({
-  redirectTo,
-  flow,
   providers, // Default to Google only
+  onAuthRequested,
+  isLoading
 }: SocialAuthButtonsProps) {
-  const { isLoading, handleAuth, } = useSocialAuth({ redirectTo, flow });
 
   return (
     <>
@@ -28,11 +25,11 @@ export function SocialAuthButtons({
             key={provider}
             variant="outline"
             type="button"
-            disabled={isLoading !== null}
-            onClick={() => handleAuth("google")}
+            disabled={isLoading}
+            onClick={() => onAuthRequested(provider)}
             className={`w-full flex items-center justify-center gap-2 border`}
           >
-            {isLoading === provider ? (
+            {isLoading ? (
               <div className="h-5 w-5 animate-spin rounded-full border-b-2" />
             ) : (
               <Google className="h-5 w-5" />
