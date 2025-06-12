@@ -1,7 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Mic, MicOff, Send, X, Volume2, VolumeX, Zap, Sparkles, MessageCircle, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Send, X, Volume2, VolumeX, Zap, Sparkles, MessageCircle, Loader2, MapPin, BadgeHelp } from 'lucide-react';
 import { WhispaSpeechManager } from '@/engines/WhispaSpeechManager';
 import { useWhispaAIMutation } from '@/hooks/api-hooks';
+import { useLocation } from '@/hooks/useLocation';
+import { useAuth } from '@/contexts/AuthContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 // Memoized Message Component
 const Message = React.memo(({ message, isStreaming }: { message: { type: string; content: string }; isStreaming?: boolean }) => (
@@ -37,7 +41,7 @@ const _suggestedActions = [
 
 const NextGreeting = Greetings[Math.floor(Math.random() * Greetings.length)];
 
-const Whispa = () => {
+const Whispa = ({ isInNav = false }: { isInNav?: boolean }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -49,8 +53,11 @@ const Whispa = () => {
   const [currentStreamMessage, setCurrentStreamMessage] = useState('');
   const [showGreeting, setShowGreeting] = useState(false);
   const [suggestedActions, setSuggestedActions] = useState(_suggestedActions);
+  const [showLocationModal, setShowLocationModal] = useState(false);
 
-
+  const { profile } = useAuth();
+  
+  const { detectLocation: requestLocationPermissions, isLocationServicesAllowed, isDetecting } = useLocation();
 
   const { mutateAsync: whisperAI, isPending: isWhisperAIPending } = useWhispaAIMutation();
 
@@ -151,7 +158,7 @@ const Whispa = () => {
 
     let intelligence = await whisperAI({ message: userMessage })
 
-    let fullResponse = intelligence.response || "Sorry, There's an issue processing your request. Pleae try again"
+    let fullResponse = intelligence.response.concat("\n\n",intelligence.follow_up_questions.join("\n")) || "Sorry, There's an issue processing your request. Pleae try again"
     let actions = intelligence.user_guidance.suggestions;
 
     // if (speechManagerRef.current) {
@@ -228,13 +235,35 @@ const Whispa = () => {
     handleSendMessage(actionText);
   }, [suggestedActions, handleSendMessage]);
 
-  const toggleBubble = useCallback(() => {
+  const checkLocationPermission = useCallback(async () => {
+    if (!profile?.location) {
+      setShowLocationModal(true);
+      return false;
+    }
+    return true;
+  }, [profile?.location]);
+
+  const handleLocationPermission = useCallback(async () => {
+    await requestLocationPermissions();
+    if (isLocationServicesAllowed) {
+      setShowLocationModal(false);
+      return true;
+    }
+    return false;
+  }, [requestLocationPermissions, isLocationServicesAllowed]);
+
+  const toggleBubble = useCallback(async () => {
+    if (!isOpen) {
+      const hasLocation = await checkLocationPermission();
+      if (!hasLocation) return;
+    }
+    
     setIsOpen(!isOpen);
     if (!isOpen && messages.length === 0) {
       setTimeout(() => {
         const welcomeMsg = {
           type: 'ai',
-          content: "Welcome! I’m Whispa, your intelligent assistant for all things MeetnMart. Ask me to find sellers, search products, or explore local markets. How can I assist today?",
+          content: "Welcome! I'm Whispa, your intelligent assistant for all things MeetnMart. Ask me to find sellers, search products, or explore local markets. How can I assist today?",
           timestamp: new Date()
         };
         setMessages([welcomeMsg]);
@@ -243,10 +272,10 @@ const Whispa = () => {
         }
       }, 300);
     }
-  }, [isOpen, messages.length, audioEnabled]);
+  }, [isOpen, messages.length, audioEnabled, checkLocationPermission]);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6">
+    <div className={`${isInNav ? 'relative' : 'fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6 md:fixed md:bottom-4 md:right-4'}`}>
       {/* Main AI Bubble Button */}
       {!isOpen && (
         <div
@@ -255,18 +284,22 @@ const Whispa = () => {
         >
           <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-600 rounded-full blur-lg opacity-75 group-hover:opacity-100 transition-opacity duration-300 animate-pulse"></div>
 
-          <div className="relative w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-orange-500 to-orange-700 rounded-full flex items-center justify-center shadow-2xl transform transition-all duration-300 hover:scale-110 hover:rotate-12 border-2 border-orange-300/30">
-            <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-white animate-pulse" />
+          <div className={`relative ${isInNav ? 'w-14 h-14' : 'w-14 h-14 md:w-14 md:h-14'} bg-gradient-to-br from-orange-500 to-orange-700 rounded-full flex items-center justify-center shadow-2xl transform transition-all duration-300 hover:scale-110 hover:rotate-12 border-2 border-orange-300/30`}>
+            <BadgeHelp className={`${isInNav ? 'w-10 h-10' : 'w-6 h-6 md:w-6 md:h-6'} text-white animate-pulse`} />
 
-            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-orange-300 rounded-full animate-bounce opacity-60"></div>
-            <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-orange-400 rounded-full animate-bounce opacity-80" style={{ animationDelay: '0.5s' }}></div>
+            {!isInNav && (
+              <>
+                <div className={`absolute -top-1 -right-1 ${isInNav ? 'w-4 h-4' : 'w-2.5 h-2.5 md:w-2.5 md:h-2.5'} bg-orange-300 rounded-full animate-bounce opacity-60`}></div>
+                <div className={`absolute -bottom-1 -left-1 ${isInNav ? 'w-3 h-3' : 'w-2 h-2 md:w-2 md:h-2'} bg-orange-400 rounded-full animate-bounce opacity-80`} style={{ animationDelay: '0.5s' }}></div>
+              </>
+            )}
           </div>
         </div>
       )}
 
       {/* Chat Interface */}
       {isOpen && (
-        <div className="w-[calc(100vw-2rem)] sm:w-96 h-[calc(100vh-5rem)] max-h-[600px] sm:h-[600px] bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-2xl sm:rounded-3xl shadow-2xl border border-orange-500/20 backdrop-blur-xl overflow-hidden flex flex-col">
+        <div className={`${isInNav ? 'fixed bottom-5 right-4' : ''} w-[calc(100vw-2rem)] sm:w-96 h-[calc(100vh-5rem)] max-h-[500px] sm:h-[500px] bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-2xl sm:rounded-3xl shadow-2xl border border-orange-500/20 backdrop-blur-xl overflow-hidden flex flex-col`}>
           {/* Header */}
           <div className="bg-gradient-to-r from-orange-600/20 to-orange-800/20 p-3 sm:p-4 border-b border-orange-500/20 flex-shrink-0">
             <div className="flex items-center justify-between">
@@ -397,9 +430,8 @@ const Whispa = () => {
       )}
 
       {/* Simple Greeting Slide */}
-      {showGreeting && !isOpen && (
-        <div className={`absolute bottom-2 transform transition-all duration-500 ${showGreeting ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
-          } right-16 sm:right-20 md:right-24`}>
+      {showGreeting && !isOpen && !isInNav && (
+        <div className={`absolute bottom-2 transform transition-all duration-500 ${showGreeting ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'} right-16 sm:right-20 md:right-24`}>
           <div className="bg-gradient-to-r from-gray-800/90 to-gray-900/90 backdrop-blur-xl border border-orange-500/30 rounded-xl px-3 py-2 sm:px-4 sm:py-2 shadow-lg max-w-[200px] sm:max-w-[280px] md:max-w-[400px]">
             <div className="flex items-center space-x-2">
               <span className="text-orange-400 font-semibold text-xs sm:text-sm">Whispa</span>
@@ -408,6 +440,64 @@ const Whispa = () => {
           </div>
         </div>
       )}
+
+      {/* Location Permission Modal */}
+      <Dialog open={showLocationModal} onOpenChange={setShowLocationModal}>
+        <DialogContent className="bg-gradient-to-br from-gray-800 to-gray-900 text-gray-50 border border-orange-500/20 rounded-xl shadow-2xl">
+          <DialogHeader className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-500/10 rounded-lg">
+                <MapPin className="w-5 h-5 text-orange-400" />
+              </div>
+              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent">
+                Location Required
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-gray-300 space-y-4">
+              <p className="text-base leading-relaxed">
+                To provide you with the best experience, we need your location to:
+              </p>
+              <ul className="space-y-3 pl-4">
+                <li className="flex items-center gap-2 text-gray-200">
+                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                  Find nearby sellers and products
+                </li>
+                <li className="flex items-center gap-2 text-gray-200">
+                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                  Show relevant local markets
+                </li>
+                <li className="flex items-center gap-2 text-gray-200">
+                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                  Enable accurate delivery tracking
+                </li>
+              </ul>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-4 mt-6 pt-4 border-t border-gray-700/50">
+            <Button
+              variant="outline"
+              onClick={() => setShowLocationModal(false)}
+              className="border-gray-600 hover:bg-gray-700/50 transition-colors"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white transition-all hover:scale-105"
+              onClick={handleLocationPermission}
+              disabled={isDetecting}
+            >
+              {isDetecting ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Please wait...</span>
+                </div>
+              ) : (
+                "Enable Location"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

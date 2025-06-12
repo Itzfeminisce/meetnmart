@@ -24,6 +24,25 @@ export type MarketWithAnalytics = {
   belongs_to_market: boolean;
 };
 
+
+// export type MarketWithAnalytics = {
+//   id: string;
+//   place_id: string;
+//   name: string;
+//   address: string;
+//   location: string;
+//   user_count: number | null;
+//   created_at: string;
+//   updated_at: string;
+//   impressions: number | null;
+//   recent_count: number;
+//   last_24hrs: boolean;
+//   impressions_per_user: number;
+//   age_hours: number;
+//   updated_recently: boolean;
+// };
+
+
 export interface Category {
   id: string;
   name: string;
@@ -195,7 +214,7 @@ export type ExpandedTransaction = {
 export type ProductCRUDAction = "create" | "read" | "update" | "delete";
 
 export type ProductCrudData<A extends ProductCRUDAction> =
-  A extends "create" ? Omit<Product, "id"> :
+  A extends "create" ? Omit<Product, "id" | "created_at"> :
   A extends "read" ? never :
   A extends "update" ? Required<Pick<Product, "id">> & Partial<Omit<Product, "id">> :
   A extends "delete" ? Pick<Product, "id"> :
@@ -259,7 +278,7 @@ export interface SellerStatus {
 }
 
 
-export type NearbySellerProduct  = Omit<Product, "seller_id">;
+export type NearbySellerProduct = Omit<Product, "seller_id">;
 
 export interface NearbySellerProductProductsResponse {
   items: NearbySellerProduct[];
@@ -302,9 +321,87 @@ export interface WhispaResponse {
     priority: number;
   }>;
   data_requests: any[];
+  follow_up_questions: string[];
   session_id: string;
   user_guidance: {
     suggestions: string[];
     quick_actions: string[];
   };
+}
+
+export interface FeedItemAuthor {
+  id: string;
+  name: string;
+  avatar: string | null;
+  is_reachable: boolean;
+};
+export interface FeedItem {
+  id: string;
+  type: 'buyer_request' | 'seller_offer' | 'delivery_ping';
+  title: string;
+  content: string;
+  category: {
+    id: string,
+    name: string
+  },
+  author: FeedItemAuthor
+  price_range?: string;
+  needed_by?: string;
+  quantity?: string;
+  delivery_preference: boolean;
+  location?: string;
+  market_id?: string;
+  images?: string[];
+  urgency?: 'low' | 'medium' | 'high' | 'not_specified';
+  created_at: string;  // ISO timestamp
+  expires_at?: string;
+  interactions:  FeedInteraction
+}
+
+export interface FeedOverviewStats {
+  sellers_online: number;
+  buyer_needs: number;
+  delivery_pings: number;
+  trending_items: number;
+  urgent_requests: number;
+  saved_items: number;
+  active_chats: number;
+  views_today: number;
+}
+
+
+export interface FeedInteractionItem {
+  type: 'message' | 'comment' | 'bookmark' | 'share' | 'call' | 'delivery' | 'view';
+  author: {
+    id: string;
+    name: string;
+    avatar: string;
+  };
+  metadata?: {
+    message?: string;
+    delivery_address?: string;
+    [key: string]: string | undefined;
+  };
+  created_at?: string;
+}
+
+export interface FeedInteractionStats {
+  callCount: number;
+  viewCount: number;
+  commentCount: number;
+  messageCount: number;
+  bookmarkCount: number;
+}
+
+export interface FeedInteraction {
+  items: FeedInteractionItem[];
+  stats: FeedInteractionStats;
+}
+
+
+
+export interface FeedItemPreview extends Omit<FeedItem, "id" | "created_by" | "source" | "created_by" | "market_id"> {
+  urgency: "low" | "medium" | "high" | "not_specified",
+  uploadedImages?: string[],
+  destinationMarket?: string;
 }

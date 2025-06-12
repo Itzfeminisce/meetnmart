@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react'
 
 type DebounceFunction<T extends (...args: any[]) => any> = {
-    (this: ThisParameterType<T>, ...args: Parameters<T>): void
+    (this: ThisParameterType<T>, ...args: Parameters<T>): Promise<ReturnType<T>>
     cancel: () => void
-    flush: () => void
+    flush: () => Promise<ReturnType<T>>
 }
 
 /**
@@ -28,7 +28,7 @@ export function debounce<T extends (...args: any[]) => any>(
 ): DebounceFunction<T> {
     let lastArgs: Parameters<T> | null = null
     let lastThis: ThisParameterType<T> | null = null
-    let result: ReturnType<T> | null = null
+    let result: Promise<ReturnType<T>> | null = null
     let timerId: ReturnType<typeof setTimeout> | null = null
     let lastCallTime: number | null = null
     let lastInvokeTime = 0
@@ -41,7 +41,7 @@ export function debounce<T extends (...args: any[]) => any>(
 
     wait = +wait || 0
 
-    function invokeFunc(time: number) {
+    async function invokeFunc(time: number) {
         const args = lastArgs
         const thisArg = lastThis
 
@@ -49,7 +49,7 @@ export function debounce<T extends (...args: any[]) => any>(
         lastThis = null
         lastInvokeTime = time
         if (args) {
-            result = func.apply(thisArg, args)
+            result = Promise.resolve(func.apply(thisArg, args))
         }
         return result
     }
@@ -106,11 +106,11 @@ export function debounce<T extends (...args: any[]) => any>(
         timerId = null
     }
 
-    function flush() {
+    async function flush() {
         return timerId === null ? result : trailingEdge(Date.now())
     }
 
-    function debounced(this: ThisParameterType<T>, ...args: Parameters<T>) {
+    async function debounced(this: ThisParameterType<T>, ...args: Parameters<T>) {
         const time = Date.now()
         const isInvoking = shouldInvoke(time)
 

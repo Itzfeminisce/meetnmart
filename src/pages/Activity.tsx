@@ -8,6 +8,7 @@ import { formatDuration, formatTimeAgo } from '@/lib/utils';
 import Loader from '@/components/ui/loader';
 import ErrorComponent from '@/components/ErrorComponent';
 import { useIsMobile } from '@/hooks/use-mobile';
+import AppHeader from '@/components/AppHeader';
 
 type Feedback = Database['public']['Functions']['get_feedbacks']
 
@@ -47,38 +48,31 @@ const Activity = () => {
   if (error) return <ErrorComponent error={error} onRetry={() => navigate(0)} />;
 
   return (
-    <div className="py-6 animate-fade-in">
-     <div className="container mx-auto ">
-     <header className="mb-6">
-        <div className="flex items-center mb-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="mr-2 -ml-3"
-            onClick={() => navigate(-1)}
-          >
-            <ArrowLeft size={20} />
-          </Button>
-          <h1 className="text-2xl font-bold text-gradient">Activity</h1>
-        </div>
-        <p className="text-muted-foreground">Track your seller activity and notifications</p>
-      </header>
+    <>
+      <AppHeader
+        title="History"
+        subtitle="Track your seller activity and notifications"
+        showBackButton
+        rightContentOnNewLine={isMobile}
+      />
 
-     {isMobile ? (
-        <MobileView 
-          feedbacks={feedbacks} 
-          isLoading={isLoading} 
-          notifications={notifications} 
-        />
-      ) : (
-        <DesktopView 
-          feedbacks={feedbacks} 
-          isLoading={isLoading} 
-          notifications={notifications} 
-        />
-      )}
-     </div>
-    </div>
+
+      <div className="container animate-fade-in mb-[5rem]">
+        {isMobile ? (
+          <MobileView
+            feedbacks={feedbacks}
+            isLoading={isLoading}
+            notifications={notifications}
+          />
+        ) : (
+          <DesktopView
+            feedbacks={feedbacks}
+            isLoading={isLoading}
+            notifications={notifications}
+          />
+        )}
+      </div>
+    </>
   );
 };
 

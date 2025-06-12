@@ -29,6 +29,7 @@ const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { user, signOut, userRole, isAuthenticated } = useAuth();
   const [isLoading, setIsloading] = useState<boolean>(false);
+  const [flow, setFlow] = useState<"signup" | "signin">("signup")
 
 
   const authForm = useForm<AuthFormValues>({
@@ -39,26 +40,26 @@ const Index = () => {
     },
   });
 
-  const userHomeUrl = userRole ? `/${userRole}/landing` : "/role-selection"
+  const userHomeUrl = userRole ? `/feeds` : "/role-selection"
 
   const navigate = useNavigate();
 
   const handleGetStarted = () => {
-      navigate(userHomeUrl);
+    navigate(userHomeUrl);
   };
 
   const handleAuthSuccess = async () => {
-    window.location.reload();
+     navigate(userHomeUrl)
   };
 
   const onSocialAuthFormSubmit = useCallback(async (provider: 'google') => {
     setIsloading(true)
     try {
-     await supabase.auth.signInWithOAuth({
+      await supabase.auth.signInWithOAuth({
         provider,
         options: {
           // skipBrowserRedirect: true,
-          redirectTo: `${window.location.origin}/?${new URLSearchParams({
+          redirectTo: `${window.location.origin}/feeds/?${new URLSearchParams({
             provider,
           }).toString()}`,
         },
@@ -66,7 +67,7 @@ const Index = () => {
     } catch (error) {
       console.error("Social Auth error:", error);
       toast.error("An error occurred during authentication");
-    }finally{
+    } finally {
       setIsloading(false)
     }
   }, []);
@@ -84,7 +85,7 @@ const Index = () => {
 
       if (error) {
         // If sign in fails, try to sign up
-        const {error: signUpError } = await supabase.auth.signUp({
+        const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
         });
@@ -95,6 +96,7 @@ const Index = () => {
         }
         toast.success("Account created! Please check your email for more details.");
 
+        setFlow("signup")
         navigate("/good-to-know", {
           replace: true,
           state: {
@@ -103,12 +105,13 @@ const Index = () => {
         })
       } else {
         toast.success("Successfully signed in!");
+        setFlow("signin")
         handleAuthSuccess();
       }
     } catch (error) {
       console.error("Auth error:", error);
       toast.error("An error occurred during authentication");
-    }finally{
+    } finally {
       setIsloading(false)
     }
   }
@@ -141,7 +144,7 @@ const Index = () => {
               {!isAuthenticated &&
                 (
                   <>
-                    <SocialAuthButtons onAuthRequested={onSocialAuthFormSubmit} isLoading={isLoading}  providers={['google']} />
+                    <SocialAuthButtons onAuthRequested={onSocialAuthFormSubmit} isLoading={isLoading} providers={['google']} />
                     <Button disabled={isLoading}
                       variant="outline"
                       onClick={() => setShowAuthModal(true)}

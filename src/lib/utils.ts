@@ -153,6 +153,8 @@ export const formatCurrency = (amount: number, currency: string = 'NGN') => {
 
 
 export const formatDateTime = (dateString) => {
+  console.log({dateString});
+  
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-US', {
     day: 'numeric',
@@ -172,3 +174,11 @@ export const logger = (message?: any, ...optionalParams: any[]) => {
 
   console.log(message, optionalParams)
 }
+
+export const sluggify = (input: string): string => {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+};

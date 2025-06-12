@@ -1,227 +1,333 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
-import { WalletSummary as WalletSummaryComponent } from '@/components/WalletSummary';
-import Loader from '@/components/ui/loader';
-import RecentCallCard from '@/components/RecentCallCard';
-import { useCreateProduct, useDeleteProduct, useFetch, useGetCategories, useGetProducts, useGetTransactions, useUpdateProduct } from '@/hooks/api-hooks';
-import ErrorComponent from '@/components/ErrorComponent';
+import React, { Suspense, useCallback, useState } from 'react';
 import {
-  Plus,
-  Star,
   MapPin,
   Phone,
-  Mail,
-  Calendar,
-  TrendingUp,
-  Users,
-  ShoppingBag,
-  Heart,
-  Share2,
+  MessageCircle,
   Eye,
+  Clock,
+  Settings,
+  Power,
+  Bell,
+  CheckCircle2,
   Package,
+  ChevronRight,
+  Zap,
+  Wallet,
   Edit,
   LogOut,
-  Upload,
-  X,
-  ShieldQuestionIcon
 } from 'lucide-react';
-import SellerProductCatalogCard from '@/components/SellerProductCatalogCard';
-import { Product } from '@/types';
-import { mockProducts } from '@/lib/mockData';
-import { formatTimeAgo } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { useGetSellerMarketAndCategories, useGetSellerStats, useGetTransactions, useToggleOnlineStatus } from '@/hooks/api-hooks';
+import { cn, formatCurrency, formatDuration, formatTimeAgo, getInitials } from '@/lib/utils';
+import { toast } from 'sonner';
 import { getShortName } from '../lib/utils';
-import { ImageUploadField } from '@/components/ui/image-upload-field';
-
-// Product form schema
-const productSchema = z.object({
-  name: z.string().min(1, 'Product name is required').max(100, 'Name must be less than 100 characters'),
-  description: z.string().min(10, 'Description must be at least 10 characters').max(500, 'Description must be less than 500 characters'),
-  price: z.coerce.number().min(1, 'Price is required'),
-  category: z.string().min(1, 'Category is required'),
-  image: z.string().url('Please enter a valid image URL').optional().or(z.literal('')),
-  in_stock: z.boolean().default(true),
-});
-
-type ProductFormValues = z.infer<typeof productSchema>;
-
+import Loader from '@/components/ui/loader';
+import { LinearLoader } from '../components/ui/loader';
+import { SellerStat } from '@/components/SellerStat'
+import { MarketWithAnalytics, SellerMarketAndCategory } from '@/types';
+import AppHeader from '@/components/AppHeader';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const SellerDashboard = () => {
-  const { user, profile, signOut, isLoading, fetchTransactions } = useAuth();
-  const navigate = useNavigate();
-  const { data: products, isLoading: isProductLoading } = useGetProducts()
-  const {data: categories} = useGetCategories()
-  const productCreateMutation = useCreateProduct()
-  const productDeleteMutation = useDeleteProduct()
-  const productUpdateMutation = useUpdateProduct()
-  const [likesSeller, setLikedSeller] = useState<string[]>([]);
-  // const [products, setProducts] = useState<Product[]>(mockProducts);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [productImageUrl, setProductImageUrl] = useState('')
+  const isMobile = useIsMobile()
+  const { user, profile, wallet, signOut, isLoading } = useAuth()
+  const { data: sellerMarketAndCategories } = useGetSellerMarketAndCategories({ seller: user?.id, })
+  const { data: sellerStats, isLoading: isLoadingSellerStats } = useGetSellerStats({ userId: user?.id })
+
+  const { data: recentCalls = [], isLoading: isLoadingTrx, error: trxErr } = useGetTransactions({ params: { user_id: user?.id, limit_count: 2 } })
+  const [isOnline, setIsOnline] = useState(profile.is_reachable);
+  const navigate = useNavigate()
+  const toggleOnline = useToggleOnlineStatus()
 
 
-  const form = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
-    defaultValues: {
-      name: '',
-      description: '',
-      price: 0,
-      category: '',
-      image: productImageUrl,
-      in_stock: true,
-    },
+  const [todayStats] = useState({
+    views: 147,
+    calls: 8,
+    messages: 15,
+    earnings: 245.50,
+    responseRate: 94,
+    avgResponseTime: 2.3
   });
 
 
-  const handleEditProfile = () => {
+  const handleEditProfile = useCallback(() => {
     navigate('/edit-seller-profile');
-  };
+  }, [navigate]);
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     toast.success('Clearing session...');
     await signOut();
     navigate('/');
-  };
+  }, [signOut, navigate]);
 
-  const handleLikeSeller = (productId: string) => {
-    setLikedSeller(prev =>
-      prev.includes(productId)
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
-    );
-  };
 
-  const handleAddProduct = () => {
-    setEditingProduct(null);
-    form.reset({
-      name: '',
-      description: '',
-      price: 0,
-      category: '',
-      image: productImageUrl,
-      in_stock: true,
-    });
-    setDialogOpen(true);
-  };
 
-  const handleEditProduct = (product: Product) => {
-    setEditingProduct(product);
-    form.reset({
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      category: product.category,
-      image: productImageUrl,
-      in_stock: product.in_stock,
-    });
-    setDialogOpen(true);
-  };
-
-  const onSubmit = async (values: ProductFormValues) => {
-
-    if (editingProduct) {
-      // setProducts(prev => prev.map(p => p.id === editingProduct.id ? newProduct : p));
-      toast.success('Product updated successfully!');
-    } else {
-      await productCreateMutation.mutateAsync({
-        data: {
-          category: values.category,
-          description: values.description,
-          image: productImageUrl,
-          in_stock: values.in_stock,
-          name: values.name,
-          price: values.price,
-          seller_id: user.id
-        }
+  const handleToggleOnlineStatus = async (status: boolean) => {
+    try {
+      const _status = await toggleOnline.mutateAsync({
+        status,
+        userId: user.id
       })
-      // setProducts(prev => [...prev, newProduct]);
-      toast.success('Product added successfully!');
+
+      setIsOnline(_status)
+    } catch (error) {
+      console.error("Error updating online status", error?.message)
+      toast.error("Unable to update status. Please try again")
+    }
+  };
+
+
+  const prepareMarketForNextPage = useCallback((markets: SellerMarketAndCategory['markets'], showMoreInfo = false) => {
+    if (!markets || markets.length === 0) {
+      return {
+        title: '',
+        marketIds: []
+      };
     }
 
-    setDialogOpen(false);
-    form.reset();
+    const [firstMarket, ...restOfSelectedMarkets] = markets;
+
+    return {
+      title: `${firstMarket.name}${showMoreInfo ? ` & ${restOfSelectedMarkets.length} others` : ''}`,
+      marketIds: markets.map(it => it.id)
+    }
+  }, [])
+
+
+  const handleViewAllCalls = () => {
+    // Navigate to recent calls
+    console.log('Navigate to recent calls');
   };
+
 
 
   return (
-    <div className="mb-[5rem]">
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Profile Section */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Profile Card */}
-            <Card className="overflow-hidden shadow-sm border rounded-xl">
-              <CardContent className="p-6 space-y-6">
-                {/* Profile Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between sm:gap-6 text-center sm:text-left">
-                  <div className="flex flex-col items-center sm:items-start space-y-3">
-                    <Avatar className="h-24 w-24 border-4 border-border shadow">
-                      {profile.avatar ? (
-                        <AvatarImage src={profile.avatar} alt={profile.name} />
-                      ) : (
-                        <AvatarFallback className="text-2xl font-bold">
-                          {profile.name?.charAt(0).toUpperCase() || 'S'}
-                        </AvatarFallback>
-                      )}
-                    </Avatar>
+    <>
+      <AppHeader
+        title={getShortName(profile.name)}
+        subtitle={profile.location?.address ?? "Unknown"}
+        rightContent={(
+          <div className="relative">
+            <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+            <Avatar className="w-12 h-12 border-2 border-market-orange/20 card-hover">
+              <AvatarImage src={profile.avatar} />
+              <AvatarFallback className="text-lg font-semibold bg-market-orange/10">{profile.avatar}</AvatarFallback>
+            </Avatar>
+          </div>
+        )}
+      />
 
-                    <div className="space-y-1">
-                      <h1 className="text-2xl font-bold tracking-tight">{getShortName(profile.name)}</h1>
-                      <Badge variant="secondary" className="text-xs px-2 py-0.5 inline-flex items-center">
-                        <Package className="w-3 h-3 mr-1" />
-                        {profile.category || 'General Store'}
-                      </Badge>
+      <div className="container mb-[5rem] mt-4">
+        {/* Header */}
+        {/* <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+          <div className="flex items-start justify-between w-full">
+            <div className="">
+              <div className='flex items-center'>
+                <Button
+                  title={isOnline ? 'Go Offline' : 'Go Online'}
+                  variant="ghost"
+                  size="sm"
+                  disabled={toggleOnline.isPending}
+                  onClick={() => handleToggleOnlineStatus(!isOnline)}
+                  className={cn(isOnline ? 'border-bg-destructive/50 hover:bg-destructive/50' : 'border-green-500/50 hover:bg-green-500/50')}
+                >
+                  <Power className="w-4 h-4" />
+                </Button>
+                <div>
+                  <h2> Welcome, </h2>
+                  <h1 className="text-2xl font-bold">{getShortName(profile.name)}</h1>
+                  <p className='text-muted-foreground text-xs flex items-center justify-start gap-x-2'><MapPin size={12} /> {profile.location?.address ?? "Unknown"}</p>
+                </div>
+              </div>
 
-                      <div className="flex items-center justify-center sm:justify-start gap-1 text-sm text-muted-foreground">
-                        <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
-                        <span className="font-medium">4.8</span>
-                        <span className="opacity-70">(127 reviews)</span>
+            </div>
+            <div className="relative">
+              <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+              <Avatar className="w-12 h-12 border-2 border-market-orange/20 card-hover">
+                <AvatarImage src={profile.avatar} />
+                <AvatarFallback className="text-lg font-semibold bg-market-orange/10">{profile.avatar}</AvatarFallback>
+              </Avatar>
+            </div>
+          </div>
+
+        </div> */}
+
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+          {/* Left Sidebar - Markets & Categories */}
+          <div className="lg:col-span-2 space-y-6">
+
+            {/* Wallet Summary */}
+            <div className="md:grid grid-cols-4 gap-4 space-y-4 md:space-y-0 lg:grid-cols-1">
+              <Card className="glass-morphism border-market-orange/20 col-span-3">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Wallet className="w-5 h-5" />
+                    Wallet Balance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-2xl font-bold text-market-green">{formatCurrency(wallet.balance)}</p>
+                      <p className="text-sm text-muted-foreground">Available Balance</p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <div>
+                        <p className="font-medium text-market-orange text-2xl">{formatCurrency(wallet.escrowed_balance)}</p>
+                        <p className="text-muted-foreground">Escrow</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-market-green">+{formatCurrency(sellerStats?.this_week || 0)}</p>
+                        <p className="text-muted-foreground">This Week</p>
                       </div>
                     </div>
-                  </div>
 
-                </div>
-
-                {/* Contact Info */}
-                <div className="grid gap-3 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4" />
-                    <span>{profile.phone_number || user?.phone || 'No Phone'}</span>
+                    <div>
+                      <p className="text-xl font-bold">{formatCurrency(wallet.balance + wallet.escrowed_balance)}</p>
+                      <p className="text-muted-foreground">Total Revenue</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    <span>Local Seller</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    <span>Joined {formatTimeAgo(profile.created_at)}</span>
-                  </div>
-                </div>
+                </CardContent>
+              </Card>
 
-                {/* Status Warning */}
-                {!profile.is_reachable && (
-                  <Badge variant="destructive" className="block w-full text-center">
-                    You are currently not visible to buyers
-                  </Badge>
-                )}
-              </CardContent>
-            </Card>
+              {/* Today's Stats */}
+              <div className="md:space-y-0 grid md:grid-cols-1 grid-cols-3 lg:grid-cols-3 gap-2">
+                <Card className="glass-morphism">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Transactions</p>
+                        <p className="text-2xl font-bold">{sellerStats?.transactions || 0}</p>
+                      </div>
+                      <Eye className="w-8 h-8 text-market-orange hidden md:flex" />
+                    </div>
+                  </CardContent>
+                </Card>
 
+                <Card className="glass-morphism">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Calls</p>
+                        <p className="text-2xl font-bold">{sellerStats?.calls || 0}</p>
+                      </div>
+                      <Phone className="w-8 h-8 text-market-green hidden md:flex" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* <ComingSoon> */}
+                <Card className="glass-morphism ">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between ">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Feedbacks</p>
+                        <p className="text-2xl font-bold">{sellerStats?.feedbacks || 0}</p>
+                      </div>
+                      <MessageCircle className="w-8 h-8 text-market-purple hidden md:flex" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Active Markets */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4">
+              <Card className="glass-morphism">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <MapPin className="w-5 h-5" />
+                    Your Markets
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+
+                  {sellerMarketAndCategories?.markets.length == 0 && (
+                    <div className='flex flex-col  text-center items-center justify-center gap-y-2 my-4'>
+                      <h1 className='text-base'>No records found</h1>
+                      <p className='text-xs text-muted-foreground'>Click <b>Manage</b> to engage in a market</p>
+                    </div>
+                  )}
+                  {sellerMarketAndCategories?.markets.map(market => (
+                    <div
+                      key={market.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-white/10 hover:bg-white/5 transition-colors card-hover"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{market.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{market.address}</p>
+                      </div>
+                      <div className="text-right ml-2">
+                        <p className="text-sm font-medium text-market-green">{market.impressions}</p>
+                        <p className="text-xs text-muted-foreground">impressions</p>
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-market-orange/50 hover:bg-market-orange/10"
+                  >
+                    <Link to={"/seller/landing"}>
+                      <Settings className="w-4 h-4 mr-2" />
+                      Manage Markets</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Active Categories */}
+              <Card className="glass-morphism">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2 ">
+                    <Package className="w-5 h-5" />
+                    Your Categories
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {sellerMarketAndCategories?.categories.length == 0 && (
+                    <div className='flex flex-col  text-center items-center justify-center gap-y-2 my-4'>
+                      <h1 className='text-base'>No records found</h1>
+                      <p className='text-xs text-muted-foreground'>Click <b>Manage</b> to engage in a category</p>
+                    </div>
+                  )}
+
+                  {sellerMarketAndCategories?.categories.map(category => (
+                    <div
+                      key={category.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-white/10 hover:bg-white/5 transition-colors card-hover"
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{category.name}</p>
+                        <span className="text-lg text-market-blue"><ChevronRight /> </span>
+                      </div>
+                    </div>
+                  ))}
+                  {sellerMarketAndCategories && (
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-market-orange/50 hover:bg-market-orange/10"
+                    >
+                      <Link to={"/categories"} state={prepareMarketForNextPage(sellerMarketAndCategories.markets, true)}>
+                        <Settings className="w-4 h-4 mr-2" />
+                        Manage Categories
+                      </Link>
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Action Buttons */}
             <div className="flex items-center justify-between w-full border border-muted rounded-md p-4">
@@ -247,271 +353,141 @@ const SellerDashboard = () => {
               </Button>
             </div>
 
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { icon: ShoppingBag, label: 'Products', value: '12' },
-                { icon: TrendingUp, label: 'Sales', value: '$2.8k' },
-                { icon: Users, label: 'Buyers', value: '89' },
-                { icon: Star, label: 'Rating', value: '4.8' }
-              ].map((stat, index) => (
-                <Card key={index} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4 text-center">
-                    <stat.icon className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-lg font-bold">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground">{stat.label}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
           </div>
 
-          {/* Right Column - Product Catalog */}
-          <div className="lg:col-span-2">
-            <div className="space-y-6">
-              {/* Catalog Header */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-balance md:text-2xl font-bold">Product Catalog</h2>
-                  <p className="text-muted-foreground">Manage your product listings</p>
-                </div>
-                <Button onClick={handleAddProduct} className='bg-primary'>
-                  <Plus className="w-4 h-4" />
-                  <span className='hidden md:flex'> Add Product</span>
-                </Button>
-              </div>
+          {/* Main Content */}
+          <div className="lg:col-span-3 space-y-6">
 
-              {/* Product Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {isProductLoading ? <Loader /> : products.length == 0 ? (
-                  <Card className="group border-none p-8 text-center flex flex-col items-center justify-center min-h-[280px]">
-                    <CardContent className="flex flex-col items-center justify-center h-full gap-4">
-                      <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <ShieldQuestionIcon className="w-6 h-6 text-market-orange" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-market-orange">
-                        Your catalog is empty
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        Sellers with product listings stand a higher chance of engaging buyers.
-                      </p>
-                    </CardContent>
-                  </Card>
-                ) : products.map((product) => (
-                  <SellerProductCatalogCard
-                    product={product}
-                    handleEditProduct={() => handleEditProduct(product)}
-                    handleLikeSeller={() => handleLikeSeller(product.id)}
-                    likesSeller={likesSeller}
-                    key={product.id}
-                  />
-                ))}
 
-                {/* Add New Product Card */}
-                <Card
-                  className="group cursor-pointer hover:shadow-lg transition-all duration-300 border-2 border-dashed hover:border-solid"
-                  onClick={handleAddProduct}
-                >
-                  <CardContent className="p-8 flex flex-col items-center justify-center h-full min-h-[280px] text-center">
-                    <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                      <Plus className="w-6 h-6" />
+            {/* Weekly Analytics */}
+            {isLoadingSellerStats ? <LinearLoader /> : <SellerStat data={sellerStats?.charts} />}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-6">
+
+              {/* Performance Metrics */}
+              <Card className="glass-morphism">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2  text-base md:text-2xl ">
+                    <Zap className="w-5 h-5" />
+                    Performance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>Response Rate</span>
+                      <span className="font-medium text-market-green">{todayStats.responseRate}%</span>
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">
-                      Add New Product
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Expand your catalog and reach more customers
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
+                    <Progress
+                      value={todayStats.responseRate}
+                      className="h-2 bg-white/10"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>Avg Response Time</span>
+                      <span className="font-medium text-market-orange">{todayStats.avgResponseTime}m</span>
+                    </div>
+                    <Progress
+                      value={85}
+                      className="h-2 bg-white/10"
+                    />
+                  </div>
+
+                  <div className="pt-3 border-t border-white/10">
+                    <div className="flex items-center gap-2 text-sm text-market-green">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Great performance! Keep it up.</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Recent Calls - Replacing Recent Activity */}
+              <Card className="glass-morphism rounded-xl shadow-sm border">
+                <CardHeader>
+                  <div className="flex  justify-between sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <CardTitle className="flex items-center gap-2  text-base md:text-2xl ">
+                      <Phone className="w-5 h-5" />
+                      Recent Calls
+                    </CardTitle>
+                    {recentCalls.length > 2 && (
+                      <Button
+                        asChild
+                        variant="link"
+                        size="sm"
+                        onClick={handleViewAllCalls}
+                        className="text-market-orange hover:text-market-orange/80 p-0"
+                      >
+                        <Link to="/transactions">View All</Link>
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+
+                <CardContent>
+                  <div className="space-y-4">
+                    {recentCalls.length === 0 ? (
+                      <div className='flex flex-col  text-center items-center justify-center gap-y-2 my-4'>
+                        <h1 className='text-base'>No records found</h1>
+                        <p className='text-xs text-muted-foreground'>Your recent calls will appear here</p>
+                      </div>
+                    ) : recentCalls.map((call) => (
+                      <div
+                        key={call.transaction_id}
+                        onClick={() => navigate(`/transactions/${call.call_session_id}`)}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg border border-white/10 hover:bg-white/5 transition cursor-pointer"
+                      >
+                        {/* Left */}
+                        <div className="flex flex-1 items-start gap-3 min-w-0">
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage src={call.buyer_avatar} />
+                            <AvatarFallback className="bg-market-orange/10 text-sm">
+                              {getInitials(call.buyer_name)}
+                            </AvatarFallback>
+                          </Avatar>
+
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <p className="text-sm font-medium truncate">
+                              <span className="text-slate-400 font-light">With </span>{call.buyer_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">{call.reference}</p>
+
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                <span>{formatDuration(call.duration)}</span>
+                              </div>
+                              <span>•</span>
+                              <span>{call.transaction_created_at ? formatTimeAgo(call.transaction_created_at) : 'No transaction'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right */}
+                        <div className="flex flex-col sm:items-end text-right gap-1 min-w-[100px]">
+                          <p className="text-sm font-semibold text-market-green whitespace-nowrap">
+                            {formatCurrency(call.amount)}
+                          </p>
+                          <Badge
+                            variant={call.status === 'completed' ? 'default' : 'secondary'}
+                            className="text-xs whitespace-nowrap w-fit"
+                          >
+                            {call?.status || 'N/A'}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
             </div>
           </div>
         </div>
-
-        {/* Product Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto scrollbar-small">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                {editingProduct ? 'Edit Product' : 'Add New Product'}
-              </DialogTitle>
-            </DialogHeader>
-
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Product Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter product name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {categories.map(it => (
-                            <SelectItem value={it.id}>{it.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Describe your product in detail..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Provide a detailed description to attract more buyers
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="price"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Price ($)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Enter price in USD
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="in_stock"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">In Stock</FormLabel>
-                          <FormDescription>
-                            Is this product currently available?
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <ImageUploadField
-                  filePreferedName={`${user.id}`}
-                  onChange={(url) => setProductImageUrl(url)}
-                  value={productImageUrl}
-                  required={true}
-                  showPreview={true}
-                  maxSizeMB={2}
-                  placeholder='https://example.com/image.jpg'
-                  label='Product Image URL (Max: 2MB, PNG/JPEG/JPG)'
-                  helperText='Upload a clear photo to showcase your product'
-                />
-
-                {/* <FormField
-                  control={form.control}
-                  name="image"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Product Image URL</FormLabel>
-                      <FormControl>
-                        <div className="space-y-2">
-                          <Input
-                            placeholder="https://example.com/image.jpg"
-                            {...field}
-                          />
-                          {field.value && (
-                            <div className="relative w-full h-32 bg-muted rounded-lg overflow-hidden">
-                              <img
-                                src={field.value}
-                                alt="Preview"
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.src = "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop";
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </FormControl>
-                      <FormDescription>
-                        Optional: Add an image URL to showcase your product
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                /> */}
-
-                <div className="flex gap-3 pt-4">
-                  <Button type="submit" className="flex-1">
-                    {editingProduct ? 'Update Product' : 'Add Product'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setDialogOpen(false)}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
       </div>
-    </div>
+    </>
   );
 };
 

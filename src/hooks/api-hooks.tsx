@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
-import { Category, ExpandedTransaction, Feedback, MarketWithAnalytics, NearbySellerResponse, Product, ProductCrud, SellerMarketAndCategory, WhispaResponse } from '@/types';
+import { Category, ExpandedTransaction, Feedback, FeedInteractionItem, FeedItem, FeedItemAuthor, FeedOverviewStats, MarketWithAnalytics, NearbySellerResponse, Product, ProductCrud, SellerMarketAndCategory, WhispaResponse } from '@/types';
 import {
   useQuery,
   useMutation,
@@ -13,6 +13,9 @@ import {
 import { StatsOverview } from '../types';
 import { MarketResult } from '@/services/marketsService';
 import { useAxios } from '@/lib/axiosUtils';
+import { useFeedStore, useInteractionStatsStore } from '@/contexts/Store';
+import { debounce, useDebounce } from './use-debounce';
+import { useMemo } from 'react';
 
 const axiosUtil = useAxios()
 
@@ -284,15 +287,23 @@ export const useUpdateUserRole = () => {
   );
 };
 
+
 export const useUpdateProfileLocation = () => {
   return useMutate(
     async ({ update }: {
       update: Partial<{ lng: number; lat: number }>
     }) => {
       await axiosUtil.Patch("/users/location", update)
+    },
+    {
+      onSuccess: async () => {
+        // Invalidate profile queries to trigger refetch
+        await queryClient.invalidateQueries({ queryKey: cacheKeys.currentUser() });
+      }
     }
   );
 };
+
 export const useUpdateProfile = () => {
   return useMutate(
     async ({ update }: {
@@ -301,7 +312,7 @@ export const useUpdateProfile = () => {
       await axiosUtil.Patch("/users/profile", update)
     },
     {
-      onSuccess: async (_, {update}) => {
+      onSuccess: async (_, { update }) => {
         // Optimistically update the cache
         queryClient.setQueryData(
           cacheKeys.userProfile(JSON.stringify(update)),
@@ -660,6 +671,7 @@ export const useGetNearbySellers = (params: Record<string, string>) => {
       return sellers;
     },
     {
+      staleTime: 60000, // 1 minute
       cacheTime: 'DEFAULT',
     }
   );
@@ -772,7 +784,7 @@ export const useGetMarkets = ({ userId, limit = 5 }: { userId?: string; limit?: 
       if (userId) queryParams.append('userId', userId);
       queryParams.append('limit', limit.toString());
 
-      const results = await axiosUtil.Get<{ data: Record<string | "general", MarketWithAnalytics[]> }>(`/markets/get-available-markets?${queryParams.toString()}`).then(response => response.data)
+      const results = await axiosUtil.Get<{ data: MarketWithAnalytics[] }>(`/markets/get-available-markets?${queryParams.toString()}`).then(response => response.data)
 
       // const { data, error } = await supabase.rpc('get_available_markets', {
       //   p_seller_id: userId,
@@ -839,13 +851,13 @@ export const useGetNearbyMarkets = (
 
 
 
-export const useGetCategories = ({ userId = undefined, limit = 5 }: { userId?: string; limit?: number; } = {}) => {
+export const useGetCategories = ({ userId = undefined, limit = 20 }: { userId?: string; limit?: number; } = {}) => {
   return useFetch<Category[]>(
     ["categories"],
     async () => {
       const { data, error } = await supabase.rpc('get_market_categories', {
         p_seller_id: userId,
-        p_limit: 50
+        p_limit: limit
       });
 
       if (error) throw error;
@@ -856,6 +868,45 @@ export const useGetCategories = ({ userId = undefined, limit = 5 }: { userId?: s
     }
   );
 };
+export const useGetFeeds = ({ userId = undefined, limit = 20 }: { userId?: string; limit?: number; p_offset?: number } = {}) => {
+  const store = useFeedStore()
+  return useFetch<FeedItem[]>(
+    ["feeds"],
+    async () => {
+      const { data, error } = await supabase.rpc('get_feeds', {
+        p_created_by: null,
+        p_limit: limit,
+      });
+
+      if (error) throw error;
+
+      store.setFeeds(data)
+      return data;
+    },
+    {
+      cacheTime: 'DEFAULT',
+    }
+  );
+};
+
+interface FeedInteration extends Omit<FeedInteractionItem, "created_at"> {
+  feed_id: string;
+}
+
+export const useCreateFeedInteraction = () => {
+  const queryClient = useQueryClient()
+  const store = useFeedStore();
+  return useMutation<FeedInteration, Error, FeedInteration>({
+    mutationFn: async (options) => {
+      store.addInteraction(options.feed_id, { ...options, created_at: new Date().toLocaleDateString() });
+      queryClient.invalidateQueries({queryKey: ["feed_interaction_stats"]})
+      const { data } = await axiosUtil.Post<{ data: any }>("/whispa/feeds/interactions", options);
+      return data;
+    }
+  });
+};
+
+
 export const useGetSellerMarketAndCategories = ({ seller, ...filters }: {
   seller: string;
   market_sort_col?: "impressions";
@@ -880,6 +931,24 @@ export const useGetSellerMarketAndCategories = ({ seller, ...filters }: {
         });
 
       if (error) throw error;
+      return data;
+    },
+    {
+      cacheTime: 'DEFAULT',
+    }
+  );
+};
+export const useGetFeedInteractionStats = () => {
+  const statsStore = useInteractionStatsStore()
+  return useFetch<FeedOverviewStats>(
+    ["feed_interaction_stats"],
+    async () => {
+      const { data, error } = await supabase.rpc('get_feed_interaction_stats');
+
+      if (error) throw error;
+
+      statsStore.setStats(data)
+
       return data;
     },
     {
@@ -915,19 +984,37 @@ export const useSellerCatrgoryMutation = () => {
     }) => {
       const { selectedMarkets, selectedCategories } = payload;
 
-      // Build array of all combinations
-      const recordsToInsert = selectedMarkets.flatMap(marketId =>
-        selectedCategories.map(categoryId => ({
-          seller_id: sellerId,
-          market_id: marketId,
-          category_id: categoryId,
-        }))
+      type InsertRecord = {
+        seller_id: string;
+        market_id: string;
+        category_id: string | null;
+      };
+      
+      const recordsToInsert: InsertRecord[] = [];
+      
+      if (selectedMarkets.length && selectedCategories.length) {
+        // Full combinations
+        selectedMarkets.forEach(marketId => {
+          selectedCategories.forEach(categoryId => {
+            recordsToInsert.push({ seller_id: sellerId, market_id: marketId, category_id: categoryId });
+          });
+        });
+      } else if (selectedMarkets.length) {
+        // Market-only inserts
+        selectedMarkets.forEach(marketId => {
+          recordsToInsert.push({ seller_id: sellerId, market_id: marketId, category_id: null });
+        });
+      }
+      
+      // Filter out duplicates before insert (optional but safe)
+      const uniqueRecords = Array.from(
+        new Map(recordsToInsert.map(r => [`${r.market_id}-${r.category_id}`, r])).values()
       );
 
       // Insert with upsert to avoid duplicates errors
       const { data, error } = await supabase
         .from('seller_market_category')
-        .upsert(recordsToInsert, { onConflict: "seller_id,market_id,category_id", ignoreDuplicates: true });
+        .upsert(uniqueRecords);
 
       if (error) {
         console.error('Error inserting seller market categories:', error);

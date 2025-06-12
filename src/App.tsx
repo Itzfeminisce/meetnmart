@@ -49,7 +49,6 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner position="top-right" />
-      <Suspense fallback={<Loader />}>
         <AuthProvider>
           <SocketProviderWithAuth>
             <BrowserRouter>
@@ -62,7 +61,6 @@ const App = () => (
             </BrowserRouter>
           </SocketProviderWithAuth>
         </AuthProvider>
-      </Suspense>
     </TooltipProvider>
   </QueryClientProvider>
 );

@@ -98,6 +98,11 @@ export type Database = {
           name: string | null
           phone_number: string | null
           updated_at: string
+          lng: number | null
+          lat: number | null
+          is_verified: boolean | null
+          is_premium: boolean | null
+          location: Record<string, any> | null
         }
         Insert: {
           avatar?: string | null

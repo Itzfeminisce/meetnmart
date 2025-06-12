@@ -78,6 +78,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
  * Helper function to get dashboard path based on user role
  */
 const getDashboardPath = (role: string): string => {
+    return '/feeds'
     switch (role) {
         case 'seller':
             return '/seller/landing';

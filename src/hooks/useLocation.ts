@@ -7,6 +7,7 @@ export const useLocation = () => {
     const [isDetecting, setIsDetecting] = useState(false);
     const [locationUpdateCount, setLocationUpdateCount] = useState(0);
     const updateProfile = useUpdateProfileLocation()
+    const [isLocationServicesAllowed, setIsLocationServicesAllowed] = useState(false)
   
     const detectLocation = useCallback(() => {
       if (!navigator.geolocation) {
@@ -17,22 +18,24 @@ export const useLocation = () => {
       setIsDetecting(true);
   
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           setLocation({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
           setLocationUpdateCount(prev => prev + 1);
-          setIsDetecting(false);
-          updateProfile.mutate({
+          setIsLocationServicesAllowed(true)
+          await updateProfile.mutateAsync({
             update: {
               lat: position.coords.latitude,
               lng: position.coords.longitude,
             }
           })
+          setIsDetecting(false);
         },
         (error) => {
           setIsDetecting(false);
+          setIsLocationServicesAllowed(false)
           switch (error.code) {
             case error.PERMISSION_DENIED:
               toast.error("Location access denied. Please enable location services.");
@@ -56,6 +59,7 @@ export const useLocation = () => {
     }, []);
   
     return {
+      isLocationServicesAllowed,
       location,
       isDetecting,
       detectLocation,

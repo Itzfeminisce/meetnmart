@@ -135,7 +135,29 @@ export function SellerStat({data}: { data: WeeklyStatusChart[] }) {
                             />
                             <ChartTooltip
                                 cursor={{ stroke: 'rgba(148, 163, 184, 0.3)' }}
-                                content={<ChartTooltipContent className="bg-white/90 backdrop-blur-sm border-0 shadow-lg" />}
+                                content={({ active, payload, label }) => {
+                                    if (active && payload && payload.length) {
+                                        return (
+                                            <div className="rounded-lg border bg-white/95 backdrop-blur-sm p-2 px-4 capitalize shadow-lg">
+                                                <p className="text-xs text-gray-700 mb-1">{label}</p>
+                                                <div className="space-y-0.5">
+                                                    {payload.map((entry: any, index: number) => (
+                                                        <div key={index} className="flex items-center gap-1.5">
+                                                            <div
+                                                                className="w-1.5 h-1.5 rounded-full"
+                                                                style={{ backgroundColor: entry.color }}
+                                                            />
+                                                            <span className="text-xs" style={{ color: entry.color }}>
+                                                                {entry.name}: {entry.value}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                }}
                             />
                             <Area
                                 dataKey="released"
