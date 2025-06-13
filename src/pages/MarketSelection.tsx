@@ -277,6 +277,7 @@ const MarketSelection = () => {
                 const _selectedMarket = filteredMarkets.find(mkt => mkt.id == selectedMarkets[0])
                 actions = [
                     <Button
+                    size='sm'
                         type='button'
                         variant='outline'
                         onClick={() => navigate("/categories", {
@@ -286,6 +287,7 @@ const MarketSelection = () => {
                         Browse Categories
                     </Button>,
                     <Button
+                    size='sm'
                         type='button'
                         variant='market'
                         onClick={() =>

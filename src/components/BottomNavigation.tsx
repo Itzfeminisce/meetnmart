@@ -1,9 +1,36 @@
 import { Home, Search, Bell, User, Grid2X2Icon } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import AuthModal from "./AuthModal";
 import Whispa from "./Whispa";
+
+// Memoized navigation button component
+const NavButton = memo(({ 
+  onClick, 
+  isActive, 
+  icon: Icon, 
+  label, 
+  size = 20 
+}: {
+  onClick: () => void;
+  isActive: boolean;
+  icon: any;
+  label: string;
+  size?: number;
+}) => (
+  <button
+    onClick={onClick}
+    className={`flex flex-col items-center justify-center transition-colors duration-200 ${
+      isActive ? 'text-market-orange' : 'text-muted-foreground'
+    }`}
+  >
+    <Icon size={size} />
+    <span className="text-xs mt-1">{label}</span>
+  </button>
+));
+
+NavButton.displayName = 'NavButton';
 
 const BottomNavigation = () => {
   const location = useLocation();
@@ -13,30 +40,39 @@ const BottomNavigation = () => {
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const userDashboardUrl = `/${userRole}-dashboard`
-  const userHomeUrl = `/feeds`
+  // Memoize URLs to prevent unnecessary re-renders
+  const userDashboardUrl = useMemo(() => `/${userRole}-dashboard`, [userRole]);
+  const userHomeUrl = useMemo(() => `/feeds`, []);
 
-  const isActive = (path: string) => {
+  // Memoize navigation handlers
+  const navigateToHome = useCallback(() => navigate(userHomeUrl), [navigate, userHomeUrl]);
+  const navigateToSearch = useCallback(() => navigate('/search'), [navigate]);
+  const navigateToHistory = useCallback(() => navigate('/history'), [navigate]);
+  const navigateToCatalog = useCallback(() => navigate('/catalog'), [navigate]);
+  const navigateToProfile = useCallback(() => navigate(userDashboardUrl), [navigate, userDashboardUrl]);
+
+  const isActive = useCallback((path: string) => {
     return location.pathname === path;
-  };
+  }, [location.pathname]);
 
-  // Scroll detection effect
+  // Optimized scroll detection with throttling
+  const handleScroll = useCallback(() => {
+    // Set scrolling state to true
+    setIsScrolling(true);
+
+    // Clear existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    // Set timeout to reset scrolling state after scroll stops
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsScrolling(false);
+    }, 700);
+  }, []);
+
+  // Scroll detection effect with cleanup
   useEffect(() => {
-    const handleScroll = () => {
-      // Set scrolling state to true
-      setIsScrolling(true);
-
-      // Clear existing timeout
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-
-      // Set timeout to reset scrolling state after scroll stops
-      scrollTimeoutRef.current = setTimeout(() => {
-        setIsScrolling(false);
-      }, 700); // Adjust delay as needed (150ms works well)
-    };
-
     // Add scroll listener with passive option for better performance
     window.addEventListener('scroll', handleScroll, { passive: true });
 
@@ -47,9 +83,60 @@ const BottomNavigation = () => {
         clearTimeout(scrollTimeoutRef.current);
       }
     };
-  }, []);
+  }, [handleScroll]);
 
-  if (/^\/(calls|good-to-know|role-selection)$/.test(location.pathname)) return null
+  // Memoize the check for hiding the navigation
+  const shouldHideNavigation = useMemo(() => {
+    return /^\/(calls|good-to-know|role-selection|recent-calls|markets|sellers.+|rating)$/.test(location.pathname);
+  }, [location.pathname]);
+
+  // Memoize active states
+  const activeStates = useMemo(() => ({
+    home: isActive(userHomeUrl),
+    search: isActive('/search'),
+    history: isActive('/history'),
+    catalog: isActive('/catalog'),
+    profile: isActive('/seller-dashboard') || 
+             isActive('/buyer-dashboard') || 
+             isActive('/profile') || 
+             isActive('/role-selection')
+  }), [isActive, userHomeUrl]);
+
+  // Memoize conditional navigation items
+  const conditionalNavItem = useMemo(() => {
+    if (userRole === "buyer") {
+      return (
+        <NavButton
+          onClick={navigateToHistory}
+          isActive={activeStates.history}
+          icon={Bell}
+          label="History"
+        />
+      );
+    }
+    
+    if (userRole === "seller") {
+      return (
+        <NavButton
+          onClick={navigateToCatalog}
+          isActive={activeStates.catalog}
+          icon={Grid2X2Icon}
+          label="Catalog"
+        />
+      );
+    }
+    
+    return null;
+  }, [userRole, navigateToHistory, navigateToCatalog, activeStates.history, activeStates.catalog]);
+
+  // Memoize Whispa scroll styles
+  // const whispaScrollStyles = useMemo(() => ({
+  //   transform: isScrolling ? 'scale(0.95)' : 'scale(1)',
+  //   opacity: isScrolling ? 0.8 : 1
+  // }), [isScrolling]);
+
+  // Early return if navigation should be hidden
+  if (shouldHideNavigation) return null;
 
   return (
     <>
@@ -57,76 +144,42 @@ const BottomNavigation = () => {
         className={`
           fixed bottom-0 left-0 right-0 h-16 bg-card glass-morphism border-t border-border shadow-lg z-50
           transition-opacity duration-200 ease-out
-          ${isScrolling ? 'opacity-60' : 'opacity-100'}
         `}
+        style={{ opacity: isScrolling ? 0.6 : 1 }}
       >
         <div className="grid grid-cols-5 h-full max-w-md mx-auto relative">
-          <button
-            onClick={() => navigate(userHomeUrl)}
-            className={`flex flex-col items-center justify-center transition-colors duration-200 ${
-              isActive(userHomeUrl) ? 'text-market-orange' : 'text-muted-foreground'
-            }`}
-          >
-            <Home size={20} />
-            <span className="text-xs mt-1">Feeds</span>
-          </button>
+          <NavButton
+            onClick={navigateToHome}
+            isActive={activeStates.home}
+            icon={Home}
+            label="Feeds"
+          />
 
-          <button
-            onClick={() => navigate('/search')}
-            className={`flex flex-col items-center justify-center transition-colors duration-200 ${
-              isActive('/search') ? 'text-market-orange' : 'text-muted-foreground'
-            }`}
-          >
-            <Search size={20} />
-            <span className="text-xs mt-1">Search</span>
-          </button>
+          <NavButton
+            onClick={navigateToSearch}
+            isActive={activeStates.search}
+            icon={Search}
+            label="Search"
+          />
 
           {/* Whispa Container - Only visible on mobile */}
           <div className="md:hidden flex items-center justify-center">
-            <div className={`
-              relative -mt-5 transition-all duration-200 ease-out
-              ${isScrolling ? 'scale-95 opacity-80' : 'scale-100 opacity-100'}
-            `}>
+            {/* <div 
+              className="relative -mt-5 transition-all duration-200 ease-out"
+              style={whispaScrollStyles}
+            > */}
               <Whispa isInNav={true} />
-            </div>
+            {/* </div> */}
           </div>
 
-          {userRole === "buyer" && (
-            <button
-              onClick={() => navigate('/history')}
-              className={`flex flex-col items-center justify-center transition-colors duration-200 ${
-                isActive('/history') ? 'text-market-orange' : 'text-muted-foreground'
-              }`}
-            >
-              <Bell size={20} />
-              <span className="text-xs mt-1">History</span>
-            </button>
-          )}
-          {
-            userRole === "seller" && (
-              <button
-                onClick={() => navigate('/catalog')}
-                className={`flex flex-col items-center justify-center transition-colors duration-200 ${
-                  isActive('/catalog') ? 'text-market-orange' : 'text-muted-foreground'
-                }`}
-              >
-                <Grid2X2Icon size={20} />
-                <span className="text-xs mt-1">Catalog</span>
-              </button>
-            )
-          }
+          {conditionalNavItem}
 
-          <button
-            onClick={() => navigate(userDashboardUrl)}
-            className={`flex flex-col items-center justify-center transition-colors duration-200 ${
-              isActive('/seller-dashboard') || isActive('/buyer-dashboard') || isActive('/profile') || isActive('/role-selection')
-                ? 'text-market-orange'
-                : 'text-muted-foreground'
-            }`}
-          >
-            <User size={20} />
-            <span className="text-xs mt-1">Profile</span>
-          </button>
+          <NavButton
+            onClick={navigateToProfile}
+            isActive={activeStates.profile}
+            icon={User}
+            label="Profile"
+          />
         </div>
       </div>
 
@@ -138,108 +191,10 @@ const BottomNavigation = () => {
       <AuthModal
         open={showAuthModal}
         onOpenChange={setShowAuthModal}
-        onSuccess={() => navigate(userHomeUrl)}
+        onSuccess={navigateToHome}
       />
     </>
   );
 };
 
-export default BottomNavigation;
-// import { Home, Search, Bell, User, Grid2X2Icon } from "lucide-react";
-// import { useLocation, useNavigate } from "react-router-dom";
-// import { useAuth } from "@/contexts/AuthContext";
-// import { useState } from "react";
-// import AuthModal from "./AuthModal";
-// import Whispa from "./Whispa";
-
-// const BottomNavigation = () => {
-//   const location = useLocation();
-//   const navigate = useNavigate();
-//   const { userRole } = useAuth();
-//   const [showAuthModal, setShowAuthModal] = useState(false);
-
-//   const userDashboardUrl = `/${userRole}-dashboard`
-//   const userHomeUrl = `/feeds`
-
-//   const isActive = (path: string) => {
-//     return location.pathname === path;
-//   };
-
-//   if (/^\/(calls|good-to-know|role-selection)$/.test(location.pathname)) return null
-
-//   return (
-//     <>
-//       <div className="fixed bottom-0 left-0 right-0 h-16 bg-card glass-morphism border-t border-border shadow-lg z-50">
-//         <div className="grid grid-cols-5 h-full max-w-md mx-auto relative">
-//           <button
-//             onClick={() => navigate(userHomeUrl)}
-//             className={`flex flex-col items-center justify-center ${isActive(userHomeUrl) ? 'text-market-orange' : 'text-muted-foreground'}`}
-//           >
-//             <Home size={20} />
-//             <span className="text-xs mt-1">Feeds</span>
-//           </button>
-
-//           <button
-//             onClick={() => navigate('/search')}
-//             className={`flex flex-col items-center justify-center ${isActive('/search') ? 'text-market-orange' : 'text-muted-foreground'}`}
-//           >
-//             <Search size={20} />
-//             <span className="text-xs mt-1">Search</span>
-//           </button>
-
-//           {/* Whispa Container - Only visible on mobile */}
-//           <div className="md:hidden flex items-center justify-center">
-//             <div className="relative -mt-5">
-//               <Whispa isInNav={true} />
-//             </div>
-//           </div>
-
-//           {userRole === "buyer" && (
-//             <button
-//               onClick={() => navigate('/history')}
-//               className={`flex flex-col items-center justify-center ${isActive('/history') ? 'text-market-orange' : 'text-muted-foreground'}`}
-//             >
-//               <Bell size={20} />
-//               <span className="text-xs mt-1">History</span>
-//             </button>
-//           )}
-//           {
-//             userRole === "seller" && (
-//               <button
-//                 onClick={() => navigate('/catalog')}
-//                 className={`flex flex-col items-center justify-center ${isActive('/catalog') ? 'text-market-orange' : 'text-muted-foreground'}`}
-//               >
-//                 <Grid2X2Icon size={20} />
-//                 <span className="text-xs mt-1">Catalog</span>
-//               </button>
-//             )
-//           }
-
-//           <button
-//             onClick={() => navigate(userDashboardUrl)}
-//             className={`flex flex-col items-center justify-center ${isActive('/seller-dashboard') || isActive('/buyer-dashboard') || isActive('/profile') || isActive('/role-selection')
-//               ? 'text-market-orange'
-//               : 'text-muted-foreground'
-//               }`}
-//           >
-//             <User size={20} />
-//             <span className="text-xs mt-1">Profile</span>
-//           </button>
-//         </div>
-//       </div>
-
-//       {/* Whispa - Only visible on desktop */}
-//       <div className="hidden md:block">
-//         <Whispa isInNav={false} />
-//       </div>
-
-//       <AuthModal
-//         open={showAuthModal}
-//         onOpenChange={setShowAuthModal}
-//         onSuccess={() => navigate(userHomeUrl)}
-//       />
-//     </>
-//   );
-// };
-
-// export default BottomNavigation;
+export default memo(BottomNavigation);

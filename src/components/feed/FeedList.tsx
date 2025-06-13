@@ -7,25 +7,24 @@ import { useFeedStore } from '@/contexts/Store';
 interface FeedListProps {
   onCall?: (id: string) => void;
   onDelivery?: (id: string) => void;
-  itemsPerPage?: number;
 }
 
 // Memoized empty state component
 const EmptyState = memo(() => (
   <div className="text-center py-8 text-gray-500">
-    No items available at the moment.
+    Hang on! We're getting you some update.
   </div>
 ));
 
-// Loading indicator
+// Loading indicator with better visibility
 const LoadingIndicator = memo(() => (
-  <div className="text-center py-4">
-    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-    <p className="mt-2 text-gray-500">Loading more...</p>
+  <div className="text-center py-8">
+    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+    <p className="mt-3 text-gray-500 font-medium">Loading more...</p>
   </div>
 ));
 
-// Memoized feed item component
+// Optimized memoized feed item component
 const MemoizedFeedCard = memo(({ 
   item, 
   onCall, 
@@ -43,64 +42,85 @@ const MemoizedFeedCard = memo(({
     onDelivery={onDelivery}
     isFirstCard={isFirstCard}
   />
-));
+), (prevProps, nextProps) => {
+  // Custom comparison for better performance
+  return (
+    prevProps.item.id === nextProps.item.id &&
+    prevProps.isFirstCard === nextProps.isFirstCard &&
+    prevProps.onCall === nextProps.onCall &&
+    prevProps.onDelivery === nextProps.onDelivery
+  );
+});
 
 export const FeedList: React.FC<FeedListProps> = memo(({
   onCall,
-  onDelivery,
-  itemsPerPage = 5
+  onDelivery
 }) => {
   const feedsStore = useFeedStore();
-  const [displayedCount, setDisplayedCount] = React.useState(itemsPerPage);
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
   const observerRef = useRef<HTMLDivElement>(null);
+  const observerInstanceRef = useRef<IntersectionObserver | null>(null);
   
-  // Memoize filtered feeds
-  const filteredFeeds = useMemo(() => feedsStore.filteredFeeds, [feedsStore.filteredFeeds]);
-  
-  // Memoize displayed items
-  const displayedItems = useMemo(() => 
-    filteredFeeds.slice(0, displayedCount), 
-    [filteredFeeds, displayedCount]
-  );
-  
-  const hasMore = displayedCount < filteredFeeds.length;
+  // Memoize feeds and pagination with shallow comparison
+  const { filteredFeeds, pagination, hasMore } = useMemo(() => ({
+    filteredFeeds: feedsStore.filteredFeeds,
+    pagination: feedsStore.pagination,
+    hasMore: feedsStore.pagination?.has_more ?? false
+  }), [feedsStore.filteredFeeds, feedsStore.pagination]);
 
-  const loadMore = useCallback(() => {
-    if (isLoading || !hasMore) return;
+  // Optimized loadMore with debouncing
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore || !pagination) return;
     
-    setIsLoading(true);
+    setIsLoadingMore(true);
     
-    // Simulate loading delay (remove in production)
-    setTimeout(() => {
-      setDisplayedCount(prev => Math.min(prev + itemsPerPage, filteredFeeds.length));
-      setIsLoading(false);
-    }, 1000);
-  }, [isLoading, hasMore, itemsPerPage, filteredFeeds.length]);
+    try {
+      const nextOffset = pagination.offset + pagination.limit;
+      await feedsStore.refetch({
+        p_offset: nextOffset,
+        limit: pagination.limit
+      });
+    } catch (error) {
+      console.error('Failed to load more items:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMore, pagination?.offset, pagination?.limit, feedsStore.refetch]);
 
-  // Intersection Observer for infinite scroll
+  // Optimized Intersection Observer with cleanup
   useEffect(() => {
-    const observer = new IntersectionObserver(
+    // Cleanup previous observer
+    if (observerInstanceRef.current) {
+      observerInstanceRef.current.disconnect();
+    }
+
+    if (!hasMore) return;
+
+    observerInstanceRef.current = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading) {
+        const [entry] = entries;
+        if (entry.isIntersecting && hasMore && !isLoadingMore) {
           loadMore();
         }
       },
-      { threshold: 0.1 }
+      { 
+        threshold: 0.8, // Higher threshold for better loader visibility
+        rootMargin: '20px' // Small margin to ensure loader is visible
+      }
     );
 
     if (observerRef.current) {
-      observer.observe(observerRef.current);
+      observerInstanceRef.current.observe(observerRef.current);
     }
 
-    return () => observer.disconnect();
-  }, [loadMore, hasMore, isLoading]);
+    return () => {
+      if (observerInstanceRef.current) {
+        observerInstanceRef.current.disconnect();
+      }
+    };
+  }, [loadMore, hasMore, isLoadingMore]);
 
-  // Reset displayed count when filtered feeds change
-  useEffect(() => {
-    setDisplayedCount(itemsPerPage);
-  }, [filteredFeeds, itemsPerPage]);
-
+  // Early return for empty state
   if (filteredFeeds.length === 0) {
     return (
       <main className="max-w-6xl mx-auto">
@@ -110,11 +130,11 @@ export const FeedList: React.FC<FeedListProps> = memo(({
   }
 
   return (
-    <main className="max-w-6xl mx-auto">
+    <main className="">
       <div className="space-y-4">
-        {displayedItems.map((item, index) => (
+        {filteredFeeds.map((item, index) => (
           <MemoizedFeedCard
-            key={item.id}
+            key={`feed-${item.id}`} // More descriptive key
             item={item}
             onCall={onCall}
             onDelivery={onDelivery}
@@ -123,91 +143,36 @@ export const FeedList: React.FC<FeedListProps> = memo(({
         ))}
       </div>
       
-      {/* Loading trigger element */}
+      {/* Loading trigger element - always visible when hasMore */}
       {hasMore && (
-        <div ref={observerRef} className="py-4">
-          {isLoading && <LoadingIndicator />}
+        <div 
+          ref={observerRef} 
+          className="py-4 min-h-[100px] flex items-center justify-center"
+        >
+          {isLoadingMore && <LoadingIndicator />}
+          {!isLoadingMore && (
+            <div className="text-center text-gray-400 text-sm">
+              Scroll for more
+            </div>
+          )}
         </div>
       )}
       
       {/* End of results indicator */}
-      {!hasMore && displayedItems.length > itemsPerPage && (
-        <div className="text-center py-8 text-gray-500">
-          No more items to load
+      {!hasMore && filteredFeeds.length > 0 && (
+        <div className="text-center py-8 text-gray-500 border-t border-gray-200 mt-8">
+          <p>You're caught up. That's it for now.</p>
+          {/* <p className="text-sm mt-1 text-gray-400">
+            {pagination?.total ? `${filteredFeeds.length} of ${pagination.total} items` : `${filteredFeeds.length} items`}
+          </p> */}
         </div>
       )}
     </main>
   );
+}, (prevProps, nextProps) => {
+  // Custom comparison for FeedList component
+  return (
+    prevProps.onCall === nextProps.onCall &&
+    prevProps.onDelivery === nextProps.onDelivery
+  );
 });
-// // components/FeedList.tsx
-// import React, { memo, useMemo } from 'react';
-// import { FeedCard } from './FeedCard';
-// import { FeedItem } from '@/types';
-// import { useFeedStore } from '@/contexts/Store';
-
-// interface FeedListProps {
-//   onCall?: (id: string) => void;
-//   onDelivery?: (id: string) => void;
-// }
-
-// // Memoized empty state component
-// const EmptyState = memo(() => (
-//   <div className="text-center py-8 text-gray-500">
-//     No items available at the moment.
-//   </div>
-// ));
-
-// // Memoized feed item component
-// const MemoizedFeedCard = memo(({ 
-//   item, 
-//   onCall, 
-//   onDelivery, 
-//   isFirstCard 
-// }: {
-//   item: FeedItem;
-//   onCall?: (id: string) => void;
-//   onDelivery?: (id: string) => void;
-//   isFirstCard: boolean;
-// }) => (
-//   <FeedCard
-//     key={item.id}
-//     item={item}
-//     onCall={onCall}
-//     onDelivery={onDelivery}
-//     isFirstCard={isFirstCard}
-//   />
-// ));
-
-// export const FeedList: React.FC<FeedListProps> = memo(({
-//   onCall,
-//   onDelivery
-// }) => {
-//   const feedsStore = useFeedStore();
-  
-//   // Memoize filtered feeds to prevent unnecessary recalculations
-//   const filteredFeeds = useMemo(() => feedsStore.filteredFeeds, [feedsStore.filteredFeeds]);
-  
-//   if (filteredFeeds.length === 0) {
-//     return (
-//       <main className="max-w-6xl mx-auto">
-//         <EmptyState />
-//       </main>
-//     );
-//   }
-
-//   return (
-//     <main className="max-w-6xl mx-auto">
-//       <div className="space-y-4">
-//         {filteredFeeds.map((item, index) => (
-//           <MemoizedFeedCard
-//             key={item.id}
-//             item={item}
-//             onCall={onCall}
-//             onDelivery={onDelivery}
-//             isFirstCard={index === 0}
-//           />
-//         ))}
-//       </div>
-//     </main>
-//   );
-// });

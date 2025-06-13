@@ -868,26 +868,93 @@ export const useGetCategories = ({ userId = undefined, limit = 20 }: { userId?: 
     }
   );
 };
-export const useGetFeeds = ({ userId = undefined, limit = 20 }: { userId?: string; limit?: number; p_offset?: number } = {}) => {
-  const store = useFeedStore()
+
+export const useGetFeeds = (props?: {
+  userId?: string;
+  limit?: number;
+  p_offset?: number;
+  p_feed_id?: string;
+}) => {
+  const store = useFeedStore();
+  const options = { ...props, ...store.refetchOptions };
+
+  // 🔑 Dynamically set the query key based on whether it's a single feed or a list
+  const queryKey = options.p_feed_id
+    ? ['feed', options.p_feed_id]
+    : ['feeds', { limit: options.limit, offset: options.p_offset }];
+
   return useFetch<FeedItem[]>(
-    ["feeds"],
+    queryKey,
     async () => {
-      const { data, error } = await supabase.rpc('get_feeds', {
-        p_created_by: null,
-        p_limit: limit,
-      });
+      try {
+        const { data: feeds, error } = await supabase.rpc('get_feeds', {
+          p_feed_id: options.p_feed_id ?? null,
+          p_created_by: null,
+          p_limit: options.limit ?? 5,
+          p_offset: options.p_offset ?? 0,
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      store.setFeeds(data)
-      return data;
+        if (options.p_feed_id) {
+          return feeds; // Return single feed in an array
+        }
+
+        if (options.p_offset && options.p_offset > 0) {
+          store.appendFeeds(feeds.data);
+        } else if (feeds.data) {
+          store.setFeeds(feeds.data);
+        }
+
+        if (feeds.pagination) {
+          store.setFeedPagination(feeds.pagination);
+        }
+
+        return feeds;
+      } catch (error) {
+        console.error('[useGetFeeds] Error fetching feeds:', error);
+        return []; // return fallback array so React Query doesn't error
+      }
     },
     {
       cacheTime: 'DEFAULT',
     }
   );
 };
+
+// export const useGetFeeds = (props?: { userId?: string; limit: number; p_offset?: number }) => {
+//   const store = useFeedStore()
+//   const options = { ...props, ...store.refetchOptions }
+
+//   return useFetch<FeedItem[]>(
+//     ["feeds", options],
+//     async () => {
+//       const { data: feeds, error } = await supabase.rpc('get_feeds', {
+//         p_created_by: null,
+//         p_limit: options.limit ?? 5,
+//         p_offset: options.p_offset ?? 0
+//       });
+
+//       if (error) throw error;
+
+//       // Replace this line:
+//       store.setFeeds(feeds.data)
+//       store.setFeedPagination(feeds.pagination)
+
+//       // With this logic:
+//       if (options.p_offset && options.p_offset > 0) {
+//         store.appendFeeds(feeds.data) 
+//       } else {
+//         store.setFeeds(feeds.data) 
+//       }
+
+//       return feeds;
+//     },
+//     {
+//       cacheTime: 'DEFAULT',
+//     }
+//   );
+// };
 
 interface FeedInteration extends Omit<FeedInteractionItem, "created_at"> {
   feed_id: string;
@@ -899,7 +966,7 @@ export const useCreateFeedInteraction = () => {
   return useMutation<FeedInteration, Error, FeedInteration>({
     mutationFn: async (options) => {
       store.addInteraction(options.feed_id, { ...options, created_at: new Date().toLocaleDateString() });
-      queryClient.invalidateQueries({queryKey: ["feed_interaction_stats"]})
+      queryClient.invalidateQueries({ queryKey: ["feed_interaction_stats"] })
       const { data } = await axiosUtil.Post<{ data: any }>("/whispa/feeds/interactions", options);
       return data;
     }
@@ -989,9 +1056,9 @@ export const useSellerCatrgoryMutation = () => {
         market_id: string;
         category_id: string | null;
       };
-      
+
       const recordsToInsert: InsertRecord[] = [];
-      
+
       if (selectedMarkets.length && selectedCategories.length) {
         // Full combinations
         selectedMarkets.forEach(marketId => {
@@ -1005,7 +1072,7 @@ export const useSellerCatrgoryMutation = () => {
           recordsToInsert.push({ seller_id: sellerId, market_id: marketId, category_id: null });
         });
       }
-      
+
       // Filter out duplicates before insert (optional but safe)
       const uniqueRecords = Array.from(
         new Map(recordsToInsert.map(r => [`${r.market_id}-${r.category_id}`, r])).values()

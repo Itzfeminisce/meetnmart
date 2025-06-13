@@ -12,7 +12,12 @@ export interface FeedStats {
   calls: number;
 }
 
+
+interface RefetchOption { userId?: string; limit?: number; p_offset?: number }
+
 export interface FeedStoreState {
+  pagination: FeedPagination;
+  refetchOptions: RefetchOption;
   feeds: FeedItem[];
   filteredFeeds: FeedItem[];
   activeCategoryId: string;
@@ -25,10 +30,14 @@ export interface FeedStoreState {
   getFeedInteractionsByType: (id: string, type: FeedInteractionType) => FeedItem['interactions']['items'];
 }
 
+
 type Actions = {
   setFeeds: (feeds: FeedItem[]) => void;
+  refetch: (options: RefetchOption) => Promise<void>;
+  appendFeeds: (feeds: FeedItem[]) => Promise<void>;
   addFeed: (feed: FeedItem) => void;
   removeFeed: (id: string) => void;
+  setFeedPagination: (pagination: FeedPagination) => void;
   toggleBookmark: (id: string) => void;
   incrementViews: (id: string) => void;
   incrementComments: (id: string) => void;
@@ -43,13 +52,31 @@ type Actions = {
   }) => void;
 };
 
-const DEFAULT_STATS: FeedStats = { 
-  views: 0, 
-  bookmarks: 0, 
+interface FeedPagination {
+  "limit": number;
+  "total": number;
+  "offset": number;
+  "has_more": boolean;
+  "total_pages": number;
+  "current_page": number;
+}
+
+const DEFAULT_STATS: FeedStats = {
+  views: 0,
+  bookmarks: 0,
   comments: 0,
   messages: 0,
   calls: 0
 };
+
+const defaultPagination: FeedPagination = {
+  limit: 0,
+  total: 0,
+  offset: 0,
+  has_more: false,
+  total_pages: 0,
+  current_page: 0,
+}
 
 interface InteractionStatsStore {
   data: FeedOverviewStats | null;
@@ -80,6 +107,7 @@ export const useInteractionStatsStore = create<InteractionStatsStore>((set) => (
 
 export const useFeedStore = create<FeedStoreState & Actions>()(
   devtools((set, get) => ({
+    pagination: defaultPagination,
     feeds: [],
     filteredFeeds: [],
     activeCategoryId: 'all',
@@ -112,6 +140,28 @@ export const useFeedStore = create<FeedStoreState & Actions>()(
           },
         },
       }));
+    },
+
+ // Add this to your Zustand store
+appendFeeds: (newFeeds: FeedItem[]) => {
+  set(state => ({
+    feeds: [...state.feeds, ...newFeeds],
+    filteredFeeds: [...state.filteredFeeds, ...newFeeds]
+  }))
+},
+
+    refetch: (options: RefetchOption) => {
+      set(state => ({
+        ...state,
+        refetchOptions: options
+      }))
+    },
+
+    setFeedPagination: (pagination: FeedPagination) => {
+      set(state => ({
+        ...state,
+        pagination
+      }))
     },
 
     setFeeds: (feeds) => {
@@ -168,7 +218,7 @@ export const useFeedStore = create<FeedStoreState & Actions>()(
       set((state) => {
         const bookmarked = new Set(state.bookmarkedFeeds);
         const isBookmarked = bookmarked.has(id);
-        
+
         // Update bookmarked feeds
         isBookmarked ? bookmarked.delete(id) : bookmarked.add(id);
 
@@ -228,28 +278,28 @@ export const useFeedStore = create<FeedStoreState & Actions>()(
         if (!feed) return state;
 
         const isEqual = (a: any, b: any): boolean => {
-            if (a === b) return true;
-            if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
-            const keysA = Object.keys(a);
-            const keysB = Object.keys(b);
-            if (keysA.length !== keysB.length) return false;
-            return keysA.every(key => isEqual(a[key], b[key]));
-          }
+          if (a === b) return true;
+          if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+          const keysA = Object.keys(a);
+          const keysB = Object.keys(b);
+          if (keysA.length !== keysB.length) return false;
+          return keysA.every(key => isEqual(a[key], b[key]));
+        }
 
         // Check if interaction already exists using a more efficient comparison
-        const existingIndex = feed.interactions.items.findIndex(item => 
-            isEqual(item.type, "bookmark") &&  
-            isEqual(item.author?.id, interaction.author?.id) &&  
-            isEqual(item.metadata, interaction.metadata) 
+        const existingIndex = feed.interactions.items.findIndex(item =>
+          isEqual(item.type, "bookmark") &&
+          isEqual(item.author?.id, interaction.author?.id) &&
+          isEqual(item.metadata, interaction.metadata)
         );
 
         let newItems;
         const stats = { ...feed.interactions.stats };
-        
+
         // Update stats based on interaction type
         const DEFAULT_STATS = {
           commentCount: 0,
-          messageCount: 0, 
+          messageCount: 0,
           callCount: 0,
           viewCount: 0,
           bookmarkCount: 0
@@ -304,7 +354,7 @@ export const useFeedStore = create<FeedStoreState & Actions>()(
         const newItems = [...feed.interactions.items];
         const removedItem = newItems.splice(interactionIndex, 1)[0];
         const stats = { ...feed.interactions.stats };
-        
+
         // Update stats based on removed interaction type
         if (removedItem.type === 'comment') {
           stats.commentCount = Math.max(0, stats.commentCount - 1);
@@ -348,7 +398,7 @@ export const useFeedStore = create<FeedStoreState & Actions>()(
           filtered = filtered.filter(
             (f) =>
               f.title.toLowerCase().includes(term) ||
-              f.content.toLowerCase().includes(term) || 
+              f.content.toLowerCase().includes(term) ||
               f.category.name.toLowerCase().includes(term) ||
               f.urgency.toLowerCase().includes(term) ||
               f.location.toLowerCase().includes(term)

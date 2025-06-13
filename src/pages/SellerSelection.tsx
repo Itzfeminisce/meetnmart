@@ -73,10 +73,8 @@ const SellerSelection = () => {
   // const [searchQuery, setSearchQuery] = useState("")
 
   const locationState = SellerSelectionStateSchema.parse(useLocation().state)
-  console.log({ locationState });
 
-
-  const { market, category, ...location } = locationState;
+  const { market, category,  } = locationState;
 
 
   const { data: sellers = [], isLoading, error, refetch } = useGetNearbySellers({ market_id: market?.id, category_id: category?.id })

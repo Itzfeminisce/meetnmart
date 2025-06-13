@@ -60,3 +60,9 @@ export const SellerSelectionStateSchema = z.object({
 })
 
 export type SellerSelectionStateType = z.infer<typeof SellerSelectionStateSchema>
+
+
+export const FeedDetailScreenSchema = z.object({
+    id: z.string().uuid(),
+})
+export type FeedDetailScreenType = z.infer<typeof FeedDetailScreenSchema>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { PropsWithChildren, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import Loader from '@/components/ui/loader';
 import { useFetch, useGetTransactions } from '@/hooks/api-hooks';
 import ErrorComponent from '@/components/ErrorComponent';
+import AppHeader from '@/components/AppHeader';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 type Status = "status:initiated" | "status:pending" | "status:held" | "status:delivered" | "status:confirmed" | "status:released" | "status:disputed" | "status:refunded" | "status:rejected";
 type SortOption = 'date-asc' | 'date-desc' | 'duration-asc' | 'duration-desc' | Status;
@@ -23,17 +25,18 @@ const CallsList = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOption, setSortOption] = useState<SortOption>('date-desc');
+    const isMobile = useIsMobile()
 
-    const {data: allCalls, isLoading: isLoadingTrx, error:trxErr } = useGetTransactions({params: {user_id: user.id }})
+    const { data: allCalls, isLoading: isLoadingTrx, error: trxErr } = useGetTransactions({ params: { user_id: user.id } })
 
     const [filteredCalls, setFilteredCalls] = useState<Awaited<ReturnType<typeof fetchTransactions>>>([]);
 
     // Apply filters and sorting whenever search term or sort option changes
     useEffect(() => {
-        if(!allCalls) return
+        if (!allCalls) return
         // Start with all calls
         let results = [...allCalls];
-        
+
         // Apply search filter
         if (searchTerm.trim()) {
             const searchLower = searchTerm.toLowerCase().trim();
@@ -44,13 +47,13 @@ const CallsList = () => {
                 call.description?.toLowerCase().includes(searchLower)
             );
         }
-        
+
         // Apply status filter
         if (sortOption.startsWith("status:")) {
             const status = sortOption.split(":")[1];
             results = results.filter(call => call.status === status);
         }
-        
+
         // Apply sorting (only if not filtering by status)
         if (!sortOption.startsWith("status:")) {
             results.sort((a, b) => {
@@ -74,18 +77,18 @@ const CallsList = () => {
             });
         } else {
             // If filtering by status, still sort by date (newest first)
-            results.sort((a, b) => 
+            results.sort((a, b) =>
                 new Date(b?.transaction_created_at || 0).getTime() - new Date(a?.transaction_created_at || 0).getTime()
             );
         }
-        
+
         setFilteredCalls(results);
     }, [searchTerm, sortOption, allCalls]);
 
     // Helper function to parse duration string to seconds for comparison
     const parseDuration = (duration: string | undefined): number => {
         if (!duration) return 0;
-        
+
         // Handle different duration formats (e.g., "5:30", "1:05:30", "30s", etc.)
         const timeMatch = duration.match(/(\d+):(\d+)(?::(\d+))?/);
         if (timeMatch) {
@@ -94,13 +97,13 @@ const CallsList = () => {
             const seconds = timeMatch[3] ? parseInt(timeMatch[3]) : parseInt(timeMatch[2]);
             return hours * 3600 + minutes * 60 + seconds;
         }
-        
+
         // Handle seconds format
         const secondsMatch = duration.match(/(\d+)s?/);
         if (secondsMatch) {
             return parseInt(secondsMatch[1]);
         }
-        
+
         return 0;
     };
 
@@ -109,47 +112,25 @@ const CallsList = () => {
         setSortOption('date-desc');
     };
 
-    if(trxErr) return <ErrorComponent error={trxErr} onRetry={() => navigate(0)} />
+    if (trxErr) return <ErrorComponent error={trxErr} onRetry={() => navigate(0)} />
 
     return (
-        <div className="app-container px-4 pt-6 animate-fade-in">
-            <header className="mb-6">
-                <div className="flex items-center mb-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="mr-2 -ml-3"
-                        onClick={() => navigate(-1)}
-                    >
-                        <ArrowLeft size={20} />
-                    </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gradient">Recent calls</h1>
-                        <p className="text-sm text-muted-foreground">
-                            {filteredCalls.length} total
-                        </p>
-                    </div>
-                </div>
-            </header>
-
-            <div className="space-y-4 mb-4">
-                {/* Search and Filter section */}
-                <div className="flex flex-row gap-3">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Search by seller, buyer, or category..."
-                            className="pl-9"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-
+        <>
+            <AppHeader
+                title="Recent calls"
+                subtitle={`${filteredCalls.length} total`}
+                showBackButton
+                onBackClick={() => navigate(-1)}
+                search={{
+                    onSearch: setSearchTerm,
+                    onClear: () => setSearchTerm("")
+                }}
+                rightContent={
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="shrink-0">
-                                <Filter className="mr-2 h-4 w-4" />
-                                {sortOption.startsWith('status:') ? 'Filter' : 'Sort'}
+                            <Button size={isMobile ? "icon" : "default"} variant="ghost" className="shrink-0">
+                                <Filter className="h-4 w-4" />
+                                <span className='hidden md:inline-block'>{sortOption.startsWith('status:') ? 'Filter' : 'Sort'}</span>
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -165,89 +146,77 @@ const CallsList = () => {
                             <DropdownMenuItem onClick={() => setSortOption('duration-asc')}>
                                 Duration (Shortest first)
                             </DropdownMenuItem>
-                            {/* <DropdownMenuItem onClick={() => setSortOption('status:initiated')}>
-                                Status: Initiated
-                            </DropdownMenuItem> */}
                             <DropdownMenuItem onClick={() => setSortOption('status:pending')}>
                                 Status: Pending
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setSortOption('status:held')}>
                                 Status: Held
                             </DropdownMenuItem>
-                            {/* <DropdownMenuItem onClick={() => setSortOption('status:delivered')}>
-                                Status: Delivered
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortOption('status:confirmed')}>
-                                Status: Confirmed
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortOption('status:released')}>
-                                Status: Released
-                            </DropdownMenuItem> */}
                             <DropdownMenuItem onClick={() => setSortOption('status:disputed')}>
                                 Status: Disputed
                             </DropdownMenuItem>
-                            {/* <DropdownMenuItem onClick={() => setSortOption('status:refunded')}>
-                                Status: Refunded
-                            </DropdownMenuItem> */}
                             <DropdownMenuItem onClick={() => setSortOption('status:rejected')}>
                                 Status: Rejected
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                </div>
-
-                {/* Show active filters */}
-                {(searchTerm || sortOption !== 'date-desc') && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>Active filters:</span>
-                        {searchTerm && (
-                            <span className="bg-secondary px-2 py-1 rounded text-xs">
-                                Search: "{searchTerm}"
-                            </span>
-                        )}
-                        {sortOption !== 'date-desc' && (
-                            <span className="bg-secondary px-2 py-1 rounded text-xs">
-                                {sortOption.startsWith('status:') 
-                                    ? `Status: ${sortOption.split(':')[1]}` 
-                                    : `Sort: ${sortOption}`
-                                }
-                            </span>
-                        )}
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={handleClearFilters}
-                            className="text-xs h-6 px-2"
-                        >
-                            Clear all
-                        </Button>
-                    </div>
-                )}
-
-                <div className="space-y-3">
-                    {isLoadingTrx ? (
-                        <Loader />
-                    ) :  (
-                        !trxErr && filteredCalls.length === 0 ? (
-                            <div className="w-full flex flex-col gap-4 mx-auto justify-center align-center text-center py-8">
-                                <p className="text-muted-foreground">
-                                    {searchTerm || sortOption !== 'date-desc' 
-                                        ? 'No calls match your current filters.' 
-                                        : 'No transactions found.'}
-                                </p>
-                                {(searchTerm || sortOption !== 'date-desc') && (
-                                    <Button size="sm" onClick={handleClearFilters}>
-                                        Clear Filters
-                                    </Button>
-                                )}
-                            </div>
-                        ) : filteredCalls.map((call, idx) => (
-                            <RecentCallCard role={userRole} key={call.call_session_id || idx} recentCall={call} />
-                        ))
+                }
+            />
+            <div className="container animate-fade-in mb-[5rem]">
+                <div className="space-y-4 mb-4">
+                    {/* Show active filters */}
+                    {(searchTerm || sortOption !== 'date-desc') && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>Active filters:</span>
+                            {searchTerm && (
+                                <span className="bg-secondary px-2 py-1 rounded text-xs">
+                                    Search: "{searchTerm}"
+                                </span>
+                            )}
+                            {sortOption !== 'date-desc' && (
+                                <span className="bg-secondary px-2 py-1 rounded text-xs">
+                                    {sortOption.startsWith('status:')
+                                        ? `Status: ${sortOption.split(':')[1]}`
+                                        : `Sort: ${sortOption}`
+                                    }
+                                </span>
+                            )}
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleClearFilters}
+                                className="text-xs h-6 px-2"
+                            >
+                                Clear all
+                            </Button>
+                        </div>
                     )}
+
+                    <div className="space-y-3">
+                        {isLoadingTrx ? (
+                            <Loader />
+                        ) : (
+                            !trxErr && filteredCalls.length === 0 ? (
+                                <div className="w-full flex flex-col gap-4 mx-auto justify-center align-center text-center py-8">
+                                    <p className="text-muted-foreground">
+                                        {searchTerm || sortOption !== 'date-desc'
+                                            ? 'No calls match your current filters.'
+                                            : 'No transactions found.'}
+                                    </p>
+                                    {(searchTerm || sortOption !== 'date-desc') && (
+                                        <Button size="sm" onClick={handleClearFilters}>
+                                            Clear Filters
+                                        </Button>
+                                    )}
+                                </div>
+                            ) : filteredCalls.map((call, idx) => (
+                                <RecentCallCard role={userRole} key={call.call_session_id || idx} recentCall={call} />
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 };
 

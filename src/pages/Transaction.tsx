@@ -378,8 +378,6 @@ interface TransactionDetailProps {
 }
 
 const TransactionDetail: React.FC<TransactionDetailProps> = ({ selectedTransaction, canFileDispute, canReleaseFunds, handleDisputeClick, handleReleaseClick }) => {
-    console.log({ selectedTransaction });
-
     return (
         <div className="lg:col-span-2">
             {selectedTransaction ? (
@@ -563,7 +561,8 @@ const TransactionDetailMobileView: React.FC<{ selectedTransaction: ExpandedTrans
 
     return (
         isMobile && selectedTransaction ? <CustomDialog
-            dialogTitle={selectedTransaction.reference}
+        className='p-0 m-0'
+            dialogTitle={selectedTransaction.description.metadata.itemTitle}
             onOpenChange={setIsOpen}
             onCancel={() => navigate(-1)}
             open={isOpen}

@@ -461,7 +461,7 @@ const LiveCall = () => {
       <DeliveryOrderSheet
         open={deliveryOrderSheetOpen}
         onOpenChange={setDeliveryOrderSheetOpen}
-        sellerLocation={"visitor.location"}
+        sellerLocation={""}
         onSubmit={handleDeliveryOrderSubmit}
       />
 

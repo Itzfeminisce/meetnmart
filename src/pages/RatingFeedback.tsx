@@ -26,7 +26,7 @@ const RatingFeedback = () => {
   useEffect(() => {
     if (!seller || !callDuration) {
       toast.error("Invalid feedback session. Redirecting...");
-      navigate(`/${userRole}/landing`);
+      navigate(-1);
     } else {
       setIsChecking(false);
     }
@@ -53,7 +53,7 @@ const RatingFeedback = () => {
       }
 
       toast.success(`Thank you! Your ${rating}-star rating has been submitted.`);
-      navigate(`/${userRole}/landing`);
+      navigate(-1);
     } catch (error) {
       console.error("[FeedbackSubmitError]", error);
       toast.error("Something went wrong. Please try again");
@@ -64,7 +64,7 @@ const RatingFeedback = () => {
 
   const handleSkip = () => {
     toast.info("Rating skipped");
-    navigate(`/${userRole}/landing`);
+    navigate(-1);
   };
 
   if (isChecking) {

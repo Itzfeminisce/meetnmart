@@ -153,8 +153,6 @@ export const formatCurrency = (amount: number, currency: string = 'NGN') => {
 
 
 export const formatDateTime = (dateString) => {
-  console.log({dateString});
-  
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-US', {
     day: 'numeric',

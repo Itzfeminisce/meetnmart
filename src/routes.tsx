@@ -5,6 +5,7 @@ import BottomNavigation from "./components/BottomNavigation";
 import Search from "./pages/Search";
 import Loader from "./components/ui/loader";
 import FeedPage from "./pages/Feed";
+import FeedDetails from "./pages/FeedDetail";
 
 const Index = lazy(() => import("./pages/Index"));
 const CategorySelection = lazy(() => import("./pages/CategorySelection"));
@@ -33,6 +34,7 @@ export const appRoutes: RouteObject[] = [
   { path: "/", element: <Index /> },
   { path: "/good-to-know", element: <EntrySlides />},
   { path: "/read-more/location-usage", element: <LocationUsagePage /> },
+  { path: "/feeds/:feedId", element: <FeedDetails /> },
 
 
   // Protected Routes (requires auth AND role)

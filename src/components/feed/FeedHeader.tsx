@@ -1,6 +1,6 @@
 // components/FeedHeader.tsx
 import React, { useState } from 'react';
-import { MapPin, Plus, ChevronRight, Users, Eye, TrendingUp, Star, Search } from 'lucide-react';
+import { MapPin, Plus, ChevronRight, Users, Eye, TrendingUp, Star, Search, Store } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -14,6 +14,8 @@ import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { FeedItem } from '@/types';
 import { useFeedStore } from '@/contexts/Store';
+import { Marquee } from '../Marquee';
+import { Link } from 'react-router-dom';
 
 interface Market {
   name: string;
@@ -250,9 +252,7 @@ export const FeedHeader: React.FC<FeedHeaderProps> = ({
     <AppHeader
       title="Feeds"
       subtitle={
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {getGreeting()}, {profile.name}
-        </p>
+        <Marquee scroll={isMobile} text={`${getGreeting()}, ${profile.name}`} />
       }
       search={{
         onSearch(query) {
@@ -265,14 +265,27 @@ export const FeedHeader: React.FC<FeedHeaderProps> = ({
         <div className="flex items-center space-x-2">
           {/* {renderMarketSelector()} */}
           {isMobile && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onFormOpenChange(true)}
-              className="md:hidden"
-            >
-              <Plus className="h-5 w-5" />
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => onFormOpenChange(true)}
+                className="md:hidden"
+              >
+                <Plus className="h-5 w-5" />
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="icon"
+                className="md:hidden"
+              >
+                <Link to={"/markets"}>
+                  <Store className="h-5 w-5" />
+
+                </Link>
+              </Button>
+            </>
           )}
         </div>
       }
