@@ -1,13 +1,28 @@
 import { lazy, Suspense } from "react";
 import { RouteObject } from "react-router-dom";
-import AuthGaurd, { BuyerRoute, RoleSelectionRoute, SellerRoute } from "./contexts/AuthGaurd";
+import AuthGaurd, { BuyerRoute, ProtectedRoute, RoleSelectionRoute, SellerRoute } from "./contexts/AuthGaurd";
 import BottomNavigation from "./components/BottomNavigation";
+
+
 import Search from "./pages/Search";
 import Loader from "./components/ui/loader";
 import FeedPage from "./pages/Feed";
 import FeedDetails from "./pages/FeedDetail";
+import InterestSelection from "./pages/InterestSelection";
+import { ProtectedRouteV2, RoleSelectionRouteV2 } from "./contexts/AuthGuardV2";
+import Withdrawal from "./pages/Withdrawal";
+import SettingsPage from "./pages/Settings/Index";
+import BuyerBasicProfileSettings from "./components/settings/BuyerBasicProfileSettings";
+import { InterestsSelectionSettings } from "./components/settings/InterestsSelectionSettings";
+import HelpSupport from "./pages/Settings/HelpSupport";
+import PrivacyPolicy from "./pages/Legals/PrivacyPolicy";
+import TermsOfService from "./pages/Legals/TermsOfService";
+import RefundsPolicy from "./pages/Legals/ReturnsPolicy";
+import CookiePolicy from "./pages/Legals/CookiePolicy";
+import BasicProfileSettings from "./components/settings/BasicProfileSettings";
 
 const Index = lazy(() => import("./pages/Index"));
+const Login = lazy(() => import("./pages/Login"));
 const CategorySelection = lazy(() => import("./pages/CategorySelection"));
 const SellerSelection = lazy(() => import("./pages/SellerSelection"));
 const RatingFeedback = lazy(() => import("./pages/RatingFeedback"));
@@ -32,16 +47,23 @@ export const appRoutes: RouteObject[] = [
   // Guest Routes
 
   { path: "/", element: <Index /> },
-  { path: "/good-to-know", element: <EntrySlides />},
+  { path: "/getting-started", element: <Login /> },
+  // { path: "/good-to-know", element: <EntrySlides />},
   { path: "/read-more/location-usage", element: <LocationUsagePage /> },
   { path: "/feeds/:feedId", element: <FeedDetails /> },
+
+  // Legals
+  { path: "/privacy-policy", element: <PrivacyPolicy /> },
+  { path: "/terms-of-service", element: <TermsOfService /> },
+  { path: "/returns-policy", element: <RefundsPolicy /> },
+  { path: "/cookie-policy", element: <CookiePolicy /> },
 
 
   // Protected Routes (requires auth AND role)
   {
     element: <>
-      <Suspense fallback={<Loader/>}>
-      <AuthGaurd requiresRole={true} requiresAuth={true} />
+      <Suspense fallback={<Loader />}>
+        <ProtectedRouteV2 />
       </Suspense>
       <BottomNavigation />
     </>,
@@ -50,15 +72,25 @@ export const appRoutes: RouteObject[] = [
 
       { path: "/markets/:marketOrCategoryName?", element: <MarketSelection /> },
       { path: "/categories", element: <CategorySelection /> },
-      
+
       { path: "/search", element: <Search /> },
-      { path: "/history", element: <Activity /> },
+      { path: "/activity", element: <Activity /> },
       { path: "/calls/:callId?", element: <LiveCall_V2 /> },
-      
+
       { path: "/recent-visits", element: <RecentVisits /> },
       { path: "/transactions/:tx_id?", element: <Transactions /> },
       { path: "/recent-calls", element: <CallsList /> },
 
+      { path: "/interest-selection", element: <InterestSelection /> },
+      {
+        path: "/settings/:role",
+        element: <SettingsPage />,
+        children: [
+          { path: "basic-information", index: true, element: <BasicProfileSettings /> },
+          { path: "interests", element: <InterestsSelectionSettings /> },
+          { path: "help", element: <HelpSupport /> }
+        ]
+      },
 
       // Seller specific routes
       {
@@ -69,6 +101,7 @@ export const appRoutes: RouteObject[] = [
           { path: "/seller-dashboard", element: <SellerDashboard /> },
           { path: "/edit-seller-profile", element: <EditSellerProfile /> },
           { path: "/catalog", element: <SellerCatalog /> },
+          { path: "/withdrawals", element: <Withdrawal /> },
         ]
       },
 
@@ -88,7 +121,7 @@ export const appRoutes: RouteObject[] = [
 
       // Role Selection Route (protected but no role check)
       {
-        element: <RoleSelectionRoute />,
+        element: <RoleSelectionRouteV2 />,
         children: [
           {
             path: "/role-selection",

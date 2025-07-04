@@ -30,9 +30,11 @@ import { useIntersectionObserver } from '@/hooks/use-intersection-observer';
 import { useCreateFeedInteraction } from '@/hooks/api-hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { sluggify } from '@/lib/utils';
+import { cn, sluggify } from '@/lib/utils';
 import { ShareDialog } from '../ShareDialog';
 import { Link } from 'react-router-dom';
+import { ComingSoon } from '../PremiumFeature';
+import { ImageGridView } from '../ImageGridView';
 
 // Default values for feed card configuration
 const DEFAULT_CONFIG = {
@@ -144,14 +146,16 @@ const ActionButtons = memo(({
     {item.type === 'seller_offer' && (
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={handleCall}
-          >
-            <Phone className="w-3 h-3" />
-          </Button>
+          <ComingSoon>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 w-8 p-0"
+              onClick={handleCall}
+            >
+              <Phone className="w-3 h-3" />
+            </Button>
+          </ComingSoon>
         </TooltipTrigger>
         <TooltipContent>
           <p>Call seller</p>
@@ -162,14 +166,16 @@ const ActionButtons = memo(({
     {item.delivery_preference && item.type !== "delivery_ping" && (
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={handleDelivery}
-          >
-            <Truck className="w-3 h-3" />
-          </Button>
+          <ComingSoon>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 w-8 p-0"
+              onClick={handleDelivery}
+            >
+              <Truck className="w-3 h-3" />
+            </Button>
+          </ComingSoon>
         </TooltipTrigger>
         <TooltipContent>
           <p>Request delivery</p>
@@ -221,7 +227,7 @@ export const FeedCard: React.FC<FeedCardProps> = memo(({
 }) => {
   const feedsStore = useFeedStore()
   const { profile } = useAuth()
-  const [showComments, setShowComments] = useState(isFirstCard);
+  const [showComments, setShowComments] = useState(true) //isFirstCard);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const feedsInteraction = useCreateFeedInteraction()
@@ -235,7 +241,7 @@ export const FeedCard: React.FC<FeedCardProps> = memo(({
   const timeAgo = useMemo(() => formatTimeAgo(item.created_at), [item.created_at]);
   const isBookmarked = useMemo(() =>
     item.interactions.items.some(it => it.type === "bookmark" && it.author.id === profile.id),
-    [item.interactions.items, profile.id]
+    [item, profile.id]
   );
   const feedStats = useMemo(() => feedsStore.getFeedStats(item.id), [feedsStore, item.id]);
 
@@ -283,34 +289,20 @@ export const FeedCard: React.FC<FeedCardProps> = memo(({
     ({ ...DEFAULT_CONFIG, ...config }), [config]
   );
 
-  // Memoized images component
   const ImagesSection = useMemo(() => {
     if (!item.images?.length) return null;
 
     return (
-      <div className="relative">
-        <div className="flex gap-2 overflow-x-auto scrollbar-none pb-2 snap-x snap-mandatory">
-          {item.images.map((photo, index) => (
-            <div
-              key={`${item.id}-img-${index}`}
-              className="relative flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden snap-start"
-            >
-              <img
-                src={photo}
-                alt={`Photo ${index + 1}`}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-            </div>
-          ))}
-        </div>
-      </div>
+      <ImageGridView
+        images={item.images}
+        itemId={item.id}
+      />
     );
   }, [item.images, item.id]);
 
   return (
     <div className="space-y-2" ref={elementRef}>
-      <Card className={cardStyle}>
+      <Card className={cn(cardStyle)}>
         <CardContent className="p-4">
           <div className="flex flex-col gap-4">
             {/* Header Section */}
@@ -322,33 +314,56 @@ export const FeedCard: React.FC<FeedCardProps> = memo(({
                       <div className="w-5 h-5 flex-shrink-0 capitalize">
                         {typeIcon}
                       </div>
-
-                      <Tooltip>
-                        <TooltipTrigger asChild className='flex items-center justify-center gap-x-2 max-w-[90%]'>
-                          <Link to={`/feeds/${encodeURIComponent(sluggify(item.title))}-${item.id}`} state={{ fromList: item.id }}>
-                            <h3 className="text-lg font-semibold truncate sm:group-hover:line-clamp-none sm:group-hover:whitespace-normal">
-                              {item.title}
-                            </h3>
-                            <div className="">
-                              <ExternalLink className="w-3 h-3" />
-                            </div>
-                          </Link>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          View Details
-                        </TooltipContent>
-                      </Tooltip>
+                      <span className="hidden md:inline-flex text-xs px-2 py-1 rounded-full bg-primary/10 text-primary flex-shrink-0 ml-2 capitalize">
+                        {item.category.name}
+                      </span>
                     </div>
-                    <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary flex-shrink-0 ml-2 capitalize">
+                    <span className="md:hidden  text-xs px-2 py-1 rounded-full bg-primary/10 text-primary flex-shrink-0 ml-2 capitalize">
                       {item.category.name}
                     </span>
+
+                    <div className="hidden sm:block">
+                      <ActionButtons
+                        item={item}
+                        showComments={showComments}
+                        setShowComments={setShowComments}
+                        handleCall={handleCall}
+                        handleDelivery={handleDelivery}
+                        handleSave={handleSave}
+                        handleShare={handleShare}
+                        profile={profile}
+                        isBookmarked={isBookmarked}
+                      />
+                    </div>
                   </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild className='flex items-start justify-start gap-x-2'>
+                      <Link to={`/feeds/${encodeURIComponent(sluggify(item.title))}-${item.id}`} state={{ fromList: item.id }}>
+                        <h3 className="text-lg font-semibold ">
+                          {item.title}
+                          <ExternalLink className="w-3 h-3 inline-flex ml-2 mb-2" />
+                        </h3>
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      View Details
+                    </TooltipContent>
+                  </Tooltip>
                   <div className="relative">
-                    <p className={`text-sm md:text-base text-muted-foreground ${!isExpanded && item.content.length > contentCharLimit && isMobile ? `line-clamp-${collapsedLines}` : ''} transition-all duration-200`}>
+                    <div
+                      className={`
+                          text-sm md:text-base text-muted-foreground
+                          ${!isExpanded && item.content.length > contentCharLimit ? `line-clamp-${collapsedLines}` : ''}
+                          whitespace-pre-wrap break-words transition-all duration-200 overflow-hidden
+                        `}
+                    >
                       {item.content}
-                    </p>
+                    </div>
+                    {/* <p className={`text-sm md:text-base text-muted-foreground ${!isExpanded && item.content.length > contentCharLimit && isMobile ? `line-clamp-${collapsedLines}` : ''} transition-all duration-200`}>
+                      {item.content}
+                    </p> */}
                     {item.content.length > contentCharLimit && (
-                      <div className="sm:hidden">
+                      <div className="">
                         <button
                           onClick={() => setIsExpanded(!isExpanded)}
                           className="text-xs text-primary hover:text-primary/80 font-medium mt-1 flex items-center gap-1"
@@ -372,11 +387,12 @@ export const FeedCard: React.FC<FeedCardProps> = memo(({
                       </div>
                     )}
                   </div>
+                  <p className='text-xs text-muted-foreground pt-1'>Posted by <span className='font-bold'>Rotimi Oluwafemi</span></p>
                 </div>
               </div>
 
               {/* Desktop Action Buttons */}
-              <div className="hidden sm:block">
+              {/* <div className="hidden sm:block">
                 <ActionButtons
                   item={item}
                   showComments={showComments}
@@ -388,7 +404,7 @@ export const FeedCard: React.FC<FeedCardProps> = memo(({
                   profile={profile}
                   isBookmarked={isBookmarked}
                 />
-              </div>
+              </div> */}
             </div>
 
             {/* Image Section */}
@@ -399,7 +415,7 @@ export const FeedCard: React.FC<FeedCardProps> = memo(({
               {item.price_range && (
                 <div className="flex items-center space-x-1 text-gray-500 dark:text-gray-400">
                   <span className="font-medium">Price:</span>
-                  <span className="text-green-600 dark:text-green-400 font-semibold capitalize">
+                  <span className="text-green-600 dark:text-green-400  font-bold capitalize">
                     {item.price_range}
                   </span>
                 </div>
@@ -407,19 +423,20 @@ export const FeedCard: React.FC<FeedCardProps> = memo(({
               {item.quantity && (
                 <div className="flex items-center space-x-1 text-gray-500 dark:text-gray-400">
                   <span className="font-medium">Qty:</span>
-                  <span className="capitalize">{item.quantity}</span>
+                  <span className="capitalize font-bold">{item.quantity}</span>
                 </div>
               )}
               {item.needed_by && (
-                <div className="flex items-center space-x-1 text-orange-600 dark:text-orange-400">
-                  <Timer className="w-3 h-3" />
-                  <span className="font-medium capitalize">{item.needed_by}</span>
+                <div className="flex items-center space-x-1  text-gray-500 dark:text-gray-400">
+                  {/* <Timer className="w-3 h-3" /> */}
+                  <span className="font-medium">Urgency:</span>
+                  <span className=" text-orange-600 dark:text-orange-400 font-medium capitalize font-bold">{item.needed_by}</span>
                 </div>
               )}
               {item.delivery_preference && (
                 <div className="flex items-center space-x-1 text-purple-600 dark:text-purple-400">
                   <Truck className="w-3 h-3" />
-                  <span className="text-xs font-medium capitalize">Delivery Available</span>
+                  <span className="text-xs font-medium capitalize font-bold">Delivery Available</span>
                 </div>
               )}
             </div>
@@ -428,12 +445,14 @@ export const FeedCard: React.FC<FeedCardProps> = memo(({
             <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-gray-500 dark:text-gray-400">
               <div className="flex items-center gap-4">
                 <div className="flex items-center space-x-1">
-                  <MapPin className="w-3 h-3" />
-                  <span className="truncate capitalize">{item.location}</span>
+                  {/* <MapPin className="w-3 h-3" /> */}
+                  <span className="font-medium">Location:</span>
+                  <span className="truncate capitalize font-bold">{item.location}</span>
                 </div>
                 <div className="flex items-center space-x-1">
-                  <Clock className="w-3 h-3" />
-                  <span className="capitalize">{timeAgo}</span>
+                  {/* <Clock className="w-3 h-3" /> */}
+                  <span className="font-medium">Posted:</span>
+                  <span className="capitalize font-bold">{timeAgo}</span>
                 </div>
               </div>
 

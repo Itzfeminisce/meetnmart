@@ -1,56 +1,41 @@
-import { Button } from '@/components/ui/button';
-import { Google, } from '@/components/ui/icons';
-import { useSocialAuth } from '@/hooks/useSocialAuth';
-import { AuthResponse } from '@supabase/supabase-js';
+import { cn } from "@/lib/utils"; // If you're using class merging
+import { Button } from "@/components/ui/button";
 
 interface SocialAuthButtonsProps {
   onAuthRequested: (provider: string) => void;
-  providers: string[];
+  providers: { name: string; icon: any }[];
   isLoading: boolean;
 }
 
-
-
 export function SocialAuthButtons({
-  providers, // Default to Google only
+  providers,
   onAuthRequested,
-  isLoading
+  isLoading,
 }: SocialAuthButtonsProps) {
-
   return (
-    <>
-      {providers.map((provider) => {
-        return (
-          <Button
-            key={provider}
-            variant="outline"
-            type="button"
-            disabled={isLoading}
-            onClick={() => onAuthRequested(provider)}
-            className={`w-full flex items-center justify-center gap-2 border`}
-          >
-            {isLoading ? (
-              <div className="h-5 w-5 animate-spin rounded-full border-b-2" />
-            ) : (
-              <Google className="h-5 w-5" />
-            )}
-            <span>Continue with <span className='capitalize'>{provider}</span></span>
-          </Button>
-        );
-      })}
-
-      {/* {providers.length > 0 && (
-        <div className="relative my-2">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t " />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="px-2 text-muted-foreground">
-              Or continue with
-            </span>
-          </div>
-        </div>
-      )} */}
-    </>
+    <div className="space-y-3">
+      {providers.map(({ icon: Icon, name }) => (
+        <button
+          key={name}
+          disabled={isLoading}
+          onClick={() => onAuthRequested(name)}
+          className={cn(
+            "w-full flex items-center justify-center gap-3 px-4 py-2 border border-input rounded-md bg-background hover:bg-background/20 active:bg-gray-100 text-sm font-medium transition-all",
+            isLoading && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          {isLoading ? (
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-t-transparent border-primary" />
+          ) : (
+            <div className="flex items-center  w-full ">
+              <Icon className="h-8 w-8" />
+              <span className="text-muted-foreground self-center w-full">
+                Continue with <span className="capitalize">{name}</span>
+              </span>
+            </div>
+          )}
+        </button>
+      ))}
+    </div>
   );
 }

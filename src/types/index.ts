@@ -314,6 +314,7 @@ export interface WhispaResponse {
   intent: string;
   entities: Record<string, any>;
   response: string;
+  naturalResponse: string;
   confidence: number;
   actions: Array<{
     name: string;
@@ -404,4 +405,97 @@ export interface FeedItemPreview extends Omit<FeedItem, "id" | "created_by" | "s
   urgency: "low" | "medium" | "high" | "not_specified",
   uploadedImages?: string[],
   destinationMarket?: string;
+}
+
+export type NotificationType = 'feedback' | 'order' | 'payment' | 'referral' | 'achievement' | 'system' | 'promotion' | 'interaction';
+export type NotificationPriority = 'low' | 'medium' | 'high';
+export type NotificationChannel = 'email' | 'firebase' | 'in-app';
+
+export interface Notification {
+  id?: string;
+  recipient_id: string;
+  sender_id: string;
+  type: NotificationType;
+  title: string;
+  description?: string;
+  is_read: boolean;
+  priority: NotificationPriority;
+  timestamp: string;
+  metadata?: Record<string, any>;
+  created_at?: string;
+}
+      
+
+export interface UserLocation {
+  address: string;
+  components: {
+    city: string;
+    state: string;
+    country: string;
+    postcode: string;
+  };
+}
+
+export interface IdentityData {
+  email_verified: boolean;
+  phone_verified: boolean;
+  sub: string;
+}
+
+export interface UserIdentity {
+  identity_id: string;
+  id: string;
+  user_id: string;
+  identity_data: IdentityData;
+  provider: string;
+  last_sign_in_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppMetadata {
+  provider: string;
+  providers: string[];
+}
+
+export interface UserMetadata {
+  email_verified: boolean;
+  phone_verified: boolean;
+  sub: string;
+}
+
+export interface UserProfile {
+  id: string;
+  phone_number: string;
+  name: string;
+  avatar: string;
+  created_at: string;
+  updated_at: string;
+  category: string | null;
+  description: string;
+  is_online: boolean;
+  is_reachable: boolean;
+  lng: number;
+  lat: number;
+  is_verified: boolean;
+  is_premium: boolean;
+  location: UserLocation;
+  retention_stated_at: string;
+  retention_completed_at: string | null;
+  retention_time_gap_hr: number | null;
+  is_returning_user: boolean;
+  email: string;
+  email_verified: boolean | null;
+  onboarding_step: number;
+  aud: string;
+  role: string;
+  phone: string;
+  phone_confirmed_at: string;
+  confirmation_sent_at: string;
+  confirmed_at: string;
+  last_sign_in_at: string;
+  app_metadata: AppMetadata;
+  user_metadata: UserMetadata;
+  identities: UserIdentity[];
+  is_anonymous: boolean;
 }

@@ -14,6 +14,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
 import { useGetFeedInteractionStats, useGetFeeds } from '@/hooks/api-hooks';
 import { FindMarketCard } from '@/components/feed/FindMarketCard';
+import { Store, User } from 'lucide-react';
+import SEO from '../components/SEO';
 
 
 export default function FeedPage() {
@@ -40,6 +42,11 @@ export default function FeedPage() {
 
   return (
     <>
+    <SEO 
+      title="Feeds | MeetnMart"
+      description="Discover local markets, connect with sellers, and explore products in your area. Browse through our community feed to find the best deals and connect with nearby vendors."
+      keywords="local markets, sellers, community feed, local vendors, marketplace, deals, nearby sellers"
+    />
       <FeedHeader
         selectedMarket={selectedMarket}
         onMarketChange={setSelectedMarket}
@@ -49,10 +56,12 @@ export default function FeedPage() {
       />
 
       <div className="container space-y-4 mb-[5rem]">
-        <FeedOverview marqueeSpeed={"medium"} />
+        {/* <FeedOverview marqueeSpeed={"medium"} /> */}
 
 
-        <CategoryFilter />
+       <div className="md:sticky top-0 z-10 bg-background py-4">
+       <CategoryFilter />
+       </div>
 
         <div className="md:grid grid-cols-5 gap-4 hidden">
           <div className="col-span-3">
@@ -67,14 +76,16 @@ export default function FeedPage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between gap-x-2">
                 <FindMarketCard
+                  icon={Store}
                   className="bg-market-orange"
                   linkHref='/markets'
                   name='Explore Markets'
                 />
                 <FindMarketCard
+                  icon={User}
                   className="bg-market-purple"
                   linkHref='/markets'
-                  name='Talk to Sellers'
+                  name='Sellers Nearby'
                 />
               </div>
 

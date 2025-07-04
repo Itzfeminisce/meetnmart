@@ -12,6 +12,9 @@ import { PaystackProvider } from "./contexts/paystack-context";
 import { ScrollToTop } from "./components/ScrollTop";
 import { Suspense } from "react";
 import Loader from "./components/ui/loader";
+import NotificationListener from "./components/NotificationListener";
+import { useNotifications } from "./hooks/useNotification";
+import { AuthProviderV2 } from "./contexts/AuthContextV2";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,18 +52,21 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner position="top-right" />
-        <AuthProvider>
-          <SocketProviderWithAuth>
-            <BrowserRouter>
-              <PaystackProvider>
-                <ScrollToTop />
-                <LiveCallProvider_V2>
-                  <Router />
-                </LiveCallProvider_V2>
-              </PaystackProvider>
-            </BrowserRouter>
-          </SocketProviderWithAuth>
-        </AuthProvider>
+     <Suspense>
+     <AuthProviderV2>
+        <SocketProviderWithAuth>
+          <BrowserRouter>
+            <PaystackProvider>
+              <ScrollToTop />
+              <NotificationListener />
+              <LiveCallProvider_V2>
+                <Router />
+              </LiveCallProvider_V2>
+            </PaystackProvider>
+          </BrowserRouter>
+        </SocketProviderWithAuth>
+      </AuthProviderV2>
+     </Suspense>
     </TooltipProvider>
   </QueryClientProvider>
 );

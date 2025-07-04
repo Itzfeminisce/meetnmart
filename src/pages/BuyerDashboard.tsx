@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,10 +16,11 @@ import {
   Target,
   Award,
   ArrowUpRight,
-  Plus
+  Plus,
+  Banknote
 } from 'lucide-react';
 import { formatCurrency, getInitials } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import RecentCallCard from '@/components/RecentCallCard';
 import { Separator } from '@/components/ui/separator';
@@ -29,10 +30,13 @@ import ErrorComponent from '@/components/ErrorComponent';
 import { ComingSoon } from '@/components/PremiumFeature';
 import AppHeader from '@/components/AppHeader';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useIsMobile } from '@/hooks/use-mobile';
+import SEO from '@/components/SEO';
 
 const BuyerDashboard = () => {
-  const { user, profile, signOut, userRole, isLoading, fetchTransactions, wallet: walletData } = useAuth();
+  const { user, profile, signOut, userRole, isLoading, wallet: walletData } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile()
 
   const { data: recentCalls, isLoading: isLoadingTrx, error: trxErr } = useGetTransactions({
     params: { user_id: user.id, limit_count: 3 }
@@ -43,7 +47,7 @@ const BuyerDashboard = () => {
     totalSpent: 2450.00,
     totalCalls: 47,
     avgCallDuration: '12m 34s',
-    favoriteCategories: ['Tech Support', 'Consulting', 'Tutoring'],
+    favoriteCategories: ['Tech Support', 'Consulting', 'Tutoring', 'Tech Support', 'Consulting', 'Tutoring'],
     thisMonthSpent: 580.00,
     monthlyBudget: 1000.00,
     savedExperts: 12,
@@ -51,13 +55,9 @@ const BuyerDashboard = () => {
     rating: 4.8
   };
 
-  const upcomingCalls = [
-    { expert: 'Sarah Chen', category: 'Business Consulting', time: '2:30 PM Today', price: 45 },
-    { expert: 'Mike Johnson', category: 'Tech Support', time: 'Tomorrow 10:00 AM', price: 35 }
-  ];
 
   const navigateToMarkets = () => navigate(`/markets`);
-  const handleEditProfile = () => navigate('/edit-buyer-profile');
+  const handleEditProfile = () => navigate(`/settings/${userRole}${isMobile ? "" : "/basic-information"}`);
 
   const handleSignOut = async () => {
     toast.success('Clearing session...');
@@ -67,10 +67,13 @@ const BuyerDashboard = () => {
 
   if (trxErr) return <ErrorComponent error={trxErr as Error} onRetry={() => navigate(0)} />;
 
-  const budgetProgress = (buyerStats.thisMonthSpent / buyerStats.monthlyBudget) * 100;
 
   return (
     <>
+      <SEO
+        title={`${profile?.name || 'Buyer'}! Dashboard | MeetnMart"`}
+        description="Manage your buyer account, view earnings, and handle marketplace activities on MeetnMart."
+      />
       <AppHeader
         title={`Hello, ${profile?.name || 'Buyer'}!`}
         subtitle={
@@ -86,7 +89,7 @@ const BuyerDashboard = () => {
           </div>
         }
         rightContent={
-          <Avatar onClick={handleEditProfile} className="md:h-16 h-12 md:w-16 w-12 cursor-pointer ring-2 ring-market-green/20 hover:ring-market-green/40 transition-all">
+          <Avatar onClick={handleEditProfile} className="h-12 w-12 cursor-pointer ring-2 ring-market-green/20 hover:ring-market-green/40 transition-all">
             <AvatarImage src={profile?.avatar} alt="Profile" />
             <AvatarFallback className="bg-market-green/10 text-market-green font-semibold text-lg">
               {getInitials(profile?.name)}
@@ -95,23 +98,24 @@ const BuyerDashboard = () => {
         }
       />
 
-      <div className="container animate-fade-in max-w-4xl">
+      <div className="container animate-fade-in max-w-4xl mb-[5rem]">
 
         {/* Financial Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Wallet Card */}
           <Card className="bg-gradient-to-br from-market-green/10 via-background to-market-green/5 border-market-green/20">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between max-w-full">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Wallet Balance</CardTitle>
                 <Tooltip>
-                    <ComingSoon>
+                  {/* <ComingSoon> */}
                   <TooltipTrigger asChild>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                        <Plus className="h-4 w-4" />
-                      </Button>
+                    <Button size="sm" variant="ghost" className='text-market-blue'>
+                      <Banknote className="h-4 w-4" />
+                      Add Funds
+                    </Button>
                   </TooltipTrigger>
-                    </ComingSoon>
+                  {/* </ComingSoon> */}
                   <TooltipContent>
                     Add Funds
                   </TooltipContent>
@@ -126,16 +130,12 @@ const BuyerDashboard = () => {
                     {formatCurrency(walletData.escrowed_balance)} in active calls
                   </p>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <TrendingUp className="h-4 w-4 text-green-500" />
-                  <span className="text-green-600">+12% from last month</span>
-                </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Monthly Budget Card */}
-          <Card>
+          {/* <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Budget</CardTitle>
             </CardHeader>
@@ -155,7 +155,21 @@ const BuyerDashboard = () => {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
+          <Button
+            variant="outline"
+            className="flex items-center justify-between h-auto p-6 text-market-green border-market-green/30 hover:bg-market-green/5"
+            onClick={navigateToMarkets}
+          >
+            <div className="flex items-center gap-3">
+              <ShoppingBag className="h-6 w-6" />
+              <div className="text-left">
+                <p className="font-semibold">Find Sellers</p>
+                <p className="text-sm text-muted-foreground">Browse marketplace</p>
+              </div>
+            </div>
+            <ArrowUpRight className="h-4 w-4" />
+          </Button>
         </div>
 
         {/* Stats Grid */}
@@ -187,22 +201,7 @@ const BuyerDashboard = () => {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Button
-            variant="outline"
-            className="flex items-center justify-between h-auto p-6 text-market-green border-market-green/30 hover:bg-market-green/5"
-            onClick={navigateToMarkets}
-          >
-            <div className="flex items-center gap-3">
-              <ShoppingBag className="h-6 w-6" />
-              <div className="text-left">
-                <p className="font-semibold">Find Sellers</p>
-                <p className="text-sm text-muted-foreground">Browse marketplace</p>
-              </div>
-            </div>
-            <ArrowUpRight className="h-4 w-4" />
-          </Button>
-
-          <ComingSoon>
+          {/* <ComingSoon>
             <Button
               variant="outline"
               className="flex items-center justify-between h-auto p-6 text-market-purple border-martext-market-purple/30 w-full"
@@ -216,9 +215,9 @@ const BuyerDashboard = () => {
               </div>
               <ArrowUpRight className="h-4 w-4" />
             </Button>
-          </ComingSoon>
+          </ComingSoon> */}
 
-          <ComingSoon>
+          {/* <ComingSoon>
             <Button
               variant="outline"
               className="flex items-center justify-between h-auto p-6 text-market-orange border-market-orange/30 w-full"
@@ -232,11 +231,11 @@ const BuyerDashboard = () => {
               </div>
               <ArrowUpRight className="h-4 w-4" />
             </Button>
-          </ComingSoon>
+          </ComingSoon> */}
         </div>
 
         {/* Upcoming Calls */}
-        {upcomingCalls.length > 0 && (
+        {/* {upcomingCalls.length > 0 && (
           <Card className="mb-8">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -267,32 +266,7 @@ const BuyerDashboard = () => {
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {/* Favorite Categories */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              Your Interests
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {buyerStats.favoriteCategories.map((category, idx) => (
-                <Badge key={idx} variant="secondary" className="px-3 py-1">
-                  {category}
-                </Badge>
-              ))}
-              <ComingSoon>
-                <Button variant="ghost" size="sm" className="h-7 px-2">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Interest
-                </Button>
-              </ComingSoon>
-            </div>
-          </CardContent>
-        </Card>
+        )} */}
 
         {/* Recent Calls */}
         <Card className="mb-8 border-none">
@@ -302,7 +276,7 @@ const BuyerDashboard = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate("/recent-calls")}
+                onClick={() => navigate("/transactions")}
               >
                 View All
               </Button>

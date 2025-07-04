@@ -129,10 +129,12 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      const response = await axiosUtil.Post("/uploads/file", formData, {
-        headers: {
+      const resourceGroup = "products"
+
+      const response = await axiosUtil.Post("/uploads/file/products", formData, {
+          headers: {
             'Content-Type': 'multipart/form-data',
-            // 'Authorization': `Bearer ${yourAuthToken}`, // Replace with actual token if needed
+            'X-Resource-Group-Name': resourceGroup
         },
       })
 

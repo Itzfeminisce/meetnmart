@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
-import { Category, ExpandedTransaction, Feedback, FeedInteractionItem, FeedItem, FeedItemAuthor, FeedOverviewStats, MarketWithAnalytics, NearbySellerResponse, Product, ProductCrud, SellerMarketAndCategory, WhispaResponse } from '@/types';
+import { Category, ExpandedTransaction, Feedback, FeedInteractionItem, FeedItem, FeedItemAuthor, FeedOverviewStats, MarketWithAnalytics, NearbySellerResponse, Notification, Product, ProductCrud, SellerMarketAndCategory, UserProfile, WhispaResponse } from '@/types';
 import {
   useQuery,
   useMutation,
@@ -13,14 +13,17 @@ import {
 import { StatsOverview } from '../types';
 import { MarketResult } from '@/services/marketsService';
 import { useAxios } from '@/lib/axiosUtils';
-import { useFeedStore, useInteractionStatsStore } from '@/contexts/Store';
+import { useFeedStore, useInteractionStatsStore, useUserProfileStore } from '@/contexts/Store';
 import { debounce, useDebounce } from './use-debounce';
 import { useMemo } from 'react';
+import { toast } from 'sonner';
+import { useNotificationStore } from '@/contexts/store/notification';
+import { isAxiosError } from 'axios';
 
 const axiosUtil = useAxios()
 
 export type UserRole = 'buyer' | 'seller' | 'moderator' | 'admin' | null;
-export type UserProfile = Database['public']['Tables']['profiles']['Row']
+// export type UserProfile = Database['public']['Tables']['profiles']['Row']
 export type WalletInfo = Database['public']['Tables']['wallets']['Row']
 export type EscrowTransaction = Database['public']['Tables']['escrow_transactions']['Row']
 export type UsersByRole = Database['public']['Functions']['get_users_by_role']['Returns'][number]
@@ -331,36 +334,45 @@ export const useUpdateProfile = () => {
 
 export const useSubmitFeedback = () => {
   return useMutate(
-    async ({
-      p_seller_id,
-      rating,
-      callDuration,
-      feedback
-    }: {
+    async (payload: {
       p_seller_id: string;
-      rating: number;
-      feedback: string;
-      callDuration: string
+      p_rating: number;
+      p_feedback_text: string;
+      p_call_duration: string
     }) => {
-      const { error } = await supabase.rpc('submit_call_feedback', {
-        p_seller_id: p_seller_id,
-        p_rating: rating,
-        p_feedback_text: feedback,
-        p_call_duration: callDuration
-      });
-      if (error) throw error;
-      return { p_seller_id };
+      const response = await axiosUtil.Post<{ data: string }>("/calls/feedback", payload).then(res => res.data)
+
+      return response
     },
     {
-      onSuccess: async ({ p_seller_id }) => {
-        // Invalidate feedback and user data
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: cacheKeys.feedbacks() }),
-          queryClient.invalidateQueries({ queryKey: cacheKeys.userProfile(p_seller_id) }),
-          queryClient.invalidateQueries({ queryKey: cacheKeys.completeProfile(p_seller_id) }),
-          queryClient.invalidateQueries({ queryKey: ['users', 'by_role'] }),
-        ]);
+      onError(error, variables, context) {
+        toast.error(error.message)
       },
+      onSuccess: async (response) => {
+        toast.success(response)
+      },
+    },
+  );
+};
+
+
+export const useGetNotifications = () => {
+  const notificationStore = useNotificationStore()
+  return useFetch(
+    ["notifications"],
+    async () => {
+      const response = await axiosUtil.Get<{ data: { stats: any, items: Notification[] } }>("/users/notifications",).then(res => res.data)
+
+      console.log({ notificatios: response });
+
+      notificationStore.addNotifications({
+        items: response.items,
+        stats: response.stats
+      })
+      return response
+    },
+    {
+      cacheTime: 'DEFAULT',
     }
   );
 };
@@ -420,6 +432,7 @@ export const useDeleteProduct = () => {
 
 
 export const useGetProducts = () => {
+
   return useFetch(
     ["products"],
     async (): Promise<Product[]> => {
@@ -462,29 +475,65 @@ export const useGetUserRole = ({
   );
 };
 
-export const useGetProfileData = ({
+
+
+export const useGetUserProfile = ({
   userId,
   enabled = true
 }: {
   userId: string;
   enabled?: boolean
 }) => {
+  // const setProfile = useUserProfileStore(ctx => ctx.setProfileData)
   return useFetch(
     cacheKeys.userProfile(userId),
     async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      if (error) throw error;
-      return data;
+      const response = await axiosUtil.Get<{data: UserProfile}>("/users/profile").then(res => res.data)
+
+      // setProfile(data)
+      return response
     },
     {
       enabled: enabled && !!userId,
       cacheTime: 'USER_PROFILE',
     }
   );
+};
+
+
+export const useGetBanks = () => {
+  return useFetch(
+    ["banks"],
+    async () => {
+      const response = await axiosUtil.Get<{ data: any[] }>("/payments/banks").then(res => res.data)
+      return response;
+    },
+    {
+      cacheTime: 'DEFAULT',
+    }
+  );
+};
+
+type BankForm = {
+  bank_code: string;
+  amount: string;
+  account_name: string;
+  bank_name?: string;
+  account_number: string;
+};
+
+export const useWithdraw = () => {
+  const queryClient = useQueryClient()
+  return useMutate(async (payload: BankForm) => await axiosUtil.Post<{data: any}>("/payments/recipient", payload).then(res => res.data),
+    {
+      async onSuccess(data, variables, context) {
+        await queryClient.invalidateQueries({queryKey: cacheKeys.userWallet(data.user_id)})
+        toast.success(data.message)
+      },
+      onError(error, variables, context) {
+        toast.error(isAxiosError(error) ? error.response.data.message : "Failed to initiate withdrawal. Please try again.")
+      },
+    })
 };
 
 export const useGetWalletData = ({
@@ -869,6 +918,27 @@ export const useGetCategories = ({ userId = undefined, limit = 20 }: { userId?: 
   );
 };
 
+export const useCreateInterests = () => {
+  return useMutate(async ({ interests }: { interests: string[] }) => await axiosUtil.Post("/users/interests", { interests }),
+    {
+      onSuccess(data, variables, context) {
+        toast.success("Your interests have been saved.")
+      },
+      onError(error, variables, context) {
+        toast.error("Failed to save interests. Please try again.")
+      },
+    })
+};
+export const useGetInterests = () => {
+  return useFetch(
+    ["interests"], 
+    async () => await axiosUtil.Get<{data: (Category & {is_interested: boolean})[]}>("/users/interests").then(res => res.data),
+    {
+      cacheTime: "DEFAULT"
+    }
+  )
+};
+
 export const useGetFeeds = (props?: {
   userId?: string;
   limit?: number;
@@ -1145,7 +1215,16 @@ export const useJoinMarket = () => {
 export const useWhispaAIMutation = () => {
   return useMutation({
     mutationFn: async ({ message }: { message: string }) => {
-      return axiosUtil.Post<{ data: WhispaResponse }>(`/whispa/ai`, { message }).then(it => it.data)
+      //  const response = axiosUtil.Post<{ data: WhispaResponse }>(`http://localhost:4041/mcp`, { message, method: "initialize" }, {
+      //   headers: {
+      //     "mcp-session-id": Date.now()
+      //   }
+      //  }).then(it => it.data)
+      const response = await axiosUtil.Post<{ data: WhispaResponse }>(`/whispa/ai`, { message }).then(it => it.data)
+
+      console.log({ LLMMcpServerResponse: response })
+
+      return response
     },
     onSuccess: (_, { message }) => {
       queryClient.invalidateQueries({

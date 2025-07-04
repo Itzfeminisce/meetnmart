@@ -103,6 +103,7 @@ export type Database = {
           is_verified: boolean | null
           is_premium: boolean | null
           location: Record<string, any> | null
+          onboarding_step?: number | null
         }
         Insert: {
           avatar?: string | null
@@ -114,6 +115,7 @@ export type Database = {
           name?: string | null
           phone_number?: string | null
           updated_at?: string
+          onboarding_step?: number | null
         }
         Update: {
           avatar?: string | null
@@ -125,6 +127,7 @@ export type Database = {
           name?: string | null
           phone_number?: string | null
           updated_at?: string
+          onboarding_step?: number | null
         }
         Relationships: []
       }

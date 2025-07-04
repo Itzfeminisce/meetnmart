@@ -1,8 +1,9 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { toast } from '@/hooks/use-toast';
+// import { toast } from '@/hooks/use-toast';
 import { getEnvVar } from './utils';
 import { handleAxiosError } from './axios-error';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 // Default config for axios instance
 const defaultConfig: AxiosRequestConfig = {
@@ -75,11 +76,7 @@ export const useAxios = () => {
         (error: AxiosError) => {
             const errorResponse = handleAxiosError(error);
 
-            toast({
-                title: errorResponse.message || "Error",
-                description: errorResponse.details || "Something went wrong. Please try again later.",
-                variant: errorResponse.variant,
-            });
+            // toast.info(error.response.data.);
 
 
             // Handle 401 Unauthorized errors

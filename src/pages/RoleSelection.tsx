@@ -6,15 +6,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useUpdateUserRole } from '@/hooks/api-hooks';
+import { cacheKeys, useUpdateUserRole } from '@/hooks/api-hooks';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUserProfileStore } from '@/contexts/Store';
 
 const RoleSelection = () => {
-  const { user, fetchUserProfile, updateUserRole } = useAuth();
+  const { user, updateOnboardingStep ,updateUserRole} = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'buyer' | 'seller' | null>(null); // Default to seller
   const updateRoleMutation = useUpdateUserRole();
+  const profileStore = useUserProfileStore()
+  
+  const setProfileData = useUserProfileStore(state => state.setProfileData);
   
   
   const handleConfirmSelection = async () => {
@@ -22,31 +27,25 @@ const RoleSelection = () => {
       toast.error('Please select a role before confirming.');
       return;
     }
-
     try {
       setIsLoading(true);
-      const { data: { user }, error } = await supabase.auth.getUser();
-
-      if (error || !user) {
-        toast.error('Authentication error. Please try again.');
-        navigate("/", { replace: true });
-        return;
-      }
-
       await updateRoleMutation.mutateAsync({ 
         userId: user.id, 
         role: selectedRole 
       });
 
-      await fetchUserProfile();
+      // Update onboarding_step to 1
+     await updateOnboardingStep(1)
+     await updateUserRole(selectedRole)
+
       toast.success(`You're now set up as a ${selectedRole}!`);
-      navigate(0);
+      navigate("/interest-selection", { replace: true });
 
     } catch (error: any) {
       if (error?.message?.includes("duplicate key")) {
         toast.success(`You're now set up as a ${selectedRole}!`);
-        await fetchUserProfile();
-        navigate(`/${selectedRole}-dashboard`, { replace: true });
+        setProfileData(prev => ({...prev, onboarding_step: 1}))
+        navigate("/interest-selection", { replace: true });
         return;
       }
 
@@ -66,6 +65,11 @@ const RoleSelection = () => {
   // const handleConfirmSelection = () => {
   //   handleRoleSelect(selectedRole);
   // };
+
+  
+//   useEffect(() => {
+//     (async () => await queryClient.fetchQuery({ queryKey: cacheKeys.userProfile(user?.id) }))()
+// }, [user])
 
   return (
     <div className="app-container px-4 pt-12 animate-fade-in flex flex-col items-center">

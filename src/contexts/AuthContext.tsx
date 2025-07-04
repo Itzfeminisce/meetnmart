@@ -7,7 +7,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import ErrorComponent from '@/components/ErrorComponent';
 import { 
   useGetUserRole, 
-  useGetProfileData, 
+  // useGetProfileData, 
   useGetWalletData,
   useSignInWithPhone,
   useVerifyOTP,
@@ -19,13 +19,16 @@ import {
   useGetBuyers,
   queryClient,
   UserRole,
-  UserProfile,
   WalletInfo,
   EscrowTransaction,
   UsersByRole,
   WalletSummary,
-  Transaction
+  Transaction,
+  cacheKeys
 } from '@/hooks/api-hooks';
+import { useAuthV2 } from './AuthContextV2';
+import { useUserProfileStore } from './Store';
+import { UserProfile } from '@/types';
 
 // Re-export types for convenience
 export type { UserRole, UserProfile, WalletInfo, EscrowTransaction, UsersByRole, WalletSummary, Transaction };
@@ -41,12 +44,12 @@ interface AuthContextType {
   signInWithPhone: (phoneNumber: string) => Promise<void>;
   verifyOTP: (phoneNumber: string, token: string) => Promise<void>;
   signOut: () => Promise<void>;
-  fetchUserProfile: (userId?: string) => Promise<{ profile: UserProfile, role: string; wallet: WalletInfo } | null>;
-  fetchUsersByRole: (role: Exclude<UserRole, null>) => Promise<UsersByRole[]>;
-  fetchUserRole: (userId?: string) => Promise<string | null>;
-  updateUserRole: (role: Exclude<UserRole, null>) => Promise<void>;
-  // fetchWalletSummary: () => Promise<WalletSummary | null>;
-  fetchTransactions: (args: Transaction['Args']) => Promise<Transaction['Returns'] | null>;
+  // fetchUserProfile: (userId?: string) => Promise<{ profile: UserProfile, role: string; wallet: WalletInfo } | null>;
+  // fetchUsersByRole: (role: Exclude<UserRole, null>) => Promise<UsersByRole[]>;
+  // fetchUserRole: (userId?: string) => Promise<string | null>;
+  // updateUserRole: (role: Exclude<UserRole, null>) => Promise<void>;
+  // // fetchWalletSummary: () => Promise<WalletSummary | null>;
+  // fetchTransactions: (args: Transaction['Args']) => Promise<Transaction['Returns'] | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -63,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Data hooks - only fetch when user exists
   const { data: userRole, isLoading: roleLoading, error: roleError } = useGetUserRole({ userId: user?.id, enabled: !!user?.id });
-  const { data: profile, isLoading: profileLoading, error: profileError } = useGetProfileData({ userId: user?.id,  enabled: !!user?.id });
+  // const { data: profile, isLoading: profileLoading, error: profileError } = useGetProfileData({ userId: user?.id,  enabled: !!user?.id });
   const { data: wallet, isLoading: walletLoading, error: walletError } = useGetWalletData({ userId: user?.id, enabled: !!user?.id });
 
   // Pre-fetch sellers and buyers for better UX
@@ -78,8 +81,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateRoleMutation = useUpdateUserRole();
 
   // Compute loading state
-  const isDataLoading = user ? (roleLoading || profileLoading || walletLoading) : false;
-  const isLoading = !isInitialized || isDataLoading;
+  // const isDataLoading = user ? (roleLoading || profileLoading || walletLoading) : false;
+  // const isLoading = !isInitialized || isDataLoading;
 
   // Update local storage when role changes
   useEffect(() => {
@@ -88,23 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [userRole]);
 
-  useEffect(() => {
-    const handleShowInstructions = (event: CustomEvent) => {
-      // const { instructions } = event.detail;
-      // console.log('Received instructions:', instructions);
-
-      // You can trigger a modal, toast, etc.
-      toast.info("Please enable notifications")
-    };
-
-    // Attach listener
-    window.addEventListener('show-notification-instructions', handleShowInstructions as EventListener);
-
-    // Clean up listener on unmount
-    return () => {
-      window.removeEventListener('show-notification-instructions', handleShowInstructions as EventListener);
-    };
-  }, []);
+  const setProfileData = useUserProfileStore(state => state.setProfileData);
 
   /**
    * Sign in with phone number - uses hook
@@ -181,15 +168,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Invalidate and refetch data
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["profile", id] }),
+      queryClient.invalidateQueries({ queryKey: cacheKeys.userProfile(id) }),
       queryClient.invalidateQueries({ queryKey: ["role", id] }),
       queryClient.invalidateQueries({ queryKey: ["wallet", id] })
     ]);
 
     // Get data from cache after invalidation triggers refetch
-    const profileData = queryClient.getQueryData(["profile", id]) as UserProfile;
+    const profileData = queryClient.getQueryData(cacheKeys.userProfile(id)) as UserProfile;
     const roleData = queryClient.getQueryData(["role", id]) as string;
     const walletData = queryClient.getQueryData(["wallet", id]) as WalletInfo;
+
+    if (profileData) setProfileData(profileData);
 
     if (!profileData || !walletData) {
       return null;
@@ -331,21 +320,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Context value
   const contextValue: AuthContextType = {
     user,
-    profile: profile || null,
+    // profile: profile || null,
     userRole: userRole || null,
     wallet: wallet || null,
-    isLoading,
+    // isLoading,
     isAuthenticated,
     isInitialized,
     signInWithPhone,
     verifyOTP,
     signOut,
-    fetchUserProfile,
-    fetchUsersByRole,
-    updateUserRole,
-    fetchUserRole,
-    // fetchWalletSummary,
-    fetchTransactions
+    // fetchUserProfile,
+    // fetchUsersByRole,
+    // updateUserRole,
+    // fetchUserRole,
+    // // fetchWalletSummary,
+    // fetchTransactions
   };
 
   // Show splash screen while initializing
@@ -353,7 +342,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return <SplashScreen />;
   }
 
-  const errors = error || roleError || profileError || walletError || sellersError || buyersError
+  const errors = error || roleError || walletError || sellersError || buyersError
 
   if (errors) return <ErrorComponent error={error} />;
 
@@ -367,10 +356,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 /**
  * Custom hook to use auth context
  */
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export const useAuth = useAuthV2
+// () => {
+//   const context = useContext(AuthContext);
+//   if (context === undefined) {
+//     throw new Error('useAuth must be used within an AuthProvider');
+//   }
+//   return context;
+// };

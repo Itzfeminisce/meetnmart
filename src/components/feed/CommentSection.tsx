@@ -119,17 +119,18 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                   <React.Fragment key={index}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <button
+                        <Button
+                        size="sm"
                           className={`rounded-full cursor-pointer transition-colors ${getBadgeStyle()} px-3 md:py-1.5 text-sm font-medium flex-shrink-0 relative ${submittingAction === action.text ? 'opacity-50 pointer-events-none' : ''}`}
                           onClick={() => handleQuickAction(action.message)}
                         >
                           {submittingAction === action.text ? (
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
-                            <span className="mr-1.5">{action.icon}</span>
+                            <span className="">{action.icon}</span>
                           )}
                           {action.text}
-                        </button>
+                        </Button>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>{action.tooltip}</p>

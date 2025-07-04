@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Users, Maximize, Minimize, PhoneOff, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DeliveryAgent } from '@/types';
@@ -17,6 +17,7 @@ import { CallData, useLiveCall } from '@/contexts/live-call-context';
 import { AppData, CallAction } from '@/types/call';
 import { useAxios } from '@/lib/axiosUtils';
 import { useSocket } from '@/contexts/SocketContext';
+import SEO from '@/components/SEO';
 
 // Call states enum for better state management
 enum CallState {
@@ -43,6 +44,7 @@ const LiveCall = () => {
   const apiClient = useAxios();
   const liveCall = useLiveCall();
   const socket = useSocket();
+  const params = useParams()
 
   const callData = location.state as CallData;
   const [isSeller] = useState(userRole === "seller");
@@ -66,7 +68,7 @@ const LiveCall = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
 
-  const roomName = callData?.room;
+  const roomName = params?.callId || callData?.room;
   const participantName = profile?.name || user.id;
 
   if (!roomName) return <Navigate to={"/"} replace />;
@@ -345,6 +347,11 @@ const LiveCall = () => {
 
   return (
     <div className="h-screen w-screen bg-black flex flex-col relative overflow-hidden">
+      <SEO 
+        title="Live Call | MeetnMart"
+        description="Join live video calls with buyers and sellers on MeetnMart. Experience real-time communication, secure transactions, and seamless marketplace interactions through our integrated video calling platform."
+        keywords="live call, video call, marketplace video, buyer seller call, real-time communication, secure video call, marketplace communication, live video chat, seller buyer interaction, video marketplace, call platform, live streaming, video conferencing, marketplace video call, secure communication, real-time video, live interaction, video marketplace platform, buyer seller video, marketplace video chat, live video marketplace"
+      />
       {/* Call Header */}
       <div className="absolute top-0 left-0 right-0 z-10 glass-morphism-dark py-3 px-4 flex justify-between items-center">
         <div className="flex items-center gap-2">

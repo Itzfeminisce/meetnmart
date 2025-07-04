@@ -12,7 +12,8 @@ import {
   X,
   Eye,
   Info,
-  Image as ImageIcon
+  Image as ImageIcon,
+  InfoIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -255,12 +256,12 @@ export const FeedForm: React.FC<FeedFormProps> = ({
 
             {/* Location and Urgency Section */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-              <div className="w-full sm:w-[40%] flex-shrink-0">
-                <SearchableMarketSelect
+              <div className="w-full sm:w-[40%] flex-shrink-0 hidden md:inline-flex">
+                {/* <SearchableMarketSelect
                   value={formData.location}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, destinationMarket: value }))}
                   markets={locations}
-                />
+                /> */}
               </div>
 
               <div className="flex gap-1 flex-shrink-0 w-full sm:w-auto justify-end">
@@ -326,6 +327,10 @@ export const FeedForm: React.FC<FeedFormProps> = ({
         )}
 
         {/* Action Buttons */}
+        <p className='text-xs text-market-orange flex items-center justify-start gap-x-1'>
+          <InfoIcon className='w-4 h-4' />
+          Suggestion: preview before posting publicly.
+        </p>
         <div className="flex gap-2 pt-2">
           {showPreview ? (
             <Tooltip>

@@ -11,17 +11,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { CallParticipant } from '@/contexts/live-call-context';
 import Loader from '@/components/ui/loader';
+import { useAxios } from '@/lib/axiosUtils';
+import { useSubmitFeedback } from '@/hooks/api-hooks';
+
+const axiosUtil = useAxios()
 
 const RatingFeedback = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const { userRole } = useAuth();
   const { seller, callDuration } = location.state as { seller: CallParticipant, callDuration: number };
 
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState('');
+
+  const feedbackMutation = useSubmitFeedback()
 
   useEffect(() => {
     if (!seller || !callDuration) {
@@ -34,32 +39,17 @@ const RatingFeedback = () => {
 
   const handleSubmit = async () => {
     if (rating === 0) {
-      toast.error("Please select a rating");
+      toast.error("Please select a rating star");
       return;
     }
 
-    try {
-      setIsLoading(true);
-      const { error } = await supabase.rpc('submit_call_feedback', {
-        p_seller_id: seller.id,
-        p_rating: rating,
-        p_feedback_text: feedback,
-        p_call_duration: callDuration
-      });
-
-      if (error) {
-        toast.error("Feedback could not be saved. Please try again");
-        return;
-      }
-
-      toast.success(`Thank you! Your ${rating}-star rating has been submitted.`);
-      navigate(-1);
-    } catch (error) {
-      console.error("[FeedbackSubmitError]", error);
-      toast.error("Something went wrong. Please try again");
-    } finally {
-      setIsLoading(false);
-    }
+    await feedbackMutation.mutateAsync({
+      p_seller_id: seller.id,
+      p_rating: rating,
+      p_feedback_text: feedback,
+      p_call_duration: callDuration.toString()
+    })
+    navigate(-1);
   };
 
   const handleSkip = () => {
@@ -120,15 +110,15 @@ const RatingFeedback = () => {
 
         <div className="space-y-3">
           <Button
-            disabled={isLoading}
+            disabled={feedbackMutation.isPending}
             onClick={handleSubmit}
             className="w-full bg-market-orange hover:bg-market-orange/90 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Submitting...' : 'Submit Rating'}
+            {feedbackMutation.isPending ? 'Submitting...' : 'Submit Rating'}
           </Button>
           <Button
             type='button'
-            disabled={isLoading}
+            disabled={feedbackMutation.isPending}
             variant="ghost"
             onClick={handleSkip}
             className="w-full text-muted-foreground disabled:cursor-not-allowed"

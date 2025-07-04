@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Users, Eye } from 'lucide-react';
+import { MapPin, Users, Eye, IconNode, LucideProps } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { ClassNameValue } from 'tailwind-merge';
@@ -9,11 +9,13 @@ interface FindMarketCardProps {
   linkHref: string
   shoppersCount?: number;
   views?: number;
+  icon?:  React.ForwardRefExoticComponent<Omit<LucideProps, "ref"> & React.RefAttributes<SVGSVGElement>>;
   className?: ClassNameValue;
 }
 
 export const FindMarketCard: React.FC<FindMarketCardProps> = ({
   name,
+  icon: Icon,
   className,
   linkHref,
   shoppersCount = 0,
@@ -30,7 +32,7 @@ export const FindMarketCard: React.FC<FindMarketCardProps> = ({
         <span className="font-medium text-sm truncate">{name}</span>
       </div>
 
-      <div className="flex items-center gap-3 text-xs opacity-80">
+      {/* <div className="flex items-center gap-3 text-xs opacity-80">
         <div className="flex items-center gap-1">
           <Users className="w-3 h-3 shrink-0" />
           <span>{shoppersCount}</span>
@@ -39,7 +41,7 @@ export const FindMarketCard: React.FC<FindMarketCardProps> = ({
           <Eye className="w-3 h-3 shrink-0" />
           <span>{views}</span>
         </div>
-      </div>
+      </div> */}
     </Link>
   );
 }; 

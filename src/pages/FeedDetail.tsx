@@ -32,6 +32,7 @@ import { useGetFeeds } from '@/hooks/api-hooks';
 import Loader from '@/components/ui/loader';
 import { useAuth } from '@/contexts/AuthContext';
 import BottomNavigation from '@/components/BottomNavigation';
+import SEO from '@/components/SEO';
 
 // Mock data for demonstration
 const mockFeedItem = {
@@ -416,6 +417,10 @@ export default function FeedDetails() {
 
     return (
         <>
+            <SEO 
+              title={`${item.title} | MeetnMart`}
+              description={item.content?.length > 160 ? `${item.content.substring(0, 157)}...` : item.content}
+            />
             <AppHeader
                 title={item.title}
                 subtitle={item.category.name}

@@ -87,21 +87,21 @@ export const FeedOverview: React.FC<FeedOverviewProps> = ({
       text: `${feedOverviewStats.trending_items} trending items today`,
       color: "text-orange-500"
     },
-    {
-      icon: <DollarSign className="w-3.5 h-3.5 animate-pulse" />,
-      text: "₦352K worth of deals today",
-      color: "text-green-500"
-    },
+    // {
+    //   icon: <DollarSign className="w-3.5 h-3.5 animate-pulse" />,
+    //   text: "₦352K worth of deals today",
+    //   color: "text-green-500"
+    // },
     {
       icon: <Zap className="w-3.5 h-3.5 animate-pulse" />,
       text: `${feedOverviewStats.urgent_requests} urgent requests`,
       color: "text-red-500"
     },
-    {
-      icon: <Star className="w-3.5 h-3.5 animate-pulse" />,
-      text: "175 new reviews in last hour",
-      color: "text-yellow-500"
-    },
+    // {
+    //   icon: <Star className="w-3.5 h-3.5 animate-pulse" />,
+    //   text: "175 new reviews in last hour",
+    //   color: "text-yellow-500"
+    // },
     {
       icon: <Heart className="w-3.5 h-3.5 animate-pulse" />,
       text: `${feedOverviewStats.saved_items} saved items`,

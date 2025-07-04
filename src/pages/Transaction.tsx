@@ -28,6 +28,7 @@ import { ExpandedTransaction } from '@/types';
 import CustomDialog from '@/components/ui/custom-dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import RecentCallCard from '@/components/RecentCallCard';
+import AppHeader from '@/components/AppHeader';
 
 type Status = "status:initiated" | "status:pending" | "status:held" | "status:delivered" | "status:confirmed" | "status:released" | "status:disputed" | "status:refunded" | "status:rejected";
 type SortOption = 'date-asc' | 'date-desc' | 'duration-asc' | 'duration-desc' | Status;
@@ -189,68 +190,61 @@ const Transactions = () => {
 
     return (
         <>
+            <AppHeader
+                title='Transactions'
+                showBackButton
+                onBackClick={handleBack}
+                search={{
+                    onSearch(query) {
+                        setSearchTerm(query)
+                    },
+                    onClear() {
+                        setSearchTerm("")
+                    },
+                }}
+                rightContent={
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="shrink-0">
+                                <Filter className="mr-2 h-4 w-4" />
+                                <span className='hidden md:inline-flex'>{sortOption.startsWith('status:') ? 'Filter' : 'Sort'}</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setSortOption('date-desc')}>
+                                Date (Newest first)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortOption('date-asc')}>
+                                Date (Oldest first)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortOption('duration-desc')}>
+                                Duration (Longest first)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortOption('duration-asc')}>
+                                Duration (Shortest first)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortOption('status:pending')}>
+                                Status: Pending
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortOption('status:held')}>
+                                Status: Held
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortOption('status:disputed')}>
+                                Status: Disputed
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortOption('status:rejected')}>
+                                Status: Rejected
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                }
+            />
             <div className="min-h-screen bg-background py-4 md:py-6 animate-fade-in mb-[5rem]">
                 <div className="container mx-auto">
-                    {/* Header */}
-                    <div className="flex items-center mb-6">
-                        <Button variant="ghost" onClick={handleBack} className="mr-2">
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Back
-                        </Button>
-                        <h1 className="text-2xl font-bold">Transactions</h1>
-                    </div>
-
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Left Column - Calls List */}
                         <div className="lg:col-span-1 space-y-4">
-                            {/* Search and Filter */}
-                            <div className="flex flex-row gap-3">
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Search transactions..."
-                                        className="pl-9"
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
-                                </div>
-
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="shrink-0">
-                                            <Filter className="mr-2 h-4 w-4" />
-                                            {sortOption.startsWith('status:') ? 'Filter' : 'Sort'}
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => setSortOption('date-desc')}>
-                                            Date (Newest first)
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setSortOption('date-asc')}>
-                                            Date (Oldest first)
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setSortOption('duration-desc')}>
-                                            Duration (Longest first)
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setSortOption('duration-asc')}>
-                                            Duration (Shortest first)
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setSortOption('status:pending')}>
-                                            Status: Pending
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setSortOption('status:held')}>
-                                            Status: Held
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setSortOption('status:disputed')}>
-                                            Status: Disputed
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setSortOption('status:rejected')}>
-                                            Status: Rejected
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
+                       
                             {/* Active filters */}
                             {(searchTerm || sortOption !== 'date-desc') && (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -298,39 +292,6 @@ const Transactions = () => {
                                 ) : (
                                     filteredCalls.map((call) => (
                                         <RecentCallCard role={'seller'} key={call.transaction_id} recentCall={call} />
-                                        // <Card
-                                        //     key={call.call_session_id}
-                                        //     className={cn(call.reference ? 'cursor-pointer transition-all' : 'cursor-not-allowed', selectedTransaction?.call_session_id === call.call_session_id ? 'ring-2 ring-market-orange' : 'hover:bg-secondary/50')}
-                                        //     onClick={() => call.reference && handleTransactionSelect(call)}
-                                        // >
-                                        //     <CardContent className="p-4">
-                                        //         <div className="flex items-center">
-                                        //             <div className={`rounded-full p-2 mr-4 ${call.type === 'escrow' ? 'bg-blue-100' : 'bg-green-100'}`}>
-                                        //                 {call.type === 'escrow' ? (
-                                        //                     <Clock className="h-5 w-5 text-blue-600" />
-                                        //                 ) : (
-                                        //                     <DollarSign className="h-5 w-5 text-green-600" />
-                                        //                 )}
-                                        //             </div>
-                                        //             <>
-                                        //                 <div className="flex-1">
-                                        //                     <p className="font-medium">{call.buyer_name || call.seller_name}</p>
-                                        //                     <p className="text-xs text-muted-foreground">
-                                        //                         {call.reference ? formatTimeAgo(call.transaction_created_at) : "No transaction"}
-                                        //                     </p>
-                                        //                 </div>
-                                        //                 {
-                                        //                     call.reference && (
-                                        //                         <div className="text-right">
-                                        //                             <p className="font-medium">{formatCurrency(call.amount)}</p>
-                                        //                             <StatusBadge status={call.status} />
-                                        //                         </div>
-                                        //                     )
-                                        //                 }
-                                        //             </>
-                                        //         </div>
-                                        //     </CardContent>
-                                        // </Card>
                                     ))
                                 )}
                             </div>
@@ -388,7 +349,7 @@ const TransactionDetail: React.FC<TransactionDetailProps> = ({ selectedTransacti
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="text-sm text-muted-foreground">Transaction ID</p>
-                                    <CardTitle className="text-xl line-clamp-1">{selectedTransaction.transaction_id}</CardTitle>
+                                    <CardTitle className="text-sm line-clamp-2">{selectedTransaction.reference}</CardTitle>
                                 </div>
                                 <StatusBadge status={selectedTransaction.status} />
                             </div>
@@ -561,7 +522,7 @@ const TransactionDetailMobileView: React.FC<{ selectedTransaction: ExpandedTrans
 
     return (
         isMobile && selectedTransaction ? <CustomDialog
-        className='p-0 m-0'
+            className='p-0 m-0'
             dialogTitle={selectedTransaction.description.metadata.itemTitle}
             onOpenChange={setIsOpen}
             onCancel={() => navigate(-1)}

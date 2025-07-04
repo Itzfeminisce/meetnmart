@@ -180,3 +180,17 @@ export const sluggify = (input: string): string => {
     .replace(/^-+|-+$/g, '')
     .replace(/-{2,}/g, '-');
 };
+
+export function throttle<T extends (...args: any[]) => void>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle: boolean;
+  return function (...args: Parameters<T>) {
+    if (!inThrottle) {
+      func(...args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+}

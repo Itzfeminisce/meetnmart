@@ -24,6 +24,7 @@ import AppHeader from '@/components/AppHeader';
 import SellerMarketCategorySelectionConfirmationModal from '@/components/SellerMarketCategorySelectionConfirmationModal';
 import { z } from 'zod';
 import { CategorySelectionStateSchema } from '@/types/screens';
+import SEO from '@/components/SEO';
 
 type MarketWithAnalytics = {
   id: string;
@@ -131,13 +132,8 @@ const CategorySelection = () => {
   const [showLearnMarketStatDialog, setShowLearnMarketStatsDialog] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
-  console.log({ location: useLocation().state });
-
 
   const locationState = CategorySelectionStateSchema.parse(useLocation().state)
-
-  console.log({ locationState });
-
 
 
   // const { location, detectLocation, isDetecting } = useLocation()
@@ -307,6 +303,10 @@ const CategorySelection = () => {
 
   return (
     <>
+    <SEO 
+      title="Category Selection | MeetnMart"
+      description="Choose from a variety of categories to connect with buyers and showcase your services on MeetnMart."
+    />
       <AppHeader
         title={locationState.title}
         subtitle="Select one or more categories to engage in"

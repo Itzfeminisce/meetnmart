@@ -281,7 +281,7 @@ export const FeedHeader: React.FC<FeedHeaderProps> = ({
                 className="md:hidden"
               >
                 <Link to={"/markets"}>
-                  <Store className="h-5 w-5" />
+                  <Store className="h-5 w-5 text-market-orange" />
 
                 </Link>
               </Button>

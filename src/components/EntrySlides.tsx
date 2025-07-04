@@ -1,304 +1,397 @@
-import { useState, useRef, useEffect, useCallback, memo } from 'react'
-import { Swiper, SwiperSlide } from 'swiper/react'
-import { Navigation, Pagination, Autoplay } from 'swiper/modules'
-import { Button } from '@/components/ui/button'
-import { motion, AnimatePresence } from 'framer-motion'
-import 'swiper/css'
-import 'swiper/css/navigation'
-import 'swiper/css/pagination'
-import 'swiper/css/autoplay'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
-
-import LocationIllustration from "@/components/ui/svg/location.svg"
-import WhispaAI from "@/components/ui/svg/whispa.svg"
-import SecurityIllustration from "@/components/ui/svg/security.svg"
-import { useNavigate } from 'react-router-dom'
-import { useNotifications } from '@/hooks/useNotification'
-import { toast } from 'sonner'
-import { useLocation } from '@/hooks/useLocation'
-import { Loader2, MapPin} from 'lucide-react'
-
+import { useState, useRef, useCallback, memo } from 'react'
+import { MapPin, Shield, Sparkles, Loader2, Users, ShoppingBag, Zap, Star, Heart, ArrowRight } from 'lucide-react'
+import {AnimatePresence, motion} from "framer-motion"
+import { useLocation } from '@/hooks/useLocation';
+import { useNavigate } from 'react-router-dom';
 
 const slides = [
   {
-    image: LocationIllustration,
-    title: "Shop Local, Stay Connected",
-    subtitle: "Discover sellers and products around you in real time",
-    tip: "We use your location to show relevant, nearby listings",
-    bgGradient: "from-orange-900/20 to-gray-900"
+    icon: MapPin,
+    title: "Discover What's Around You",
+    subtitle: "Find amazing deals and unique items right in your neighborhood",
+    description: "Connect with sellers nearby and discover hidden gems in your local community",
+    primaryColor: "from-emerald-400 to-teal-500",
+    accentColor: "emerald-400",
+    bgPattern: "radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.1) 0%, transparent 50%)",
+    particles: [
+      { x: 10, y: 20, size: 4, delay: 0 },
+      { x: 85, y: 15, size: 6, delay: 0.5 },
+      { x: 75, y: 70, size: 3, delay: 1 },
+      { x: 15, y: 80, size: 5, delay: 1.5 }
+    ]
   },
   {
-    image: SecurityIllustration,
-    title: "Trade With Confidence",
-    subtitle: "Verified sellers and secure transactions, always",
-    tip: "Your trust and safety are our top priorities",
-    bgGradient: "from-orange-700/20 to-gray-900"
+    icon: Shield,
+    title: "Shop with Complete Peace of Mind",
+    subtitle: "Verified sellers, secure payments, and buyer protection",
+    description: "Every transaction is protected. Trade confidently with our verified community",
+    primaryColor: "from-blue-400 to-indigo-500",
+    accentColor: "blue-400",
+    bgPattern: "radial-gradient(circle at 70% 30%, rgba(59, 130, 246, 0.1) 0%, transparent 50%), radial-gradient(circle at 30% 70%, rgba(99, 102, 241, 0.1) 0%, transparent 50%)",
+    particles: [
+      { x: 20, y: 25, size: 5, delay: 0.2 },
+      { x: 80, y: 10, size: 4, delay: 0.7 },
+      { x: 65, y: 75, size: 6, delay: 1.2 },
+      { x: 25, y: 85, size: 3, delay: 1.7 }
+    ]
   },
   {
-    image: WhispaAI, 
-    title: "Meet Whispa, Your Smart Guide",
-    subtitle: "Get instant help finding sellers, products, and deals",
-    tip: "Ask Whispa anything to get started quickly",
-    bgGradient: "from-purple-800/20 to-gray-900"
+    icon: Sparkles,
+    title: "Meet Whispa, Your Smart Assistant",
+    subtitle: "Get instant help finding exactly what you're looking for",
+    description: "Ask anything, get personalized recommendations, and discover deals you'll love",
+    primaryColor: "from-purple-400 to-pink-500",
+    accentColor: "purple-400",
+    bgPattern: "radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 60% 80%, rgba(236, 72, 153, 0.1) 0%, transparent 50%)",
+    particles: [
+      { x: 15, y: 30, size: 4, delay: 0.3 },
+      { x: 85, y: 25, size: 5, delay: 0.8 },
+      { x: 70, y: 65, size: 3, delay: 1.3 },
+      { x: 30, y: 75, size: 6, delay: 1.8 }
+    ]
   }
 ];
 
-// Memoize the slide content to prevent unnecessary re-renders
-const SlideContent = memo(({ slide, isTransitioning }: { slide: typeof slides[0], isTransitioning: boolean }) => (
-  <motion.div
-    className="flex flex-col items-center h-full pt-12"
-    initial={{ opacity: 0, y: 20 }}
-    animate={{
-      opacity: isTransitioning ? 0.7 : 1,
-      y: isTransitioning ? 10 : 0
+const FloatingElement = ({ x, y, size, delay, color }) => (
+  <div
+    className="absolute rounded-full blur-sm animate-pulse"
+    style={{
+      left: `${x}%`,
+      top: `${y}%`,
+      width: `${size}px`,
+      height: `${size}px`,
+      backgroundColor: color === 'emerald-400' ? 'rgba(52, 211, 153, 0.2)' : 
+                      color === 'blue-400' ? 'rgba(96, 165, 250, 0.2)' : 
+                      'rgba(196, 181, 253, 0.2)',
+      animationDelay: `${delay}s`
     }}
-    transition={{ duration: 0.3 }}
+  />
+)
+
+const IconContainer = ({ icon: Icon, color, isActive }) => (
+  <div
+    className={`relative mx-auto mb-8 w-32 h-32 rounded-3xl p-1 shadow-2xl transition-transform duration-500 ${
+      isActive ? 'scale-105' : 'scale-100'
+    }`}
+    style={{
+      background: color === 'from-emerald-400 to-teal-500' 
+        ? 'linear-gradient(135deg, #34d399, #14b8a6)'
+        : color === 'from-blue-400 to-indigo-500'
+        ? 'linear-gradient(135deg, #60a5fa, #6366f1)'
+        : 'linear-gradient(135deg, #c4b5fd, #ec4899)'
+    }}
   >
-    <motion.img
-      src={slide.image}
-      alt={slide.title}
-      className="w-64 h-[10rem] mb-8 object-contain"
-      whileHover={{ scale: 1.05 }}
-      loading="eager"
+    <div className="w-full h-full bg-gray-900/80 backdrop-blur-sm rounded-3xl flex items-center justify-center">
+      <Icon className="w-16 h-16 text-white drop-shadow-lg" />
+    </div>
+  </div>
+)
+
+const StatsOverlay = () => (
+  <div className="absolute top-4 right-4 flex flex-col gap-2">
+    <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full px-3 py-1">
+      <Users className="w-3 h-3 text-emerald-400" />
+      <span className="text-xs text-white/90">10K+ Users</span>
+    </div>
+    <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full px-3 py-1">
+      <ShoppingBag className="w-3 h-3 text-blue-400" />
+      <span className="text-xs text-white/90">50K+ Items</span>
+    </div>
+  </div>
+)
+
+const SlideContent = memo(({ slide, isActive, index }) => (
+  <div className="flex flex-col items-center h-full pt-8 px-6 relative">
+    <div 
+      className="absolute inset-0 opacity-30"
+      style={{ background: slide.bgPattern }}
     />
-    <motion.h2
-      className="text-2xl font-bold text-center mb-4 px-4"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.2 }}
+    
+    {slide.particles.map((particle, i) => (
+      <FloatingElement
+        key={i}
+        x={particle.x}
+        y={particle.y}
+        size={particle.size}
+        delay={particle.delay}
+        color={slide.accentColor}
+      />
+    ))}
+
+    {index === 0 && <StatsOverlay />}
+
+    <IconContainer 
+      icon={slide.icon} 
+      color={slide.primaryColor}
+      isActive={isActive}
+    />
+
+    <motion.div
+      className="text-center space-y-4 relative z-10"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: isActive ? 1 : 0.7, y: isActive ? 0 : 10 }}
+      transition={{ duration: 0.5 }}
     >
-      {slide.title}
-    </motion.h2>
-    <motion.p
-      className="text-gray-300 text-center mb-6 px-8"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.4 }}
-    >
-      {slide.subtitle}
-    </motion.p>
-    <motion.p
-      className="text-sm text-gray-400 text-center italic px-8 mb-4"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.6 }}
-    >
-      {slide.tip}
-    </motion.p>
-  </motion.div>
+      <h2 className="text-3xl font-bold text-white leading-tight">
+        {slide.title}
+      </h2>
+      
+      <p className="text-xl text-gray-200 leading-relaxed">
+        {slide.subtitle}
+      </p>
+      
+      <p className="text-sm text-gray-300 leading-relaxed max-w-xs mx-auto">
+        {slide.description}
+      </p>
+
+      <motion.div
+        className="flex justify-center gap-1 mt-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+      >
+        {[...Array(5)].map((_, i) => (
+          <Star
+            key={i}
+            className="w-4 h-4 text-yellow-400 fill-current"
+            style={{ animationDelay: `${i * 0.1}s` }}
+          />
+        ))}
+        <span className="text-xs text-gray-300 ml-2">4.8/5 rating</span>
+      </motion.div>
+    </motion.div>
+  </div>
 ))
 
 export function EntrySlides() {
-  const navigate = useNavigate()
   const [activeIndex, setActiveIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [showLocationModal, setShowLocationModal] = useState(false)
-  const swiperRef = useRef<any>(null)
-  // const locationState = rrd_useLocation().state
-  const {requestPermission, initializeNotifications,isInitialized, permissionStatus} = useNotifications()
-  const {detectLocation: requestLocationPermissions, isLocationServicesAllowed, isDetecting} = useLocation()
+  const [isDetecting, setIsDetecting] = useState(false)
+  const {detectLocation, isLocationServicesAllowed} = useLocation()
+  const navigate = useNavigate()
+  const swiperRef = useRef(null)
 
-  // if (!locationState) redirect("/");
-
-  // Memoize handlers to prevent unnecessary re-renders
-  const handleSlideChange = useCallback((swiper: any) => {
+  const handleSlideChange = useCallback((newIndex) => {
     setIsTransitioning(true)
-    setActiveIndex(swiper.activeIndex)
+    setActiveIndex(newIndex)
     setTimeout(() => setIsTransitioning(false), 300)
   }, [])
 
-  const handleContinue = useCallback(async () => {
-    await new Promise((resolve) => {
-      requestLocationPermissions();
-      const checkLocation = setInterval(() => {
-        if (isLocationServicesAllowed) {
-          clearInterval(checkLocation);
-          resolve(true);
-        }
-      }, 100);
-    });
-    if (!isLocationServicesAllowed) {
-      setShowLocationModal(true)
-      return
+  const nextSlide = () => {
+    if (activeIndex < slides.length - 1) {
+      handleSlideChange(activeIndex + 1)
     }
-
-    setTimeout(requestNotificationPermissions, 1500)
-    navigate("/role-selection", { replace: true })
-  }, [isLocationServicesAllowed, requestLocationPermissions])
-
-  const handleGrantPermission = useCallback(async () => {
-    await requestLocationPermissions()
-    
-    if (!isLocationServicesAllowed) {
-      toast.error("Location permission is required to continue. Please enable it in your browser settings.")
-      return
-    }
-
-    setShowLocationModal(false)
-    setTimeout(requestNotificationPermissions, 1500)
-    navigate("/role-selection", { replace: true })
-  }, [isLocationServicesAllowed, requestLocationPermissions])
-
-  useEffect(() => {
-    initializeNotifications()
-  }, [initializeNotifications])
-
-  const requestNotificationPermissions = async () => {
-      const permissionGranted = await requestPermission()
-
-      if (!permissionGranted) {
-        toast.info("PERMISSION DENIED: No worries! You can enable notifications later in settings. Let's continue setting up your account.")
-      }
   }
 
+  const prevSlide = () => {
+    if (activeIndex > 0) {
+      handleSlideChange(activeIndex - 1)
+    }
+  }
+
+  const handleContinue = useCallback(async () => {
+    if(isLocationServicesAllowed){
+      navigate("/role-selection", {replace: true})
+      return;
+    }
+
+    setIsDetecting(true)
+    // Simulate location detection
+    
+    detectLocation()
+    setIsDetecting(false)
+    setShowLocationModal(true)
+  }, [])
+
+  const handleGrantPermission = useCallback(() => {
+    setShowLocationModal(false)
+   navigate("/role-selection", {replace: true})
+      return;
+  }, [])
+
+  const currentSlide = slides[activeIndex]
+
   return (
-    <div className=" bg-gray-900 text-gray-50 flex flex-col items-center py-4 relative overflow-hidden h-screen">
-      {/* Animated background gradients */}
+    <div className="relative bg-gray-900 text-white flex flex-col h-screen overflow-hidden">
+      {/* Dynamic background */}
       <AnimatePresence mode="wait">
         <motion.div
           key={activeIndex}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.5 }}
-          className={`absolute inset-0 bg-gradient-to-b ${slides[activeIndex].bgGradient} z-0`}
+          transition={{ duration: 0.8 }}
+          className="absolute inset-0"
+          style={{
+            background: `radial-gradient(ellipse at center, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 100%), linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(31, 41, 55, 0.95) 100%)`
+          }}
         />
       </AnimatePresence>
 
-      <div className="relative z-10 w-full h-full flex flex-col container max-w-screen-sm">
-        <Swiper
-          ref={swiperRef}
-          modules={[Navigation, Pagination, Autoplay]}
-          spaceBetween={50}
-          slidesPerView={1}
-          onSlideChange={handleSlideChange}
-          pagination={false}
-          autoplay={{ delay: 5000, disableOnInteraction: true }}
-          speed={800}
-          className="w-full h-full"
+      {/* Animated grid background */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0)`,
+          backgroundSize: '20px 20px'
+        }} />
+      </div>
+
+      <div className="relative z-10 flex flex-col h-full container max-w-md mx-auto">
+        {/* Header */}
+        <motion.div 
+          className="flex items-center justify-between p-4"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
         >
-          {slides.map((slide, index) => (
-            <SwiperSlide key={index}>
-              <SlideContent slide={slide} isTransitioning={isTransitioning} />
-            </SwiperSlide>
-          ))}
-
-          {/* Custom Progress Indicator */}
-          <div className="absolute bottom-0 inset-0 px-8 mb-4">
-            <div className="h-1 bg-gray-700 rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-orange-400"
-                animate={{
-                  width: `${(activeIndex + 1) * (100 / slides.length)}%`
-                }}
-                transition={{ duration: 0.5 }}
-              />
-            </div>
+          <div className="flex items-center gap-2">
+            <Heart className="w-6 h-6 text-red-400" />
+            <span className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              MeetnMart
+            </span>
           </div>
-        </Swiper>
+          <div className="text-xs text-gray-400">
+            {activeIndex + 1} of {slides.length}
+          </div>
+        </motion.div>
 
-        {/* Navigation Controls */}
-        <div className="mt-auto pt-4 mb-8 flex justify-between w-full px-4">
-          <Button
-            variant="ghost"
-            className={`text-orange-400 hover:bg-gray-700 transition-all ${activeIndex === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'
-              }`}
-            onClick={() => swiperRef.current?.swiper.slidePrev()}
+        {/* Slides */}
+        <div className="flex-1 relative overflow-hidden">
+          <div 
+            className="flex transition-transform duration-1000 ease-in-out h-full"
+            style={{ transform: `translateX(-${activeIndex * 100}%)` }}
           >
-            Back
-          </Button>
+            {slides.map((slide, index) => (
+              <div key={index} className="w-full flex-shrink-0 h-full">
+                <SlideContent 
+                  slide={slide} 
+                  isActive={index === activeIndex}
+                  index={index}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
 
-          {activeIndex < slides.length - 1 ? (
-            <Button
-              size='sm'
-              className="bg-orange-500 hover:bg-orange-600 transition-transform hover:scale-105"
-              onClick={() => swiperRef.current?.swiper.slideNext()}
+        {/* Progress and Navigation */}
+        <div className="p-6 space-y-6">
+          {/* Progress Bar */}
+          <div className="flex gap-2">
+            {slides.map((_, index) => (
+              <motion.div
+                key={index}
+                className={`h-1 rounded-full flex-1 ${
+                  index === activeIndex ? 'bg-gradient-to-r ' + currentSlide.primaryColor : 'bg-gray-700'
+                }`}
+                initial={{ scale: 0.8 }}
+                animate={{ scale: index === activeIndex ? 1 : 0.8 }}
+                transition={{ duration: 0.3 }}
+              />
+            ))}
+          </div>
+
+          {/* Navigation */}
+          <div className="flex justify-between items-center">
+            <button
+              className={`text-gray-400 hover:text-white transition-all px-4 py-2 rounded-lg ${
+                activeIndex === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'
+              }`}
+              onClick={prevSlide}
             >
-              Continue
-            </Button>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <Button
+              Back
+            </button>
+
+            {activeIndex < slides.length - 1 ? (
+              <button
+                className="px-6 py-3 rounded-xl text-white font-medium hover:scale-105 transition-transform shadow-lg"
+                style={{
+                  background: currentSlide.primaryColor === 'from-emerald-400 to-teal-500' 
+                    ? 'linear-gradient(135deg, #34d399, #14b8a6)'
+                    : currentSlide.primaryColor === 'from-blue-400 to-indigo-500'
+                    ? 'linear-gradient(135deg, #60a5fa, #6366f1)'
+                    : 'linear-gradient(135deg, #c4b5fd, #ec4899)'
+                }}
+                onClick={nextSlide}
+              >
+                Continue
+                <ArrowRight className="w-4 h-4 ml-2 inline" />
+              </button>
+            ) : (
+              <button
                 disabled={isDetecting}
-                className="bg-orange-500 hover:bg-orange-600 transition-transform hover:scale-105"
+                className="px-6 py-3 rounded-xl text-white font-medium hover:scale-105 transition-transform shadow-lg flex items-center gap-2"
+                style={{
+                  background: currentSlide.primaryColor === 'from-emerald-400 to-teal-500' 
+                    ? 'linear-gradient(135deg, #34d399, #14b8a6)'
+                    : currentSlide.primaryColor === 'from-blue-400 to-indigo-500'
+                    ? 'linear-gradient(135deg, #60a5fa, #6366f1)'
+                    : 'linear-gradient(135deg, #c4b5fd, #ec4899)'
+                }}
                 onClick={handleContinue}
               >
                 {isDetecting ? (
-                  <div className="flex items-center gap-2">
+                  <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Please wait...</span>
-                  </div>
+                    Detecting location...
+                  </>
                 ) : (
-                  "Get Started"
+                  <>
+                    <Zap className="w-4 h-4" />
+                    Get Started
+                  </>
                 )}
-              </Button>
-            </motion.div>
-          )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Floating decorative elements */}
-      <div className="absolute top-20 left-10 w-4 h-4 rounded-full bg-orange-400/30 blur-sm" />
-      <div className="absolute bottom-1/4 right-16 w-6 h-6 rounded-full bg-orange-400/20 blur-sm" />
-      <div className="absolute top-1/3 right-1/4 w-3 h-3 rounded-full bg-orange-400/15 blur-sm" />
-      <Dialog open={showLocationModal} onOpenChange={setShowLocationModal}>
-        <DialogContent className="bg-gradient-to-br from-gray-800 to-gray-900 text-gray-50 border border-orange-500/20 rounded-xl shadow-2xl">
-          <DialogHeader className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-500/10 rounded-lg">
-                <MapPin className="w-5 h-5 text-orange-400" />
+      {/* Location Permission Modal */}
+      {showLocationModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-900 border border-gray-700 text-white max-w-sm w-full rounded-2xl p-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-emerald-500/20 rounded-xl">
+                  <MapPin className="w-6 h-6 text-emerald-400" />
+                </div>
+                <h3 className="text-xl font-bold">Enable Location Access</h3>
               </div>
-              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent">
-                Location Permission Required
-              </DialogTitle>
+              <div className="text-gray-300 space-y-3">
+                <p>We need your location to connect you with nearby sellers and show relevant local listings.</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-1 bg-emerald-400 rounded-full" />
+                    <span>Find sellers near you</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-1 bg-emerald-400 rounded-full" />
+                    <span>Get accurate delivery estimates</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-1 bg-emerald-400 rounded-full" />
+                    <span>Discover local deals</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <DialogDescription className="text-gray-300 space-y-4">
-              <p className="text-base leading-relaxed">
-                Location services are mandatory for MeetnMart to function properly. We need your location to:
-              </p>
-              <ul className="space-y-3 pl-4">
-                <li className="flex items-center gap-2 text-gray-200">
-                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-                  Connect you with nearby buyers and sellers
-                </li>
-                <li className="flex items-center gap-2 text-gray-200">
-                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-                  Show relevant local markets and products nearby
-                </li>
-                <li className="flex items-center gap-2 text-gray-200">
-                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-                  Enable accurate delivery tracking
-                </li>
-              </ul>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-4 mt-6 pt-4 border-t border-gray-700/50">
-            <Button
-              variant="outline"
-              onClick={() => setShowLocationModal(false)}
-              className="border-gray-600 hover:bg-gray-700/50 transition-colors"
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white transition-all hover:scale-105"
-              onClick={handleGrantPermission}
-            >
-              Grant Permission
-            </Button>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowLocationModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-600 hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                Not Now
+              </button>
+              <button
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 rounded-lg transition-colors"
+                onClick={handleGrantPermission}
+              >
+                Allow Access
+              </button>
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </div>
   )
 }

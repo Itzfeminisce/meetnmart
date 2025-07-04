@@ -13,4 +13,4 @@ const SUPABASE_PUBLISHABLE_KEY = getEnvVar("SUPABASE_PUBLISHABLE_KEY") // "eyJhb
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 
-export const supabseSellerListeListener = supabase.channel('table:sellers');
+export const supabaseEventListener = supabase.channel('events');

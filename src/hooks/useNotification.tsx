@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import NotificationManager, { NotificationOptions } from '../engines/NotificationManager';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useSocket } from '@/contexts/SocketContext';
 // import {  } from 'react-router-dom';
 
 /**
@@ -14,6 +15,7 @@ export const useNotifications = () => {
   const [error, setError] = useState<string | null>(null);
   const notificationManager = NotificationManager.getInstance();
   const { isAuthenticated, isInitialized: isAuthInitialized } = useAuth()
+  const { subscribe, unsubscribe, } = useSocket()
 
   // const history = {
   //   push() {
@@ -26,7 +28,7 @@ export const useNotifications = () => {
 
 
 
-  const  initializeNotifications = useCallback(async () => {
+  const initializeNotifications = useCallback(async () => {
     try {
       // Pass history to DeepLinkManager for navigation
       const DeepLinkManager = (await import('../engines/DeepLinkManager')).default;
@@ -61,7 +63,7 @@ export const useNotifications = () => {
       console.error('Failed to initialize notifications:', err);
       toast.error('Failed to initialize notification services');
     }
-  },[])
+  }, [])
 
 
   // Request notification permissions
@@ -148,7 +150,6 @@ export const useNotifications = () => {
       return false;
     }
   }, [isInitialized, notificationManager]);
-
 
   return {
     isInitialized,

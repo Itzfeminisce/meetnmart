@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuth } from './AuthContext';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { SplashScreen } from '@/components/SplashScreen';
+import { useUserProfileStore } from './Store';
 
 interface AuthGuardProps {
     children?: React.ReactNode;
@@ -20,19 +21,33 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
 }) => {
     
     const { isAuthenticated, userRole, user, isLoading, isInitialized } = useAuth();
+    const profile = useUserProfileStore(state => state.data);
+    
     const location = useLocation();
 
-
-    // Show loading screen while auth is initializing or loading
-    if (!isInitialized || isLoading) {
-        return <SplashScreen />;
-    }
 
     // If authentication is required but user is not authenticated
     if (requiresAuth && !isAuthenticated) {
         console.log('Redirecting to login - not authenticated');
         return <Navigate to={redirectTo || "/"} state={{ from: location }} replace />;
     }
+
+    // Onboarding step logic
+    const onboarding_step = profile?.onboarding_step ?? 0;
+    const onboardingRoutes = ["/role-selection", "/interest-selection"];
+
+    // Only redirect if NOT on the correct page for the current step
+    if (onboarding_step === 0 && location.pathname !== "/role-selection") {
+        return <Navigate to="/role-selection" replace />;
+    }
+    if (onboarding_step === 1 && location.pathname !== "/interest-selection") {
+        return <Navigate to="/interest-selection" replace />;
+    }
+    // If user is fully onboarded but tries to access onboarding pages, redirect to feeds
+    if (onboarding_step >= 2 && onboardingRoutes.includes(location.pathname)) {
+        return <Navigate to="/feeds" replace />;
+    }
+    // If user is on the correct onboarding page, allow rendering
 
     // If user is authenticated but on a public route (like login), redirect appropriately
     if (!requiresAuth && isAuthenticated) {
@@ -70,6 +85,13 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
         }
     }
 
+      
+    // Show loading screen while auth is initializing or loading
+    if (!isInitialized || isLoading) {
+        return <SplashScreen />;
+    }
+  
+
     // If we reach here, render the protected content
     return children ? <>{children}</> : <Outlet />;
 };
@@ -79,18 +101,18 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
  */
 const getDashboardPath = (role: string): string => {
     return '/feeds'
-    switch (role) {
-        case 'seller':
-            return '/seller/landing';
-        case 'buyer':
-            return '/buyer/landing';
-        case 'admin':
-            return '/admin-dashboard';
-        case 'moderator':
-            return '/moderator-dashboard';
-        default:
-            return '/'; // Default fallback
-    }
+    // switch (role) {
+    //     case 'seller':
+    //         return '/seller/landing';
+    //     case 'buyer':
+    //         return '/buyer/landing';
+    //     case 'admin':
+    //         return '/admin-dashboard';
+    //     case 'moderator':
+    //         return '/moderator-dashboard';
+    //     default:
+    //         return '/'; // Default fallback
+    // }
 };
 
 export default AuthGuard;

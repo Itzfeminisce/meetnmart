@@ -48,6 +48,7 @@ import { getShortName } from '../lib/utils';
 import { ImageUploadField } from '@/components/ui/image-upload-field';
 import AppHeader from '@/components/AppHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 // Product form schema
 const productSchema = z.object({
@@ -76,7 +77,8 @@ const SellerCatalog = () => {
 
   const {
     data: categories,
-    error: categoriesError
+    error: categoriesError,
+    isLoading: isCategoryLoading
   } = useGetCategories();
 
 
@@ -84,7 +86,7 @@ const SellerCatalog = () => {
   const filteredProducts = useMemo(() => {
     if (!searchQuery) return products;
 
-    return products.filter(product => 
+    return products.filter(product =>
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -198,9 +200,9 @@ const SellerCatalog = () => {
 
         rightContentOnNewLine={isMobile}
         rightContent={(
-          <Button onClick={handleAddProduct} className='bg-primary'>
+          <Button variant='market' onClick={handleAddProduct} className='w-full'>
             <Plus className="w-4 h-4" />
-            <span className='hidden md:flex'> Add Product</span>
+            <span className=""> Add New Product</span>
           </Button>
         )}
       />
@@ -286,18 +288,17 @@ const SellerCatalog = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Category</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {categories.map(it => (
-                              <SelectItem value={it.id}>{it.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          options={categories?.map(c => ({
+                            label: c.name,
+                            value: c.id,
+                          }))}
+                          searchPlaceholder='Search Categories'
+                          clearable
+                          disabled={isCategoryLoading}
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        />
                         <FormMessage />
                       </FormItem>
                     )}
@@ -331,7 +332,7 @@ const SellerCatalog = () => {
                     name="price"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Price ($)</FormLabel>
+                        <FormLabel>Price</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -341,7 +342,7 @@ const SellerCatalog = () => {
                           />
                         </FormControl>
                         <FormDescription>
-                          Enter price in USD
+                          Enter price in NGN
                         </FormDescription>
                         <FormMessage />
                       </FormItem>

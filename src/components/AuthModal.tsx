@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { useAuthV2 } from '@/contexts/AuthContextV2';
 
 interface AuthModalProps {
   open: boolean;
@@ -14,7 +15,7 @@ interface AuthModalProps {
 }
 
 const AuthModal = ({ open, onOpenChange, onSuccess }: AuthModalProps) => {
-  const { signInWithPhone, verifyOTP, fetchUserProfile } = useAuth();
+  const { verifyOTP, signInWithPhone } = useAuthV2();
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');

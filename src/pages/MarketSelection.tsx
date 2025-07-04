@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, ReactNode } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, ReactNode, useId } from 'react';
 import {
     CheckCircle,
     Loader2
@@ -20,6 +20,7 @@ import { SearchHint } from '@/components/SearchHint';
 import SellerMarketCategorySelectionConfirmationModal from '@/components/SellerMarketCategorySelectionConfirmationModal';
 import { z } from 'zod';
 import { MarketSelectionLocationStateSchema } from '@/types/screens';
+import SEO from '../components/SEO';
 
 
 // Custom hooks for seller-specific functionality
@@ -100,6 +101,7 @@ const SelectionSummary: React.FC<{
 
 
 const MarketSelection = () => {
+    const __useId = useId()
     const isMobile = useIsMobile()
     const [searchParams] = useSearchParams()
     const { user, userRole } = useAuth();
@@ -352,6 +354,10 @@ const MarketSelection = () => {
 
     return (
         <>
+            <SEO 
+              title="Market Selection | MeetnMart"
+              description="Choose from a variety of markets to connect with sellers and find the services you need on MeetnMart."
+            />
             {/* <div className="container mx-auto pt-4 mb-[5rem]"> */}
             <AppHeader
                 title={locationState.title}
@@ -361,12 +367,12 @@ const MarketSelection = () => {
                     onSearch: setSearchQuery,
                     onClear: () => setSearchQuery(""),
                 }}
-                showBackButton={locationState.utm_source !== "seller_landing"}
+                showBackButton={true}
                 onBackClick={() => navigate(-1)}
                 rightContentOnNewLine={isMobile}
                 rightContent={selectedMarkets.length > 0 && (
                     <div className='flex flex-row sm:flex-row items-stretch sm:items-center justify-between gap-2 w-full'>
-                        {getNextBehaviourOnActionClick()}
+                        <React.Fragment key={__useId}>{getNextBehaviourOnActionClick()}</React.Fragment>
                     </div>
                 )}
             />

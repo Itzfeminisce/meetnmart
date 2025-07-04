@@ -23,6 +23,7 @@ import MarketInsightsDialog from '@/components/MarketInsightsDialog';
 import { cn } from '@/lib/utils';
 import { useLocation as useUserLocation } from '@/hooks/useLocation';
 import AppHeader from '@/components/AppHeader';
+import SEO from '@/components/SEO';
 
 
 
@@ -196,6 +197,14 @@ const SearchPage = () => {
 
   return (
     <>
+      <SEO
+        title="Search Markets | MeetnMart"
+        description="Search and discover local markets, sellers, and products in your area. Find nearby vendors, explore categories, and connect with local businesses through MeetnMart's marketplace search."
+        keywords="search markets, local markets, nearby sellers, market search, local vendors, marketplace search, find markets, local business search, category search, seller search, location-based search, market discovery, local commerce search, neighborhood markets, vendor search, product search, local marketplace search, community markets, area markets, market finder, local shopping search"
+        ogType="website"
+        ogUrl="https://meetnmart.com/search"
+        canonical="https://meetnmart.com/search"
+      />
       <AppHeader
         title="Search"
         subtitle={userLocation ? "Markets near you" : "Discover markets around you"}

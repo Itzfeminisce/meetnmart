@@ -1,4 +1,4 @@
-import { FeedItem, FeedOverviewStats } from '@/types';
+import { FeedItem, FeedOverviewStats, UserProfile } from '@/types';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
@@ -95,6 +95,30 @@ const defaultStats: FeedOverviewStats = {
   views_today: 0,
 };
 
+
+interface UserProfileStore {
+  data: UserProfile | null;
+  setProfileData: (profile: UserProfile | ((prev: UserProfile | null) => UserProfile)) => void;
+  // updateProfileData?: (updater: (prev: UserProfile | null) => UserProfile) => void;
+}
+
+export const useUserProfileStore = create<UserProfileStore>((set) => ({
+  data: null,
+  setProfileData: (profileOrUpdater) => {
+    if (typeof profileOrUpdater === "function") {
+      set((state) => ({
+        data: (profileOrUpdater as (prev: UserProfile | null) => UserProfile)(state.data),
+      }));
+    } else {
+      set({ data: profileOrUpdater });
+    }
+  },
+  // updateProfileData: (updater) => {
+  //   set((state) => ({
+  //     data: updater(state.data),
+  //   }));
+  // },
+}));
 
 export const useInteractionStatsStore = create<InteractionStatsStore>((set) => ({
   data: defaultStats,

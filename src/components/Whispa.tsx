@@ -194,8 +194,8 @@ const Whispa = ({ isInNav = false }: { isInNav?: boolean }) => {
     let intelligence = await whisperAI({ message: userMessage })
 
 
-    let fullResponse = intelligence.response.concat("\n\n",intelligence.follow_up_questions?.join("\n") ?? "") || "Sorry, There's an issue processing your request. Pleae try again"
-    let actions = intelligence.user_guidance.suggestions;
+    let fullResponse = intelligence.naturalResponse //response.concat("\n\n",intelligence.follow_up_questions?.join("\n") ?? "") || "Sorry, There's an issue processing your request. Pleae try again"
+    let actions = [] // intelligence.user_guidance.suggestions;
 
     setIsStreaming(true);
     setCurrentStreamMessage('');

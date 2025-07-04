@@ -15,6 +15,7 @@ import {
   Wallet,
   Edit,
   LogOut,
+  Grid2x2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +24,7 @@ import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useGetSellerMarketAndCategories, useGetSellerStats, useGetTransactions, useToggleOnlineStatus } from '@/hooks/api-hooks';
+import { useGetProducts, useGetSellerMarketAndCategories, useGetSellerStats, useGetTransactions, useToggleOnlineStatus } from '@/hooks/api-hooks';
 import { cn, formatCurrency, formatDuration, formatTimeAgo, getInitials } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getShortName } from '../lib/utils';
@@ -33,6 +34,10 @@ import { SellerStat } from '@/components/SellerStat'
 import { MarketWithAnalytics, SellerMarketAndCategory } from '@/types';
 import AppHeader from '@/components/AppHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { CategorySelectionStateType } from '@/types/screens';
+import SEO from '@/components/SEO';
 
 const SellerDashboard = () => {
   const isMobile = useIsMobile()
@@ -41,6 +46,8 @@ const SellerDashboard = () => {
   const { data: sellerStats, isLoading: isLoadingSellerStats } = useGetSellerStats({ userId: user?.id })
 
   const { data: recentCalls = [], isLoading: isLoadingTrx, error: trxErr } = useGetTransactions({ params: { user_id: user?.id, limit_count: 2 } })
+  // const {data: products = [],isLoading: isProductLoading,error: productsError} = useGetProducts();
+
   const [isOnline, setIsOnline] = useState(profile.is_reachable);
   const navigate = useNavigate()
   const toggleOnline = useToggleOnlineStatus()
@@ -84,6 +91,7 @@ const SellerDashboard = () => {
 
 
   const prepareMarketForNextPage = useCallback((markets: SellerMarketAndCategory['markets'], showMoreInfo = false) => {
+
     if (!markets || markets.length === 0) {
       return {
         title: '',
@@ -93,10 +101,17 @@ const SellerDashboard = () => {
 
     const [firstMarket, ...restOfSelectedMarkets] = markets;
 
-    return {
+    const __reqPayload: CategorySelectionStateType = {
       title: `${firstMarket.name}${showMoreInfo ? ` & ${restOfSelectedMarkets.length} others` : ''}`,
-      marketIds: markets.map(it => it.id)
+      markets: markets.map((it => ({
+        id: it.id,
+        name: it.name
+      }))),
+      utm_role: "seller",
+      utm_source: "seller_landing"
     }
+
+    return __reqPayload
   }, [])
 
 
@@ -109,54 +124,28 @@ const SellerDashboard = () => {
 
   return (
     <>
+    <SEO 
+      title="Seller Dashboard | MeetnMart"
+      description="Manage your seller account, view earnings, and handle marketplace activities on MeetnMart."
+    />
       <AppHeader
-        title={getShortName(profile.name)}
+        title={(profile.name)}
         subtitle={profile.location?.address ?? "Unknown"}
         rightContent={(
           <div className="relative">
             <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-            <Avatar className="w-12 h-12 border-2 border-market-orange/20 card-hover">
-              <AvatarImage src={profile.avatar} />
-              <AvatarFallback className="text-lg font-semibold bg-market-orange/10">{profile.avatar}</AvatarFallback>
+            <Avatar className="w-12 h-12 border-2 border-market-orange/20 card-hover" asChild>
+              <Link to={`/settings/${profile.role}${isMobile ? "" : "/basic-information"}`} className='bg-transparent'>
+                <AvatarImage src={profile.avatar} className='object-cover' />
+                <AvatarFallback className="text-lg font-semibold bg-market-orange/10">{profile.avatar}</AvatarFallback>
+              </Link>
             </Avatar>
           </div>
         )}
       />
 
       <div className="container mb-[5rem] mt-4">
-        {/* Header */}
-        {/* <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-          <div className="flex items-start justify-between w-full">
-            <div className="">
-              <div className='flex items-center'>
-                <Button
-                  title={isOnline ? 'Go Offline' : 'Go Online'}
-                  variant="ghost"
-                  size="sm"
-                  disabled={toggleOnline.isPending}
-                  onClick={() => handleToggleOnlineStatus(!isOnline)}
-                  className={cn(isOnline ? 'border-bg-destructive/50 hover:bg-destructive/50' : 'border-green-500/50 hover:bg-green-500/50')}
-                >
-                  <Power className="w-4 h-4" />
-                </Button>
-                <div>
-                  <h2> Welcome, </h2>
-                  <h1 className="text-2xl font-bold">{getShortName(profile.name)}</h1>
-                  <p className='text-muted-foreground text-xs flex items-center justify-start gap-x-2'><MapPin size={12} /> {profile.location?.address ?? "Unknown"}</p>
-                </div>
-              </div>
 
-            </div>
-            <div className="relative">
-              <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-              <Avatar className="w-12 h-12 border-2 border-market-orange/20 card-hover">
-                <AvatarImage src={profile.avatar} />
-                <AvatarFallback className="text-lg font-semibold bg-market-orange/10">{profile.avatar}</AvatarFallback>
-              </Avatar>
-            </div>
-          </div>
-
-        </div> */}
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -193,16 +182,33 @@ const SellerDashboard = () => {
 
                     <div>
                       <p className="text-xl font-bold">{formatCurrency(wallet.balance + wallet.escrowed_balance)}</p>
-                      <p className="text-muted-foreground">Total Revenue</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-muted-foreground">Total Revenue</p>
+                        <Button asChild variant="ghost">
+                          <Link to={"/withdrawals"} className="text-market-green">Withdraw</Link>
+                        </Button>
+                      </div>
                     </div>
                   </div>
+
+
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-market-orange/50 hover:bg-market-orange/10 mt-4 md:hidden"
+                  >
+                    <Link to={"/catalog"}>
+                      <Grid2x2 className="w-4 h-4 mr-2" />
+                      Manage Catalog</Link>
+                  </Button>
                 </CardContent>
               </Card>
 
               {/* Today's Stats */}
               <div className="md:space-y-0 grid md:grid-cols-1 grid-cols-3 lg:grid-cols-3 gap-2">
                 <Card className="glass-morphism">
-                  <CardContent className="p-4">
+                  <CardContent className="md:px-4 py-4 px-2">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Transactions</p>
@@ -214,7 +220,7 @@ const SellerDashboard = () => {
                 </Card>
 
                 <Card className="glass-morphism">
-                  <CardContent className="p-4">
+                  <CardContent className="md:px-4 py-4 px-2">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Calls</p>
@@ -227,7 +233,7 @@ const SellerDashboard = () => {
 
                 {/* <ComingSoon> */}
                 <Card className="glass-morphism ">
-                  <CardContent className="p-4">
+                  <CardContent className="md:px-4 py-4 px-2">
                     <div className="flex items-center justify-between ">
                       <div>
                         <p className="text-sm text-muted-foreground">Feedbacks</p>
@@ -278,7 +284,7 @@ const SellerDashboard = () => {
                     size="sm"
                     className="w-full border-market-orange/50 hover:bg-market-orange/10"
                   >
-                    <Link to={"/seller/landing"}>
+                    <Link to={"/markets"}>
                       <Settings className="w-4 h-4 mr-2" />
                       Manage Markets</Link>
                   </Button>
@@ -312,7 +318,7 @@ const SellerDashboard = () => {
                       </div>
                     </div>
                   ))}
-                  {sellerMarketAndCategories && (
+                  {sellerMarketAndCategories?.markets && (
                     <Button
                       asChild
                       variant="outline"
@@ -327,30 +333,6 @@ const SellerDashboard = () => {
                   )}
                 </CardContent>
               </Card>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-between w-full border border-muted rounded-md p-4">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="hover:bg-muted"
-                onClick={handleEditProfile}
-              >
-                <Edit className="w-5 h-5" />
-                Edit Profile
-              </Button>
-
-              <Button
-                size="sm"
-                variant="ghost"
-                className="hover:bg-muted text-destructive"
-                disabled={isLoading}
-                onClick={handleSignOut}
-              >
-                <LogOut className="w-5 h-5" />
-                Logout
-              </Button>
             </div>
 
           </div>
@@ -417,7 +399,6 @@ const SellerDashboard = () => {
                         asChild
                         variant="link"
                         size="sm"
-                        onClick={handleViewAllCalls}
                         className="text-market-orange hover:text-market-orange/80 p-0"
                       >
                         <Link to="/transactions">View All</Link>
@@ -435,9 +416,9 @@ const SellerDashboard = () => {
                       </div>
                     ) : recentCalls.map((call) => (
                       <div
-                        key={call.transaction_id}
-                        onClick={() => navigate(`/transactions/${call.call_session_id}`)}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg border border-white/10 hover:bg-white/5 transition cursor-pointer"
+                        key={call.reference}
+                        onClick={() => call.reference ? navigate(`/transactions/${call.call_session_id}`) : () =>{}}
+                        className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg border border-white/10 hover:bg-white/5 transition cursor-pointer", !call.reference && 'cursor-not-allowed')}
                       >
                         {/* Left */}
                         <div className="flex flex-1 items-start gap-3 min-w-0">
@@ -466,7 +447,7 @@ const SellerDashboard = () => {
                         </div>
 
                         {/* Right */}
-                        <div className="flex flex-col sm:items-end text-right gap-1 min-w-[100px]">
+                        <div className={cn("flex flex-col sm:items-end text-right gap-1 min-w-[100px]", !call.reference && 'hidden')}>
                           <p className="text-sm font-semibold text-market-green whitespace-nowrap">
                             {formatCurrency(call.amount)}
                           </p>
@@ -492,3 +473,4 @@ const SellerDashboard = () => {
 };
 
 export default SellerDashboard;
+

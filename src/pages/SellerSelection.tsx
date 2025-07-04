@@ -22,6 +22,8 @@ import { z } from 'zod';
 import { SellerSelectionStateSchema } from '@/types/screens';
 import AppHeader from '@/components/AppHeader';
 import SellerFilter from '@/components/SellerFilter';
+import { ImageGridView } from '@/components/ImageGridView';
+import SEO from '../components/SEO';
 // import { useVirtualizer } from '@tanstack/react-virtual';
 
 const useFilteredSellers = (_sellers: NearbySellerResponse[]) => {
@@ -68,7 +70,7 @@ const SellerSelection = () => {
   const { unsubscribe, subscribe } = useSocket()
   const [selectedSeller, setSelectedSeller] = useState<NearbySellerResponse | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('reviews');
+  const [activeTab, setActiveTab] = useState<string>('catalog');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   // const [searchQuery, setSearchQuery] = useState("")
 
@@ -121,8 +123,8 @@ const SellerSelection = () => {
 
   // Memoize socket subscription
   useEffect(() => {
-    subscribe("events:user_joined", refetch)
-    return () => unsubscribe("events:user_joined", refetch)
+    subscribe("profiles:update", refetch)
+    return () => unsubscribe("profiles:update", refetch)
   }, [refetch, subscribe, unsubscribe])
 
 
@@ -130,6 +132,10 @@ const SellerSelection = () => {
 
   return (
     <>
+    <SEO 
+      title={`${locationState.title} | MeetnMart`}
+      description={`Find and connect with sellers in ${locationState.category.name || "all categories"} on MeetnMart. Browse profiles, reviews, and start conversations with verified sellers.`}
+    />
       <AppHeader
         title={locationState.title}
         subtitle={`${locationState.category.name || "All Categories"}, Found: (${filterSellers.length})`}
@@ -207,7 +213,7 @@ const SellerSelection = () => {
                   </SheetHeader>
 
                   {/* Seller info header */}
-                  <div className="flex items-center mb-6">
+                  <div className="flex items-start mb-6">
                     <Avatar className="h-16 w-16 mr-4 border-2 border-secondary">
                       {selectedSeller.avatar ? (
                         <AvatarImage src={selectedSeller.avatar} alt={selectedSeller.name} className=' object-contain w-full' />
@@ -249,6 +255,13 @@ const SellerSelection = () => {
                   {/* Tab navigation */}
                   <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className=''>
                     <TabsList className="w-full bg-transparent border-b rounded-none justify-start space-x-4 overflow-x-auto scrollbar-small max-w-full overflow-y-hidden">
+                    <TabsTrigger
+                        value="catalog"
+                        className={`border-b-2 px-4 py-2 rounded-none text-sm font-medium data-[state=active]:border-market-orange data-[state=active]:text-foreground border-transparent`}
+                      >
+                        <Package size={16} className="mr-2" />
+                        Product Catalog
+                      </TabsTrigger>
                       <TabsTrigger
                         value="reviews"
                         className={`border-b-2 px-4 py-2 rounded-none text-sm font-medium data-[state=active]:border-market-orange data-[state=active]:text-foreground border-transparent`}
@@ -257,13 +270,7 @@ const SellerSelection = () => {
                         Reviews & Ratings
                       </TabsTrigger>
 
-                      <TabsTrigger
-                        value="catalog"
-                        className={`border-b-2 px-4 py-2 rounded-none text-sm font-medium data-[state=active]:border-market-orange data-[state=active]:text-foreground border-transparent`}
-                      >
-                        <Package size={16} className="mr-2" />
-                        Product Catalog
-                      </TabsTrigger>
+                     
                     </TabsList>
 
                     <TabsContent value="reviews">
