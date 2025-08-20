@@ -56,29 +56,28 @@ class LiveKitService {
                 token = await this.getToken(roomName, participantName);
             }
 
-            // Configure room options
+          
             const roomOptions: RoomOptions = {
                 adaptiveStream: options.adaptiveStream !== false,
                 dynacast: options.dynacast !== false,
                 publishDefaults: {
-                    simulcast: options.simulcast !== false,
-                    videoSimulcastLayers: [VideoPresets.h720, VideoPresets.h540, VideoPresets.h216],
-                    videoCodec: 'vp8',
-                    dtx: true,
-                    audioPreset: AudioPresets.music,
-                    stopMicTrackOnMute: true
+                  simulcast: options.simulcast !== false,
+                  videoSimulcastLayers: [VideoPresets.h1080, VideoPresets.h720, VideoPresets.h540],
+                  videoCodec: 'vp9', // Better quality codec if supported
+                  dtx: true,
+                  audioPreset: AudioPresets.music,
+                  stopMicTrackOnMute: true
                 },
                 videoCaptureDefaults: {
-                    resolution: VideoPresets.h720
+                  resolution: VideoPresets.h1080,
+                  facingMode: 'user'
                 }
-            };
+              };
 
             // Connect to the room
-            console.log(`Connecting to LiveKit room: ${roomName}`);
             const room = new Room(roomOptions);
 
             await room.connect(this.apiUrl, token);
-            console.log('Connected to room:', room.name);
 
             // Configure initial media settings
             const localParticipant = room.localParticipant;
@@ -130,7 +129,7 @@ class LiveKitService {
      */
     private async getToken(roomName: string, participantName: string): Promise<string> {
         try {
-            const response = await axiosUtils.Post<{ data: string }>("/api/livekit/token", { roomName, participantName })
+            const response = await axiosUtils.Post<{ data: string }>("/livekit/token", { roomName, participantName })
 
             return response.data
         } catch (error) {

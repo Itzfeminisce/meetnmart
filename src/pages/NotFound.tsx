@@ -18,12 +18,12 @@ const NotFound = () => {
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
       <div className="glass-morphism rounded-xl p-6 max-w-md w-full text-center animate-fade-in">
         <h1 className="text-4xl font-bold mb-4 text-gradient">404</h1>
-        <p className="text-xl text-muted-foreground mb-8">This market doesn't exist... yet!</p>
+        <p className="text-xl text-muted-foreground mb-8">This page doesn't exist... yet!</p>
         <Button
           onClick={() => navigate('/')}
           className="bg-market-orange hover:bg-market-orange/90"
         >
-          Back to Main Market
+          Back to lounge
         </Button>
       </div>
     </div>

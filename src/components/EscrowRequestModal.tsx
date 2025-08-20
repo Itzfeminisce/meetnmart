@@ -19,6 +19,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { AppData } from '@/types/call';
 
 interface EscrowRequestModalProps {
   open: boolean;
@@ -93,8 +94,8 @@ const EscrowRequestModal = ({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md glass-morphism max-h-[90vh]">
-        <ScrollArea className="max-h-[80vh] pr-4">
+      <DialogContent className="sm:max-w-md glass-morphism max-h-[90vh] p-4">
+        <ScrollArea className="max-h-[80vh]">
           <DialogHeader className="flex flex-col items-center text-center">
             <div className="w-16 h-16 flex items-center justify-center rounded-full bg-market-green/20 mb-4">
               <ShieldCheck className="text-market-green w-8 h-8" />
@@ -108,7 +109,7 @@ const EscrowRequestModal = ({
           </DialogHeader>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-4">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-4 md:p-4">
               <FormField
                 control={form.control}
                 name="itemTitle"
@@ -140,7 +141,7 @@ const EscrowRequestModal = ({
                     </FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{AppData.CurrencySymbol}</span>
                         <Input
                           {...field}
                           type="number"

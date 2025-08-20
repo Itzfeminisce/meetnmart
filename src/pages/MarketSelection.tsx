@@ -1,438 +1,409 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { MapPin, ArrowRight, Search, List, Loader2, History } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getInitials } from '@/lib/utils';
+import React, { useState, useMemo, useCallback, useEffect, ReactNode, useId } from 'react';
 import {
-  debouncedSearchMarkets,
-  getNearbyMarkets,
-  joinMarket,
-  saveRecentVisit,
-  getRecentVisits,
-  MarketSearchResult,
-  MarketResult,
-  useJoinMarket
-} from '@/services/marketsService';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { MarketPlaceholder } from '@/components/MarketPlaceholder';
-import MarketIcon from '@/components/ui/svg/market-icon.svg';
+    CheckCircle,
+    Loader2
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useDeleteMarketSelection, useGetCategories, useGetMarkets, useSellerCatrgoryMutation } from '@/hooks/api-hooks';
+import Loader from '@/components/ui/loader';
+import { MarketWithAnalytics } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import MarketInsightsDialog from '@/components/MarketInsightsDialog';
+import { cn, sluggify } from '@/lib/utils';
+import AppHeader from '@/components/AppHeader';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { MarketCard } from '@/components/MarketCard';
+import { SearchHint } from '@/components/SearchHint';
+import SellerMarketCategorySelectionConfirmationModal from '@/components/SellerMarketCategorySelectionConfirmationModal';
+import { z } from 'zod';
+import { MarketSelectionLocationStateSchema } from '@/types/screens';
+import SEO from '../components/SEO';
 
-interface Coordinates {
-  latitude: number;
-  longitude: number;
-}
+
+// Custom hooks for seller-specific functionality
+const useSellerMarketSelection = (markets: MarketWithAnalytics[] | undefined) => {
+    const { userRole } = useAuth()
+    const [selectedMarkets, setSelectedMarkets] = useState<string[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const handleMarketToggle = useCallback((marketId: string) => {
+        setSelectedMarkets(prev =>
+            prev.includes(marketId)
+                ? prev.filter(id => id !== marketId)
+                : (
+                    // Max of 3 categories for buyers
+                    userRole === "buyer" ? [marketId] : [...prev, marketId]
+                )
+        );
+    }, []);
+
+    const filterMarkets = useCallback((markets: MarketWithAnalytics[] = []) => {
+        if (!markets || searchQuery.length === 0) return markets;
+        return markets.filter(market =>
+            market.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            market.address.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [searchQuery]);
+
+    // Initialize selectedMarkets with markets that user already belongs to
+    useEffect(() => {
+        if (markets) {
+            const existingMarkets = markets
+                .filter(market => market.belongs_to_market)
+                .map(market => market.id);
+            setSelectedMarkets(prev => {
+                // Only add markets that aren't already selected
+                const newMarkets = existingMarkets.filter(id => !prev.includes(id));
+                return [...prev, ...newMarkets];
+            });
+        }
+    }, [markets]);
+
+    return {
+        selectedMarkets,
+        searchQuery,
+        setSearchQuery,
+        handleMarketToggle,
+        filterMarkets,
+    };
+};
+
+
 
 const MarketSelection = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isDetecting, setIsDetecting] = useState(false);
-  const [location, setLocation] = useState<Coordinates | null>(null);
-  const [nearbyMarkets, setNearbyMarkets] = useState<MarketResult[]>([]);
-  const [searchResults, setSearchResults] = useState<MarketResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isSearchPopoverOpen, setIsSearchPopoverOpen] = useState(false);
-  const [loadingNearby, setLoadingNearby] = useState(false);
-  const [nearbyPage, setNearbyPage] = useState(1);
-  const [hasMoreNearby, setHasMoreNearby] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [recentVisits, setRecentVisits] = useState<MarketResult[]>([]);
-  const [loadingRecent, setLoadingRecent] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const { isAuthenticated } = useAuth();
-  // const  {mutate, isLoading } = useJoinMarket()
-  const navigate = useNavigate();
+    const isMobile = useIsMobile()
+    const [searchParams] = useSearchParams()
+    const { user, userRole } = useAuth();
+    const navigate = useNavigate();
+    const [_action, _setAction] = useState<'save' | 'continue' | null>(null);
+    const [showLearnMarketStatDialog, setShowLearnMarketStatsDialog] = useState(false);
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+    const [newMarketEntry, setNewMarketEntry] = useState<string[]>([]);
 
-  // Create the debounced search function once when component mounts
-  const performDebouncedSearch = useRef(
-    debouncedSearchMarkets((response) => {
-      // Handle the possibility that response could be in different formats
-      // Check if response is an array directly or has a markets property
-      const results = Array.isArray(response) ? response : 
-                     (response && response.markets ? response.markets : []);
-      
-      console.log("Search results received:", results);
-      setSearchResults(results);
-      setIsSearching(false);
-      // Keep the popover open while results are available
-      if (searchQuery.length >= 2) {
-        setIsSearchPopoverOpen(true);
-      }
-    })
-  ).current;
+    const locationState = MarketSelectionLocationStateSchema.parse(useLocation().state ?? { utm_source: `${userRole}_landing`, utm_role: userRole })
 
-  // Function to detect user location
-  const handleLocationDetection = () => {
-    setIsDetecting(true);
+    // API hooks with proper typing
+    const { data: markets, isLoading: isMarketLoading } = useGetMarkets({ userId: user?.id, limit: 50 });
 
-    if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser");
-      setIsDetecting(false);
-      return;
-    }
+    // Custom hooks for selection management
+    const {
+        selectedMarkets,
+        searchQuery,
+        setSearchQuery,
+        handleMarketToggle,
+        filterMarkets,
+    } = useSellerMarketSelection(markets);
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const userCoordinates = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        };
+    // Track existing market memberships
+    const existingMarketMemberships = useMemo(() => {
+        if (!markets) return [];
+        return markets
+            .filter(market => market.belongs_to_market)
+            .map(market => market.id);
+    }, [markets]);
 
-        setLocation(userCoordinates);
+    // Track new market selections
+    useEffect(() => {
+        const newSelections = selectedMarkets.filter(id => !existingMarketMemberships.includes(id));
+        setNewMarketEntry(newSelections);
+    }, [selectedMarkets, existingMarketMemberships]);
 
+    const sellerMaketCategory = useSellerCatrgoryMutation();
+    const sellerMarketSelectionDelete = useDeleteMarketSelection();
+
+
+    // Filtered markets with deduplication and proper null checks
+    const filteredMarkets = useMemo(() => {
+        if (!markets) return [];
+
+        const marketMap = new Map<string, MarketWithAnalytics>();
+        const impressions = markets;
+
+        // Process general markets with null check
+        // const generalMarkets = Array.isArray(markets) ? availableMarkets.general : [];
+        for (const market of impressions) {
+            if (!market?.id) continue; // Skip invalid markets
+            const existing = marketMap.get(market.id);
+            if (!existing || (market.belongs_to_market && !existing.belongs_to_market)) {
+                marketMap.set(market.id, market);
+            }
+        }
+
+        const uniqueMarkets = Array.from(marketMap.values());
+        return filterMarkets(uniqueMarkets);
+    }, [markets, filterMarkets]);
+
+    // const initialSelectedMarketCount = useMemo(() => {
+    //     const alreadyJoinedMarketIds = filteredMarkets
+    //       .filter(it => it?.belongs_to_market)
+    //       .map(it => it.belongs_to_market); // extract just market_id
+
+    //     const allMarketIds = [...alreadyJoinedMarketIds, ...selectedMarkets];
+
+    //     const uniqueMarketIds = new Set(allMarketIds);
+
+    //     return uniqueMarketIds.size;
+    //   }, [selectedMarkets, filteredMarkets]);
+
+
+    async function handleSaveSelections() {
         try {
-          setLoadingNearby(true);
-          const response = await getNearbyMarkets(userCoordinates);
-          setNearbyMarkets(response.markets);
-          setNearbyPage(1);
-          setHasMoreNearby(response.markets.length >= 7); // If we got exactly 7 results, there might be more
-          toast.success("Location detected! Showing nearby markets.");
+            await sellerMaketCategory.mutateAsync({
+                sellerId: user?.id,
+                payload: {
+                    selectedMarkets: newMarketEntry,
+                    selectedCategories: []
+                }
+            });
+            setShowConfirmationModal(true);
         } catch (error) {
-          console.error('Error fetching nearby markets:', error);
-          toast.error("Failed to fetch nearby markets.");
-        } finally {
-          setIsDetecting(false);
-          setLoadingNearby(false);
+            toast.error('Failed to save selections');
         }
-      },
-      (error) => {
-        setIsDetecting(false);
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            toast.error("Location access denied. Please enable location services.");
-            break;
-          case error.POSITION_UNAVAILABLE:
-            toast.error("Location information is unavailable.");
-            break;
-          case error.TIMEOUT:
-            toast.error("Location request timed out.");
-            break;
-          default:
-            toast.error("An unknown error occurred while detecting location.");
+    }
+
+
+    const handleDeleteSelection = useCallback(async ({ criteria, selectionId }: { criteria: "category_id" | "market_id"; selectionId: string; }) => {
+        try {
+            await sellerMarketSelectionDelete.mutateAsync({
+                criteria,
+                selectionId,
+                userId: user?.id
+            });
+            toast.success(`Success. Item removed`);
+        } catch (error) {
+            toast.error("Unable to delete selection. Please try again");
         }
-      }
-    );
-  };
+    }, [sellerMarketSelectionDelete, user?.id]);
 
-  // Handle search input changes
-  const handleSearchInputChange = (value: string) => {
-    setSearchQuery(value);
-    
-    if (value.length >= 2) {
-      setIsSearching(true);
-      // Use the already created debounced function
-      performDebouncedSearch(value);
-    } else {
-      setSearchResults([]);
-      setIsSearchPopoverOpen(false);
-      setIsSearching(false);
-    }
-  };
 
-  // Handle market selection
-  const handleSelectMarket = async (market: MarketResult) => {
-    
-    try {
-      // Join the market (increment user count)
-      await joinMarket(market);
-      
-      // Navigate to categories page with the selected market
-      navigate('/categories', {
-        state: {
-          market: {
-            id: market.id,
-            name: market.name,
-            location: market.address
-          }
+    const preparePayloadForCategoryPage = useCallback((marketIds: string[], showMoreInfo = false) => {
+        const [firstMarketId, ...restOfSelectedMarkets] = marketIds;
+
+        const firstMarket = filteredMarkets.find(mkt => mkt.id === firstMarketId)
+
+
+        let title = "Categories";
+        if (firstMarket) {
+            title = `${firstMarket.name}${restOfSelectedMarkets.length > 0 && showMoreInfo ? ` & ${restOfSelectedMarkets.length} others` : ''}`
         }
-      });
-    } catch (error) {
-      console.error('Error selecting market:', error);
-      toast.error("Something went wrong. Please try again.");
+
+        return {
+            ...locationState,
+            title,
+            markets: [{
+                id: firstMarket?.id,
+                name: firstMarket.name
+            }],
+
+            // utm_source: locationState.utm_source,
+            // utm_role: locationState.utm_role
+        }
+    }, [filteredMarkets])
+
+
+
+    const getNextBehaviourOnActionClick = useCallback(() => {
+        let actions: ReactNode[] = [];
+
+        
+
+       
+
+
+        switch (locationState.utm_source) {
+            case "seller_landing":
+                actions = [
+                    (
+                        <Button
+                            type='button'
+                            variant='outline'
+                            size='default'
+                            onClick={() =>  navigate("/categories", {
+                                state: preparePayloadForCategoryPage(newMarketEntry, true)
+                            })}
+                            className="w-full sm:w-auto">
+                            <span className="hidden sm:inline">Continue to Category</span>
+                            <span className="sm:hidden">Category</span>
+                        </Button>
+                    )
+                ]
+                if (newMarketEntry.length > 0) {
+                    actions.push(
+                        <Button
+                            type='button'
+                            variant='market'
+                            disabled={sellerMaketCategory.isPending}
+                            onClick={handleSaveSelections}
+                            className={cn(`w-full sm:w-auto rounded-sm bg-market-orange hover:bg-market-orange/90`)}>
+                            {sellerMaketCategory.isPending ? (
+                                <div className="flex items-center gap-2">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <span>Saving...</span>
+                                </div>
+                            ) : (
+                                <>
+                                    <span className="hidden sm:inline">Skip & Save</span>
+                                    <span className="sm:hidden">Save</span>
+                                </>
+                            )}
+                        </Button>
+                    )
+                }
+                break;
+            case "buyer_landing":
+                const _selectedMarket = filteredMarkets.find(mkt => mkt.id == selectedMarkets[0])
+                actions = [
+                    <Button
+                        size='sm'
+                        type='button'
+                        variant='outline'
+                        onClick={() => navigate("/categories", {
+                            state: preparePayloadForCategoryPage(selectedMarkets, true)
+                        })}
+                        className={cn(`w-full sm:w-auto rounded-sm`)}>
+                        Browse Categories
+                    </Button>,
+                    <Button
+                        size='sm'
+                        type='button'
+                        variant='market'
+                        onClick={() =>
+                            // console.log({ selectedMarkets })
+                            navigate(`/sellers/${encodeURIComponent(sluggify(_selectedMarket.name))}`, {
+                                state: {
+                                    title: _selectedMarket.name,
+                                    market: {
+                                        id: _selectedMarket.id,
+                                        name: _selectedMarket.name
+                                    },
+                                    category: {
+                                        id: null,
+                                        name: null
+                                    },
+                                    utm_source: "market_selection",
+                                }
+                            })
+                        }
+                        className={cn(`w-full sm:w-auto rounded-sm bg-market-orange hover:bg-market-orange/90`)}>
+                        Take me to Sellers
+                    </Button>
+                ]
+
+                switch (locationState.utm_cta) {
+                    case "market.view_all":
+                        actions.unshift(
+                            (
+                                <Button
+                                    type='button'
+                                    variant='outline'
+                                    size='default'
+                                    onClick={() => navigate("/categories", {
+                                        state: preparePayloadForCategoryPage(selectedMarkets, true)
+                                    })}
+                                    className="w-full sm:w-auto">
+                                    <span className="hidden sm:inline">Continue to Category</span>
+                                    <span className="sm:hidden">Category</span>
+                                </Button>
+                            )
+                        )
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            default:
+                break;
+        }
+
+        return actions;
+    }, [locationState])
+
+
+
+
+
+    if (isMarketLoading) {
+        return <Loader />;
     }
-  };
 
-  const handleLoadMoreNearby = async () => {
-    if (!location || loadingMore) return;
-    
-    setLoadingMore(true);
-    try {
-      const nextPage = nearbyPage + 1;
-      const moreMarkets = await getNearbyMarkets(location, nextPage);
-      
-      if (moreMarkets.markets.length === 0) {
-        setHasMoreNearby(false);
-      } else {
-        setNearbyMarkets(prev => [...prev, ...moreMarkets.markets]);
-        setNearbyPage(nextPage);
-        setHasMoreNearby(moreMarkets.markets.length >= 7); // Check if there might be more
-      }
-    } catch (error) {
-      console.error('Error loading more markets:', error);
-      toast.error("Failed to load more markets");
-    } finally {
-      setLoadingMore(false);
-    }
-  };
 
-  // Function to load recent visits
-  const loadRecentVisits = async () => {
-    if (!isAuthenticated) return;
-    
-    setLoadingRecent(true);
-    try {
-      const visits = await getRecentVisits(3); // Get only to 3 most recent visits
-      setRecentVisits(visits);
-    } catch (error) {
-      console.error('Error loading recent visits:', error);
-    } finally {
-      setLoadingRecent(false);
-    }
-  };
-
-  // Navigate to all recent visits page
-  const handleSeeAllRecentVisits = () => {
-    navigate('/recent-visits');
-  };
-
-  // Load nearby markets and recent visits on component mount
-  useEffect(() => {
-    handleLocationDetection();
-    loadRecentVisits();
-  }, [isAuthenticated]);
-
-  return (
-    <div className="app-container px-4 pt-6 animate-fade-in">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-gradient">Select a Market</h1>
-        <p className="text-muted-foreground">Choose a market near you or search</p>
-      </header>
-
-      <div className="mb-6">
-        <Popover 
-          open={isSearchPopoverOpen} 
-          onOpenChange={(open) => {
-            setIsSearchPopoverOpen(open && searchQuery.length >= 2);
-          }}
-        >
-          <PopoverTrigger asChild>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                ref={searchInputRef}
-                placeholder="Search markets..."
-                value={searchQuery}
-                onChange={(e) => handleSearchInputChange(e.target.value)}
-                className="pl-9 bg-secondary/50 border-none"
-                onFocus={() => {
-                  if (searchQuery.length >= 2) {
-                    setIsSearchPopoverOpen(true);
-                  }
+    return (
+        <>
+            <SEO
+                title="Market Selection | MeetnMart"
+                description="Choose from a variety of markets to connect with sellers and find the services you need on MeetnMart."
+            />
+            {/* <div className="container mx-auto pt-4 mb-[5rem]"> */}
+            <AppHeader
+                title={locationState.title}
+                subtitle="Select markets to engage in"
+                search={{
+                    placeholder: "Search markets, categories or sellers nearby...",
+                    onSearch: setSearchQuery,
+                    onClear: () => setSearchQuery(""),
                 }}
-              />
-              {isSearching && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-              )}
-            </div>
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-[var(--radix-popper-anchor-width)]" align="start">
-            <Command className="rounded-lg border shadow-md">
-              <CommandList>
-                <CommandGroup heading="Search Results">
-                  {isSearching ? (
-                    <div className="py-6 text-center text-sm">
-                      <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                      Searching...
+                // showBackButton={true}
+                // onBackClick={() => navigate(-1)}
+                rightContentOnNewLine={isMobile}
+                rightContent={newMarketEntry.length > 0 && (
+                    <div className='flex flex-row sm:flex-row items-stretch sm:items-center justify-between gap-2 w-full'>
+                        {getNextBehaviourOnActionClick().map((component, idx) => (
+                            <React.Fragment key={idx}>{ }
+                                {component}
+                            </React.Fragment>
+                        ))}
                     </div>
-                  ) : searchResults && searchResults.length > 0 ? (
-                    searchResults.map((market) => (
-                      <CommandItem
-                        key={market.id}
-                        onSelect={() => {
-                          handleSelectMarket(market);
-                          setIsSearchPopoverOpen(false);
-                        }}
-                        className="cursor-pointer"
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <div>
-                            <p className="font-medium">{market.name}</p>
-                            <p className="text-xs text-muted-foreground">{market.address}</p>
-                          </div>
-                          <div className="text-xs text-market-blue">
-                            {market.user_count > 0 ? `${market.user_count} shoppers` : 'New'}
-                          </div>
-                        </div>
-                      </CommandItem>
-                    ))
-                  ) : (
-                    <CommandEmpty>No markets found</CommandEmpty>
-                  )}
+                )}
+            />
 
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </div>
 
-      <div className="flex items-center mb-6">
-        <Button
-          variant="outline"
-          className="flex-1 mr-2 bg-secondary/50 border-none"
-          onClick={handleLocationDetection}
-          disabled={isDetecting}
-        >
-          {isDetecting ? (
-            <Loader2 size={16} className="mr-2 animate-spin" />
-          ) : (
-            <MapPin size={16} className="mr-2 text-market-blue" />
-          )}
-          {isDetecting ? 'Detecting...' : 'Detect location'}
-        </Button>
-        <Button
-          variant="outline"
-          className="flex-1 ml-2 bg-secondary/50 border-none"
-        >
-          <List size={16} className="mr-2 text-market-green" />
-          View all markets
-        </Button>
-      </div>
+            <div className="container animate-fade-in space-y-6  mb-[5rem]">
+                {/* Selection Summary */}
+                {/* <SelectionSummary
+                    count={initialSelectedMarketCount}
+                    type="market"
+                    message="You'll appear in these markets"
+                /> */}
 
-      {/* Recent Visits Section */}
-      {isAuthenticated && recentVisits.length > 0 && (
-        <div className="space-y-4 mb-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium flex items-center">
-              <span className="bg-market-blue/20 w-1 h-5 mr-2"></span>
-              Recently Visited
-            </h2>
-            <Button 
-              variant="ghost" 
-              className="text-xs text-market-blue"
-              onClick={handleSeeAllRecentVisits}
-            >
-              See All
-            </Button>
-          </div>
-
-          {loadingRecent ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="h-5 w-5 animate-spin text-market-blue" />
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {recentVisits.map(market => (
-                <div
-                  key={market.id}
-                  className="glass-morphism rounded-lg p-3 flex items-center card-hover cursor-pointer"
-                  onClick={() => handleSelectMarket(market)}
-                >
-                  <Avatar className="w-14 h-14 mr-4">
-                    <AvatarImage src={MarketIcon} alt="Market Icon" className="w-full h-full object-cover" />
-                    <AvatarFallback>{getInitials(market.name)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-grow overflow-hidden mr-2">
-                    <h3 className="font-medium truncate whitespace-nowrap text-ellipsis">
-                      {market.name}
-                    </h3>
-                    <div className="flex items-start text-xs text-muted-foreground">
-                      <span className="flex-shrink-0 mr-1 mt-[2px]">
-                        <MapPin size={12} />
-                      </span>
-                      <span className="line-clamp-2 leading-snug">
-                        {market.address}
-                      </span>
+                {/* Markets List */}
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filteredMarkets.map(market => (
+                            <MarketCard
+                                isMember={market.belongs_to_market}
+                                key={market.id}
+                                market={market}
+                                isSelected={selectedMarkets.includes(market.id)}
+                                onToggle={handleMarketToggle}
+                                handleLearnMarketStat={() => setShowLearnMarketStatsDialog(true)}
+                                handleDeleteSelection={handleDeleteSelection}
+                            />
+                        ))}
                     </div>
-                  </div>
-                  <div className="flex-shrink-0">
-                    <History size={16} className="text-market-blue mr-1" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* Nearby Markets Section */}
-      <div className="space-y-4 mb-4">
-        <h2 className="text-lg font-medium flex items-center">
-          <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
-          Markets near you
-        </h2>
-
-        {loadingNearby ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-market-orange" />
-          </div>
-        ) : (
-          <div className="space-y-3">
-          {nearbyMarkets.length > 0 ? (
-            <>
-              {nearbyMarkets.map(market => (
-                <div
-                  key={market.id}
-                  className="glass-morphism rounded-lg p-3 flex items-center card-hover cursor-pointer"
-                  onClick={() => handleSelectMarket(market)}
-                >
-                  <Avatar className="w-14 h-14 mr-4">
-                    <AvatarImage src={MarketIcon} alt="Market Icon" className="w-full h-full object-cover" />
-                    <AvatarFallback>{getInitials(market.name)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-grow overflow-hidden mr-2">
-                    <h3 className="font-medium truncate whitespace-nowrap text-ellipsis">
-                      {market.name}
-                    </h3>
-                    <div className="flex items-start text-xs text-muted-foreground">
-                      <span className="flex-shrink-0 mr-1 mt-[2px]">
-                        <MapPin size={12} />
-                      </span>
-                      <span className="line-clamp-2 leading-snug">
-                        {market.address}
-                      </span>
-                    </div>
-                    {market.user_count > 0 && (
-                      <div className="text-xs text-market-blue mt-1">
-                        {market.user_count} {market.user_count === 1 ? 'shopper' : 'shoppers'}
-                      </div>
+                    {searchQuery && filteredMarkets.length < 2 && (
+                        <SearchHint query={searchQuery} metadata={{
+                            source: "market_selection"
+                        }} />
                     )}
-                  </div>
-                  <div className="flex-shrink-0">
-                    <ArrowRight size={18} className="text-muted-foreground ml-2" />
-                  </div>
                 </div>
-              ))}
+            </div>
 
-              {hasMoreNearby && (
-                <Button
-                  variant="outline"
-                  className="w-full mt-2"
-                  onClick={handleLoadMoreNearby}
-                  disabled={loadingMore}
-                >
-                  {loadingMore ? (
-                    <>
-                      <Loader2 size={16} className="mr-2 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    'Load more markets'
-                  )}
-                </Button>
-              )}
-            </>
-          ) : (
-            <MarketPlaceholder message="No markets found nearby. Try searching for a market." />
-          )}
-        </div>
-        )}
-      </div>
-    </div>
-  );
+            {/* </div> */}
+
+            <MarketInsightsDialog
+                onOpenChange={setShowLearnMarketStatsDialog}
+                open={showLearnMarketStatDialog}
+            />
+            <SellerMarketCategorySelectionConfirmationModal
+                isOpen={showConfirmationModal}
+                onClose={() => setShowConfirmationModal(false)}
+            />
+        </>
+    );
 };
 
 export default MarketSelection;

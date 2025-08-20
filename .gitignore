@@ -25,4 +25,8 @@ dist-ssr
 .env
 sitemap-generator/
 supabase.*
-.env.*
+.env.development
+.env
+
+dist.zip
+cert/

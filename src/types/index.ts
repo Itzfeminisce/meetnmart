@@ -6,22 +6,76 @@ export interface Market {
   image?: string;
 }
 
+export type MarketWithAnalytics = {
+  id: string;
+  place_id: string;
+  name: string;
+  address: string;
+  location: string;
+  user_count: number | null;
+  created_at: string;
+  updated_at: string;
+  impressions: number | null;
+  recent_count: number;
+  last_24hrs: boolean;
+  impressions_per_user: number;
+  age_hours: number;
+  updated_recently: boolean;
+  belongs_to_market: boolean;
+  map_url: string;
+};
+
+export type SearchedMarket = {
+  distance: string;
+} & Pick<MarketWithAnalytics, "id" | "place_id" | "name" | "address" | "map_url">
+
+
+
+// export type MarketWithAnalytics = {
+//   id: string;
+//   place_id: string;
+//   name: string;
+//   address: string;
+//   location: string;
+//   user_count: number | null;
+//   created_at: string;
+//   updated_at: string;
+//   impressions: number | null;
+//   recent_count: number;
+//   last_24hrs: boolean;
+//   impressions_per_user: number;
+//   age_hours: number;
+//   updated_recently: boolean;
+// };
+
+
 export interface Category {
   id: string;
   name: string;
   icon: string;
   color: string;
+  description?: string;
+  popular?: boolean
+  belongs_to_category: boolean;
+}
+
+export interface SellerMarketAndCategory {
+  "markets": (Pick<MarketWithAnalytics, "id" | "name" | "address" | "place_id"> & { impressions: number })[];
+  "categories": Pick<Category, "id" | "name">[],
+  "total_markets": number,
+  "total_categories": number
 }
 
 export interface Seller {
   id: string;
   name: string;
   avatar?: string;
-  category: string;
-  is_online: boolean;
-  rating: number;
   description: string;
+  is_online: boolean;
+  is_reachable: boolean;
+  rating: number;
 
+  category: string;
   // Newly Added
   location?: string;
 }
@@ -118,3 +172,390 @@ export interface CallSession {
   token: string;
   participants: string[];
 }
+
+
+export interface Transaction {
+  id: string,
+  type: string,
+  amount: number,
+  description: string,
+  status: string,
+  date: Date
+}
+
+export type ExpandedTransaction = {
+  call_session_id: string;
+  duration: string; // ISO 8601 duration string or custom format
+  started_at: string; // ISO date string
+  ended_at: string;   // ISO date string
+
+  seller_id: string;
+  seller_name: string;
+  seller_avatar: string;
+
+  buyer_id: string;
+  buyer_name: string;
+  buyer_avatar: string;
+
+  agent_id: string | null;
+  agent_name: string | null;
+  agent_avatar: string | null;
+
+  transaction_id: string;
+  amount: number;
+  status: 'held' | 'completed' | 'cancelled' | string; // Expand as needed
+  reference: string;
+
+  description: {
+    feedback?: string;
+    metadata: {
+      itemTitle: string;
+      itemDescription: string;
+    };
+  }
+  transaction_created_at: string; // ISO date string
+};
+
+
+
+export type ProductCRUDAction = "create" | "read" | "update" | "delete";
+
+export type ProductCrudData<A extends ProductCRUDAction> =
+  A extends "create" ? Omit<Product, "id" | "created_at"> :
+  A extends "read" ? never :
+  A extends "update" ? Required<Pick<Product, "id">> & Partial<Omit<Product, "id">> :
+  A extends "delete" ? Pick<Product, "id"> :
+  never;
+
+export type ProductCrud<A extends ProductCRUDAction> = {
+  action: A;
+  data: ProductCrudData<A>;
+};
+
+export interface Product {
+  id: string; // UUID
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  category: string; // UUID
+  in_stock: boolean;
+  seller_id: string; // UUID
+  created_at: Date;
+}
+
+export interface Feedback {
+  id: string; // UUID
+  feedback_text: string;
+  rating: number;
+  call_duration: string; // ISO 8601 duration format e.g. "00:06:00"
+  created_at: string; // ISO timestamp
+  buyer_id: string;
+  buyer_name: string;
+  buyer_avatar: string;
+  seller_id: string;
+  seller_name: string;
+  seller_avatar: string;
+}
+
+
+export interface WeeklyStatusChart {
+  week: string; // e.g., "2025-W20"
+  status: 'released' | 'disputed' | 'rejected' | 'held'; // add more if needed
+  occurrence: number;
+}
+
+export interface StatsOverview {
+  calls: number;
+  charts: WeeklyStatusChart[];
+  feedbacks: number;
+  this_week: number;
+  transactions: number;
+}
+
+
+// TypeScript interfaces for get_nearby_sellers RPC response
+
+export interface SellerStatus {
+  is_online: boolean;
+  is_reachable: boolean;
+  is_premium: boolean;
+  is_verified: boolean;
+  description: string;
+}
+
+
+export type NearbySellerProduct = Omit<Product, "seller_id">;
+
+export interface NearbySellerProductProductsResponse {
+  items: NearbySellerProduct[];
+  total_count: number;
+  has_more: boolean;
+}
+
+export interface NearbySellerProductReview {
+  rating: number;
+  feedback_text: string | null;
+  created_at: string; // ISO datetime string
+}
+
+export interface NearbySellerProductReviewsSummary {
+  total_reviews: number;
+  average_rating: number;
+  recent_reviews: NearbySellerProductReview[];
+}
+
+export interface NearbySellerResponse {
+  seller_id: string;
+  name: string;
+  avatar: string | null;
+  distance_km: number;
+  seller_status: SellerStatus;
+  products: NearbySellerProductProductsResponse;
+  reviews_summary: NearbySellerProductReviewsSummary;
+  avg_response_time_minutes: number;
+}
+
+
+export interface WhispaResponse {
+  intent: string;
+  entities: Record<string, any>;
+  response: string;
+  naturalResponse: string;
+  confidence: number;
+  actions: Array<{
+    name: string;
+    params: Record<string, any>;
+    priority: number;
+  }>;
+  data_requests: any[];
+  follow_up_questions: string[];
+  session_id: string;
+  user_guidance: {
+    suggestions: string[];
+    quick_actions: string[];
+  };
+}
+
+export interface FeedItemAuthor {
+  id: string;
+  name: string;
+  avatar: string | null;
+  is_reachable: boolean;
+};
+export interface FeedItem {
+  id: string;
+  type: 'buyer_request' | 'seller_offer' | 'delivery_ping';
+  title: string;
+  content: string;
+  category: {
+    id: string,
+    name: string
+  },
+  author: FeedItemAuthor
+  price_range?: string;
+  needed_by?: string;
+  quantity?: string;
+  delivery_preference: boolean;
+  location?: string;
+  market_id?: string;
+  images?: string[];
+  urgency?: 'low' | 'medium' | 'high' | 'not_specified';
+  created_at: string;  // ISO timestamp
+  expires_at?: string;
+  interactions: FeedInteraction
+}
+
+export interface FeedOverviewStats {
+  sellers_online: number;
+  buyer_needs: number;
+  delivery_pings: number;
+  trending_items: number;
+  urgent_requests: number;
+  saved_items: number;
+  active_chats: number;
+  views_today: number;
+}
+
+
+export interface FeedInteractionItem {
+  type: 'message' | 'comment' | 'bookmark' | 'share' | 'call' | 'delivery' | 'view';
+  author: {
+    id: string;
+    name: string;
+    avatar: string;
+  };
+  metadata?: {
+    message?: string;
+    delivery_address?: string;
+    [key: string]: string | undefined;
+  };
+  created_at?: string;
+}
+
+export interface FeedInteractionStats {
+  callCount: number;
+  viewCount: number;
+  commentCount: number;
+  messageCount: number;
+  bookmarkCount: number;
+}
+
+export interface FeedInteraction {
+  items: FeedInteractionItem[];
+  stats: FeedInteractionStats;
+}
+
+
+
+export interface FeedItemPreview extends Omit<FeedItem, "id" | "created_by" | "source" | "created_by" | "market_id"> {
+  urgency: "low" | "medium" | "high" | "not_specified",
+  uploadedImages?: string[],
+  destinationMarket?: string;
+}
+
+export type NotificationType = 'feedback' | 'order' | 'payment' | 'referral' | 'achievement' | 'system' | 'promotion' | 'interaction';
+export type NotificationPriority = 'low' | 'medium' | 'high';
+export type NotificationChannel = 'email' | 'firebase' | 'in-app';
+
+export interface Notification {
+  id?: string;
+  recipient_id: string;
+  sender_id: string;
+  type: NotificationType;
+  title: string;
+  description?: string;
+  is_read: boolean;
+  priority: NotificationPriority;
+  timestamp: string;
+  metadata?: Record<string, any>;
+  created_at?: string;
+}
+
+
+export interface UserLocation {
+  address: string;
+  components: {
+    city: string;
+    state: string;
+    country: string;
+    postcode: string;
+  };
+}
+
+export interface IdentityData {
+  email_verified: boolean;
+  phone_verified: boolean;
+  sub: string;
+}
+
+export interface UserIdentity {
+  identity_id: string;
+  id: string;
+  user_id: string;
+  identity_data: IdentityData;
+  provider: string;
+  last_sign_in_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppMetadata {
+  provider: string;
+  providers: string[];
+}
+
+export interface UserMetadata {
+  email_verified: boolean;
+  phone_verified: boolean;
+  sub: string;
+}
+
+export interface UserProfile {
+  id: string;
+  phone_number: string;
+  name: string;
+  avatar: string;
+  created_at: string;
+  updated_at: string;
+  category: string | null;
+  description: string;
+  is_online: boolean;
+  is_reachable: boolean;
+  lng: number;
+  lat: number;
+  is_verified: boolean;
+  is_premium: boolean;
+  location: UserLocation;
+  retention_stated_at: string;
+  retention_completed_at: string | null;
+  retention_time_gap_hr: number | null;
+  is_returning_user: boolean;
+  email: string;
+  email_verified: boolean | null;
+  onboarding_step: number;
+  aud: string;
+  role: string;
+  phone: string;
+  phone_confirmed_at: string;
+  confirmation_sent_at: string;
+  confirmed_at: string;
+  last_sign_in_at: string;
+  app_metadata: AppMetadata;
+  user_metadata: UserMetadata;
+  identities: UserIdentity[];
+  is_anonymous: boolean;
+}
+
+
+export type MessageStatus = 'sent' | 'delivered' | 'read';
+export type MessageType = 'text' | 'file';
+export type AttachmentType = 'photo' | 'camera' | 'document' | 'file';
+export type ChatAction = 'pin' | 'delete' | 'archive' | 'report';
+
+export interface Conversation {
+  id: string;
+  text: string;
+  sender: 'me' | 'other';
+  timestamp: string;
+  status: MessageStatus;
+  type?: MessageType;
+}
+
+export interface Chat {
+  avatar:        string;
+  id:            string;
+  name:          string;
+  participantId: string;
+  lastMessage:   string;
+  timestamp:     Date;
+  unread:        number;
+  online:        boolean;
+  typing:        boolean;
+  pinned:        boolean;
+}
+
+
+// export interface Chat {
+//   id: string;
+//   created_at: string;
+//   updated_at: string;
+//   user1: Participant;
+//   user2: Participant;
+//   participantId: string;
+//   last_message: LastMessage | null;
+//   conversations: Conversation[]
+// }
+
+// export interface Participant {
+//   id: string;
+//   name: string;
+//   avatar: string | null;
+// }
+
+// export interface LastMessage {
+//   id: string;
+//   type: 'text' | 'file' | string; // extend if needed
+//   content: string;
+//   created_at: string;
+// }

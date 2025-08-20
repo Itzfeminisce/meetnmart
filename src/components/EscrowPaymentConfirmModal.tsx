@@ -19,8 +19,8 @@ interface EscrowPaymentConfirmModalProps {
   onOpenChange: (open: boolean) => void;
   sellerName: string;
   payload: EscrowData
-  onAccept: () => void;
-  onReject: () => void;
+  onAccept: (callData: EscrowData) => void;
+  onReject: (callData: EscrowData) => void;
 }
 
 const EscrowPaymentConfirmModal = ({
@@ -31,7 +31,9 @@ const EscrowPaymentConfirmModal = ({
   onAccept,
   onReject
 }: EscrowPaymentConfirmModalProps) => {
-  const { user } = useAuth();
+  console.log("[EscrowPaymentConfirmModal]", payload);
+  
+  const { user, profile } = useAuth();
   const [paymentStarted, setPaymentStarted] = useState(false);
   const [paymentSuccessful, setPaymentSuccessful] = useState(false);
   const [paymentReference, setPaymentReference] = useState<string | null>(null);
@@ -51,12 +53,20 @@ const EscrowPaymentConfirmModal = ({
 
   // Handle successful payment
   const handlePaymentSuccess = (response: any) => {
+    console.log("[handlePaymentSuccess]", {response, payload});
+    
     setPaymentSuccessful(true);
     setPaymentReference(response.reference);
 
     // Wait a moment to let the Paystack popup close
     setTimeout(() => {
-      onAccept(); // Process the acceptance logic
+      onAccept({
+        ...payload,
+        data: {
+          ...payload.data,
+          reference: response.reference
+        }
+      }); // Process the acceptance logic
 
       // If we still want to show a success in the modal
       if (response.reference) {
@@ -70,7 +80,13 @@ const EscrowPaymentConfirmModal = ({
   };
 
   const handleReject = () => {
-    onReject();
+    onReject({
+      ...payload,
+      data: {
+        ...payload.data,
+        "escrow-rejected": true
+      }
+    });
     onOpenChange(false);
     toast.info(`Payment request rejected`);
   };
@@ -104,7 +120,7 @@ const EscrowPaymentConfirmModal = ({
                 <ShieldCheck className="text-market-green w-8 h-8" />
               </div>
               <DialogTitle className="text-gradient text-xl font-bold">
-                Payment Successfully Moved to Escrow!
+                Payment Successful!
               </DialogTitle>
               <div className="text-xl font-bold text-market-green my-4">
                 ${payload.data.amount.toFixed(2)}
@@ -313,7 +329,8 @@ const EscrowPaymentConfirmModal = ({
 
               <PayNowButton
                 amount={payload.data.amount}
-                email={user?.email || "customer@example.com"}
+                reference={payload.data.reference}
+                email={user?.email || profile?.email || "customer@example.com"}
                 onSuccess={handlePaymentSuccess}
                 onPaymentStart={handlePaymentStart}
                 className={`bg-market-green hover:bg-market-green/90 ${!acceptedTerms ? 'opacity-60 cursor-not-allowed' : ''}`}
@@ -345,6 +362,11 @@ const EscrowPaymentConfirmModal = ({
                       display_name: "Amount",
                       variable_name: "amount",
                       value: payload.data.amount
+                    },
+                    {
+                      display_name: "Reference",
+                      variable_name: "reference",
+                      value: payload.data.reference
                     },
                   ]
                 }}

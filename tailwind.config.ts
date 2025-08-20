@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -8,16 +7,28 @@ export default {
 		"./components/**/*.{ts,tsx}",
 		"./app/**/*.{ts,tsx}",
 		"./src/**/*.{ts,tsx}",
+		"index.html"
 	],
 	prefix: "",
 	theme: {
 		container: {
 			center: true,
-			padding: '2rem',
+			padding: {
+			  DEFAULT: '1rem',      // fallback
+			  sm: '.5rem',           // phones
+			//   md: '1rem',           // tablets
+			//   lg: '2rem',           // laptops
+			//   xl: '3rem',           // desktops
+			//   '2xl': '4rem',        // big screens
+			},
 			screens: {
-				'2xl': '1400px'
-			}
-		},
+			  sm: '100%',           // mobile-first full width
+			  md: '640px',
+			  lg: '768px',
+			  xl: '1024px',
+			  '2xl': '1280px',
+			},
+		  },
 		extend: {
 			colors: {
 				border: 'hsl(var(--border))',
@@ -113,12 +124,33 @@ export default {
 						opacity: '1'
 					}
 				},
+				'marquee': {
+					'0%': {
+						transform: 'translateX(0)'
+					},
+					'100%': {
+						transform: 'translateX(-50%)'
+					}
+				},
+				'gradient-x': {
+					'0%': {
+						'background-position': '0% 50%'
+					},
+					'50%': {
+						'background-position': '100% 50%'
+					},
+					'100%': {
+						'background-position': '0% 50%'
+					}
+				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'fade-in': 'fade-in 0.3s ease-out',
 				'scale-in': 'scale-in 0.2s ease-out',
+				'marquee': 'marquee 25s linear infinite',
+				'gradient-x': 'gradient-x 3s ease infinite'
 			}
 		}
 	},

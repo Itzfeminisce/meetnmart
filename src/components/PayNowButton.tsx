@@ -12,27 +12,41 @@ export type PayNowButtonProps = {
   disabled?: boolean;
   metadata?: Record<string, any>;
 };
+ 
+export const PayNowButton: React.FC<PayNowButtonProps> = ({
+    amount,
+    email,
+    reference,
+    metadata,
+    onSuccess,
+    buttonText = "Pay Now",
+    className = "",
+    disabled = true,
+    onPaymentStart
+}) => {
+    const handlePaymentSuccess = (response: any) => {
+        if (onSuccess) {
+            onSuccess(response);
+        }
+    };
 
-export const PayNowButton = ({
-  amount,
-  email,
-  onSuccess,
-  onPaymentStart,
-  className = '',
-  buttonText = 'Pay Now',
-  disabled = false,
-  metadata,
-}: PayNowButtonProps) => {
-  return (
-    <PaystackInlinePayment
-      amount={amount}
-      email={email}
-      onSuccess={onSuccess}
-      onPaymentStart={onPaymentStart}
-      className={className}
-      buttonText={buttonText}
-      disabled={disabled}
-      metadata={metadata}
-    />
-  );
+    return (
+        <PaystackInlinePayment
+            disabled={disabled}
+            amount={amount}
+            email={email}
+            reference={reference}
+            metadata={metadata}
+            onSuccess={handlePaymentSuccess}
+            onPaymentStart={onPaymentStart}
+            buttonText={
+                <>
+                    <Check size={18} className="mr-2" />
+                    {buttonText}
+                </>
+            }
+            className={className}
+        />
+    );
 };
+ 

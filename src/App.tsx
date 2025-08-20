@@ -2,39 +2,33 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, useLocation, useNavigate, useRoutes } from "react-router-dom";
+import { BrowserRouter, useNavigate, useRoutes, useSearchParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { appRoutes } from "./routes";
 import { SocketProvider } from "./contexts/SocketContext";
 import { getEnvVar } from "./lib/utils";
-// import { LiveCallPovider } from "./contexts/LiveCallContext";
-import { useEffect } from "react";
 import { LiveCallProvider as LiveCallProvider_V2 } from "./contexts/live-call-context";
 import { PaystackProvider } from "./contexts/paystack-context";
+import { ScrollToTop } from "./components/ScrollTop";
+import { Suspense, useEffect } from "react";
+import Loader from "./components/ui/loader";
+import NotificationListener from "./components/NotificationListener";
+import { useNotifications } from "./hooks/useNotification";
+import { AuthProviderV2 } from "./contexts/AuthContextV2";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      retry: false,
 
-// const Router = () => useRoutes(appRoutes);
+      throwOnError: () => false,
+    },
+  },
+});
 
-const Router = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // This effect runs only on initial load
-    const { pathname, search, hash } = location;
-
-    // Combine the full URL path
-    const fullPath = pathname + search + hash;
-
-    // Only correct if the current location doesn't match
-    if (fullPath !== '/' && fullPath !== location.pathname + location.search + location.hash) {
-      navigate(fullPath, { replace: true });
-    }
-  }, []); // Empty dependency array means this runs once on mount
-
-  return useRoutes(appRoutes);
-};
+const Router = () => useRoutes(appRoutes);
 
 
 // Socket provider wrapper that gets token from auth context
@@ -53,26 +47,31 @@ const SocketProviderWithAuth: React.FC<{ children: React.ReactNode }> = ({ child
 };
 
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
-        <SocketProviderWithAuth>
-          <BrowserRouter>
-            {/* <LiveCallPovider> */}
-            <PaystackProvider>
-              <LiveCallProvider_V2>
-                <Router />
-                {/* </LiveCallPovider> */}
-              </LiveCallProvider_V2>
-            </PaystackProvider>
-          </BrowserRouter>
-        </SocketProviderWithAuth>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+ 
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner position="top-right" />
+        <Suspense>
+          <AuthProviderV2>
+            <SocketProviderWithAuth>
+              <BrowserRouter>
+                <PaystackProvider>
+                  <ScrollToTop />
+                  <NotificationListener />
+                  <LiveCallProvider_V2>
+                    <Router />
+                  </LiveCallProvider_V2>
+                </PaystackProvider>
+              </BrowserRouter>
+            </SocketProviderWithAuth>
+          </AuthProviderV2>
+        </Suspense>
+      </TooltipProvider>
+    </QueryClientProvider>
+  )
+};
 
 export default App;

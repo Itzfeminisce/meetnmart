@@ -1,249 +1,477 @@
-
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { User, Clock, PhoneCall, DollarSign } from 'lucide-react';
+import React, { Suspense, useCallback, useState } from 'react';
+import {
+  MapPin,
+  Phone,
+  MessageCircle,
+  Eye,
+  Clock,
+  Settings,
+  Power,
+  Bell,
+  CheckCircle2,
+  Package,
+  ChevronRight,
+  Zap,
+  Wallet,
+  Edit,
+  LogOut,
+  Grid2x2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import BottomNavigation from '@/components/BottomNavigation';
-import EscrowRequestModal from '@/components/EscrowRequestModal';
-import { toast } from 'sonner';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-
-const recentCalls = [
-  { id: 'c1', buyerName: 'John Smith', time: '2 hours ago', duration: '8:45', missed: false },
-  { id: 'c2', buyerName: 'Sarah Wilson', time: 'Yesterday', duration: '12:32', missed: false },
-  { id: 'c3', buyerName: 'Robert Lee', time: 'Yesterday', duration: '', missed: true },
-];
-
-const paymentRequests = [
-  { id: 'p1', buyerName: 'John Smith', amount: 45.99, status: 'accepted', time: '1 hour ago' },
-  { id: 'p2', buyerName: 'Emma Davis', amount: 24.50, status: 'pending', time: 'Yesterday' },
-];
+import { useGetProducts, useGetSellerMarketAndCategories, useGetSellerStats, useGetTransactions, useToggleOnlineStatus } from '@/hooks/api-hooks';
+import { cn, formatCurrency, formatDuration, formatTimeAgo, getInitials } from '@/lib/utils';
+import { toast } from 'sonner';
+import { getShortName } from '../lib/utils';
+import Loader from '@/components/ui/loader';
+import { LinearLoader } from '../components/ui/loader';
+import { SellerStat } from '@/components/SellerStat'
+import { MarketWithAnalytics, SellerMarketAndCategory } from '@/types';
+import AppHeader from '@/components/AppHeader';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { CategorySelectionStateType } from '@/types/screens';
+import SEO from '@/components/SEO';
+import { Marquee } from '@/components/Marquee';
 
 const SellerDashboard = () => {
-  const { user, profile, signOut, isLoading } = useAuth();
-  const navigate = useNavigate();
-  const [isOnline, setIsOnline] = useState(true);
-  const [escrowModalOpen, setEscrowModalOpen] = useState(false);
-  const [selectedBuyer, setSelectedBuyer] = useState<{ id: string; name: string } | null>(null);
+  const isMobile = useIsMobile()
+  const { user, profile, wallet, signOut, isLoading } = useAuth()
+  const { data: sellerMarketAndCategories } = useGetSellerMarketAndCategories({ seller: user?.id, })
+  const { data: sellerStats, isLoading: isLoadingSellerStats } = useGetSellerStats({ userId: user?.id })
 
-  useEffect(() => {
-    if (!user) {
-      navigate('/');
-    }
-  }, [user, navigate]);
+  const { data: recentCalls = [], isLoading: isLoadingTrx, error: trxErr } = useGetTransactions({ params: { user_id: user?.id, limit_count: 5 } })
+  // const {data: products = [],isLoading: isProductLoading,error: productsError} = useGetProducts();
 
-  const handleToggleOnline = async (checked: boolean) => {
-    setIsOnline(checked);
-    toast.success(checked ? 'You are now online!' : 'You are now offline');
+  const [isOnline, setIsOnline] = useState(profile.is_reachable);
+  const navigate = useNavigate()
+  const toggleOnline = useToggleOnlineStatus()
 
-    if (user) {
-      await supabase
-        .from('profiles')
-        .update({ is_online: checked })
-        .eq('id', user.id);
-    }
-  };
 
-  const handleRequestPayment = (buyerId: string, buyerName: string) => {
-    setSelectedBuyer({ id: buyerId, name: buyerName });
-    setEscrowModalOpen(true);
-  };
+  const [todayStats] = useState({
+    views: 147,
+    calls: 8,
+    messages: 15,
+    earnings: 245.50,
+    responseRate: 94,
+    avgResponseTime: 2.3
+  });
 
-  const handlePaymentRequestSubmit = (amount: number) => {
-    if (selectedBuyer) {
-      toast.success(`Payment request of $${amount.toFixed(2)} sent to ${selectedBuyer.name}!`);
-    }
-  };
 
-  const handleEditProfile = () => {
+  const handleEditProfile = useCallback(() => {
     navigate('/edit-seller-profile');
-  };
-  const handleSignOut = async () => {
+  }, [navigate]);
+
+  const handleSignOut = useCallback(async () => {
     toast.success('Clearing session...');
-    await signOut()
+    await signOut();
     navigate('/');
+  }, [signOut, navigate]);
+
+
+
+  const handleToggleOnlineStatus = async (status: boolean) => {
+    try {
+      const _status = await toggleOnline.mutateAsync({
+        status,
+        userId: user.id
+      })
+
+      setIsOnline(_status)
+    } catch (error) {
+      console.error("Error updating online status", error?.message)
+      toast.error("Unable to update status. Please try again")
+    }
   };
 
-  if (!profile) {
-    return (
-      <div className="app-container flex items-center justify-center h-screen">
-        <div className="text-center">
-          <p className="text-muted-foreground">Loading profile...</p>
-        </div>
-      </div>
-    );
-  }
+
+  const prepareMarketForNextPage = useCallback((markets: SellerMarketAndCategory['markets'], showMoreInfo = false) => {
+
+    if (!markets || markets.length === 0) {
+      return {
+        title: '',
+        marketIds: []
+      };
+    }
+
+    const [firstMarket, ...restOfSelectedMarkets] = markets;
+
+    const __reqPayload: CategorySelectionStateType = {
+      title: `${firstMarket.name}${showMoreInfo ? ` & ${restOfSelectedMarkets.length} others` : ''}`,
+      markets: markets.map((it => ({
+        id: it.id,
+        name: it.name
+      }))),
+      utm_role: "seller",
+      utm_source: "seller_landing"
+    }
+
+    return __reqPayload
+  }, [])
+
+
+  const handleViewAllCalls = () => {
+    // Navigate to recent calls
+    console.log('Navigate to recent calls');
+  };
+
+
 
   return (
-    <div className="app-container px-4 pt-6 animate-fade-in">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-gradient">Seller Dashboard</h1>
-        <p className="text-muted-foreground">Manage your seller account</p>
-      </header>
-
-      <div className="glass-morphism rounded-xl p-4 mb-6">
-        <div className="flex items-center">
-          <Avatar className="h-16 w-16 mr-4 border-2 border-market-orange/50">
-            {profile.avatar ? (
-              <AvatarImage src={profile.avatar} alt={profile.name} />
-            ) : (
-              <AvatarFallback className="bg-secondary text-foreground">
-                {profile.name ? profile.name.charAt(0).toUpperCase() : 'S'}
-              </AvatarFallback>
-            )}
-          </Avatar>
-          <div>
-            <h2 className="text-lg font-medium">{profile.name || 'MeetnMart Seller'}</h2>
-            <p className="text-sm text-muted-foreground capitalize">{profile.category || 'Uncategorized'}</p>
-            <p className="text-xs text-market-blue">{profile.phone_number || user?.phone}</p>
+    <>
+    <SEO 
+      title="Seller Dashboard | MeetnMart"
+      description="Manage your seller account, view earnings, and handle marketplace activities on MeetnMart."
+    />
+      <AppHeader
+        title={(profile.name)}
+        subtitle={`${profile.location?.components.state}, ${profile.location?.components.country}`}
+        rightContent={(
+          <div className="relative">
+            <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+            <Avatar className="w-12 h-12 border-2 border-market-orange/20 card-hover" asChild>
+              <Link to={`/settings/${profile.role}${isMobile ? "" : "/basic-information"}`} className='bg-transparent'>
+                <AvatarImage src={profile.avatar} className='object-cover' />
+                <AvatarFallback className="text-lg font-semibold bg-market-orange/10">{profile.avatar}</AvatarFallback>
+              </Link>
+            </Avatar>
           </div>
-        </div>
-
-        <div className="mt-4 pt-4 border-t border-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium">Availability Status</h3>
-              <p className="text-sm text-muted-foreground">
-                {isOnline ? 'You are visible to buyers' : 'You are not visible to buyers'}
-              </p>
-            </div>
-            <Switch
-              checked={isOnline}
-              onCheckedChange={handleToggleOnline}
-              className={isOnline ? 'bg-market-green' : undefined}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <h2 className="text-lg font-medium flex items-center mb-4">
-          <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
-          Payment Requests
-        </h2>
-
-        <div className="space-y-3 mb-6">
-          {paymentRequests.length > 0 ? (
-            paymentRequests.map(payment => (
-              <div
-                key={payment.id}
-                className="glass-morphism rounded-lg p-3 flex items-center"
-              >
-                <div className="h-10 w-10 rounded-full bg-market-green/20 flex items-center justify-center mr-3">
-                  <DollarSign size={20} className="text-market-green" />
-                </div>
-                <div className="flex-grow">
-                  <h3 className="font-medium text-sm">${payment.amount.toFixed(2)} from {payment.buyerName}</h3>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <Clock size={12} className="mr-1" />
-                    <span>{payment.time}</span>
-                    <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${payment.status === 'accepted'
-                      ? 'bg-market-green/20 text-market-green'
-                      : payment.status === 'pending'
-                        ? 'bg-market-orange/20 text-market-orange'
-                        : 'bg-destructive/20 text-destructive'
-                      }`}>
-                      {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center py-4 text-muted-foreground text-sm">
-              No payment requests yet
-            </div>
-          )}
-        </div>
-
-        <h2 className="text-lg font-medium flex items-center mb-4">
-          <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
-          Recent Calls
-        </h2>
-
-        <div className="space-y-3">
-          {recentCalls.map(call => (
-            <div
-              key={call.id}
-              className="glass-morphism rounded-lg p-3 flex items-center"
-            >
-              <div className="h-10 w-10 rounded-full bg-secondary/50 flex items-center justify-center mr-3">
-                <PhoneCall size={20} className="text-muted-foreground" />
-              </div>
-              <div className="flex-grow">
-                <h3 className="font-medium text-sm">
-                  {call.buyerName}
-                  {call.missed && (
-                    <span className="text-destructive text-xs ml-2">(Missed)</span>
-                  )}
-                </h3>
-                <div className="flex items-center text-xs text-muted-foreground">
-                  <Clock size={12} className="mr-1" />
-                  <span>{call.time}</span>
-                  {call.duration && (
-                    <span className="ml-2">{call.duration}</span>
-                  )}
-                </div>
-              </div>
-              {!call.missed && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-market-green hover:text-market-green/90"
-                  onClick={() => handleRequestPayment(call.id, call.buyerName)}
-                >
-                  <DollarSign size={16} className="mr-1" />
-                  Request
-                </Button>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <h2 className="text-lg font-medium flex items-center mb-4">
-          <span className="bg-market-orange/20 w-1 h-5 mr-2"></span>
-          Earnings Overview
-        </h2>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="glass-morphism rounded-lg p-3 text-center">
-            <div className="text-market-green text-xl font-bold">$254.65</div>
-            <div className="text-xs text-muted-foreground">This Month</div>
-          </div>
-          <div className="glass-morphism rounded-lg p-3 text-center">
-            <div className="text-market-blue text-xl font-bold">$1,245.00</div>
-            <div className="text-xs text-muted-foreground">All Time</div>
-          </div>
-        </div>
-      </div>
-
-      <Button
-        className="w-full mb-8 bg-market-orange hover:bg-market-orange/90"
-        onClick={handleEditProfile}
-      >
-        Edit Profile
-      </Button>
-      <Button
-        disabled={isLoading}
-        className="w-full mb-8 bg-destructive/10 hover:bg-destructive/90 hover:text-foreground text-destructive"
-        onClick={handleSignOut}
-      >
-        Log out
-      </Button>
-
-      <EscrowRequestModal
-        open={escrowModalOpen}
-        onOpenChange={setEscrowModalOpen}
-        sellerName={profile.name || 'MeetnMart Seller'}
-        onSuccess={handlePaymentRequestSubmit}
+        )}
       />
-    </div>
+
+      <div className="container mb-[5rem] mt-4">
+
+
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+          {/* Left Sidebar - Markets & Categories */}
+          <div className="lg:col-span-2 space-y-6">
+
+            {/* Wallet Summary */}
+            <div className="md:grid grid-cols-4 gap-4 space-y-4 md:space-y-0 lg:grid-cols-1">
+              <Card className="glass-morphism border-market-orange/20 col-span-3">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Wallet className="w-5 h-5" />
+                    Wallet Balance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-2xl font-bold text-market-green">{formatCurrency(wallet.balance)}</p>
+                      <p className="text-sm text-muted-foreground">Available Balance</p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <div>
+                        <p className="font-medium text-market-orange text-2xl">{formatCurrency(wallet.escrowed_balance)}</p>
+                        <p className="text-muted-foreground">Escrow</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-market-green">+{formatCurrency(sellerStats?.this_week || 0)}</p>
+                        <p className="text-muted-foreground">This Week</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-xl font-bold">{formatCurrency(wallet.balance + wallet.escrowed_balance)}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-muted-foreground">Total Revenue</p>
+                        <Button asChild variant="ghost">
+                          <Link to={"/withdrawals"} className="text-market-green">Withdraw</Link>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-market-orange/50 hover:bg-market-orange/10 mt-4 md:hidden"
+                  >
+                    <Link to={"/catalog"}>
+                      <Grid2x2 className="w-4 h-4 mr-2" />
+                      Manage Catalog</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Today's Stats */}
+              <div className="md:space-y-0 grid md:grid-cols-1 grid-cols-3 lg:grid-cols-3 gap-2">
+                <Card className="glass-morphism">
+                  <CardContent className="md:px-4 py-4 px-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Transactions</p>
+                        <p className="text-2xl font-bold">{sellerStats?.transactions || 0}</p>
+                      </div>
+                      <Eye className="w-8 h-8 text-market-orange hidden md:flex" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="glass-morphism">
+                  <CardContent className="md:px-4 py-4 px-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Calls</p>
+                        <p className="text-2xl font-bold">{sellerStats?.calls || 0}</p>
+                      </div>
+                      <Phone className="w-8 h-8 text-market-green hidden md:flex" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* <ComingSoon> */}
+                <Card className="glass-morphism ">
+                  <CardContent className="md:px-4 py-4 px-2">
+                    <div className="flex items-center justify-between ">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Feedbacks</p>
+                        <p className="text-2xl font-bold">{sellerStats?.feedbacks || 0}</p>
+                      </div>
+                      <MessageCircle className="w-8 h-8 text-market-purple hidden md:flex" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Active Markets */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4">
+              <Card className="glass-morphism">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <MapPin className="w-5 h-5" />
+                    Your Markets
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+
+                  {sellerMarketAndCategories?.markets.length == 0 && (
+                    <div className='flex flex-col  text-center items-center justify-center gap-y-2 my-4'>
+                      <h1 className='text-base'>No records found</h1>
+                      <p className='text-xs text-muted-foreground'>Click <b>Manage</b> to engage in a market</p>
+                    </div>
+                  )}
+                  {sellerMarketAndCategories?.markets.map((market, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-3 rounded-lg border border-white/10 hover:bg-white/5 transition-colors card-hover"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{market.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{market.address}</p>
+                      </div>
+                      <div className="text-right ml-2">
+                        <p className="text-sm font-medium text-market-green">{market.impressions}</p>
+                        <p className="text-xs text-muted-foreground">impressions</p>
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-market-orange/50 hover:bg-market-orange/10"
+                  >
+                    <Link to={"/markets"}>
+                      <Settings className="w-4 h-4 mr-2" />
+                      Manage Markets</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Active Categories */}
+              <Card className="glass-morphism">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2 ">
+                    <Package className="w-5 h-5" />
+                    Your Categories
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {sellerMarketAndCategories?.categories.length == 0 && (
+                    <div className='flex flex-col  text-center items-center justify-center gap-y-2 my-4'>
+                      <h1 className='text-base'>No records found</h1>
+                      <p className='text-xs text-muted-foreground'>Click <b>Manage</b> to engage in a category</p>
+                    </div>
+                  )}
+
+                  {sellerMarketAndCategories?.categories.map((category, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-3 rounded-lg border border-white/10 hover:bg-white/5 transition-colors card-hover"
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{category.name}</p>
+                        <span className="text-lg text-market-blue"><ChevronRight /> </span>
+                      </div>
+                    </div>
+                  ))}
+                  {sellerMarketAndCategories?.markets && (
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-market-orange/50 hover:bg-market-orange/10"
+                    >
+                      <Link to={"/categories"} state={prepareMarketForNextPage(sellerMarketAndCategories.markets, true)}>
+                        <Settings className="w-4 h-4 mr-2" />
+                        Manage Categories
+                      </Link>
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+          </div>
+
+          {/* Main Content */}
+          <div className="lg:col-span-3 space-y-6">
+
+
+            {/* Weekly Analytics */}
+            {isLoadingSellerStats ? <LinearLoader /> : <SellerStat data={sellerStats?.charts} />}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-6">
+
+              {/* Performance Metrics */}
+              <Card className="glass-morphism">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2  text-base md:text-2xl ">
+                    <Zap className="w-5 h-5" />
+                    Performance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>Response Rate</span>
+                      <span className="font-medium text-market-green">{todayStats.responseRate}%</span>
+                    </div>
+                    <Progress
+                      value={todayStats.responseRate}
+                      className="h-2 bg-white/10"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>Avg Response Time</span>
+                      <span className="font-medium text-market-orange">{todayStats.avgResponseTime}m</span>
+                    </div>
+                    <Progress
+                      value={85}
+                      className="h-2 bg-white/10"
+                    />
+                  </div>
+
+                  <div className="pt-3 border-t border-white/10">
+                    <div className="flex items-center gap-2 text-sm text-market-green">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Great performance! Keep it up.</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Recent Calls - Replacing Recent Activity */}
+              <Card className="glass-morphism rounded-xl shadow-sm border">
+                <CardHeader>
+                  <div className="flex  justify-between sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <CardTitle className="flex items-center gap-2  text-base md:text-2xl ">
+                      <Phone className="w-5 h-5" />
+                      Recent Calls
+                    </CardTitle>
+                    {recentCalls.length > 2 && (
+                      <Button
+                        asChild
+                        variant="link"
+                        size="sm"
+                        className="text-market-orange hover:text-market-orange/80 p-0"
+                      >
+                        <Link to="/transactions">View All</Link>
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+
+                <CardContent>
+                  <div className="space-y-4">
+                    {recentCalls.length === 0 ? (
+                      <div className='flex flex-col  text-center items-center justify-center gap-y-2 my-4'>
+                        <h1 className='text-base'>No records found</h1>
+                        <p className='text-xs text-muted-foreground'>Your recent calls will appear here</p>
+                      </div>
+                    ) : recentCalls.slice(0, 2).map((call, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => call.reference ? navigate(`/transactions/${call.call_session_id}`) : () =>{}}
+                        className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg border border-white/10 hover:bg-white/5 transition cursor-pointer", !call.reference && 'cursor-not-allowed')}
+                      >
+                        {/* Left */}
+                        <div className="flex flex-1 items-start gap-3 min-w-0">
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage src={call.buyer_avatar} />
+                            <AvatarFallback className="bg-market-orange/10 text-sm">
+                              {getInitials(call.buyer_name)}
+                            </AvatarFallback>
+                          </Avatar>
+
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <p className="text-sm font-medium truncate">
+                              <span className="text-slate-400 font-light">With </span>{call.buyer_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">{call.reference}</p>
+
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                <span>{formatDuration(call.duration)}</span>
+                              </div>
+                              <span>•</span>
+                              <span>{call.transaction_created_at ? formatTimeAgo(call.transaction_created_at) : 'No transaction'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right */}
+                        <div className={cn("flex flex-col sm:items-end text-right gap-1 min-w-[100px]", !call.reference && 'hidden')}>
+                          <p className="text-sm font-semibold text-market-green whitespace-nowrap">
+                            {formatCurrency(call.amount)}
+                          </p>
+                          <Badge
+                            variant={call.status === 'completed' ? 'default' : 'secondary'}
+                            className="text-xs whitespace-nowrap w-fit"
+                          >
+                            {call?.status || 'N/A'}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
 
 export default SellerDashboard;
+

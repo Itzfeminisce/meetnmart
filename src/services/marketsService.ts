@@ -7,7 +7,7 @@ export interface MarketResult {
   name: string;
   address: string;
   place_id: string;
-  location?: { latitude: number; longitude: number };
+  location?: { latitude: number; longitude: number } | string;
   distance?: string;
   user_count?: number;
   photos?: [
@@ -213,8 +213,8 @@ export const debouncedSearchMarkets = (callback: (results: MarketSearchResult) =
  */
 export const joinMarket = async (market: MarketResult): Promise<void> => {
   try {
-    const { error } = await supabase.rpc('increment_market_user_count', {
-      market_place_id: market.id,
+    const {data, error } = await supabase.rpc('increment_market_user_count', {
+      market_place_id: market.place_id,
       name: market.name,
       location: market.location, //market.location,
       address: market.address,
@@ -224,36 +224,12 @@ export const joinMarket = async (market: MarketResult): Promise<void> => {
       console.error('Error incrementing market user count:', error);
       throw error;
     }
+
+    return data
   } catch (error) {
     console.error('Error in joinMarket:', error);
     throw error;
   }
-};
-
-export const useJoinMarket = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (market: MarketResult) => {
-      const { data, error } = await supabase.rpc(
-        'increment_market_user_count',
-        {
-          market_place_id: market.id,
-          name: market.name,
-          location: market.location, //market.location,
-          address: market.address,
-        }
-      );
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      // Invalidate relevant queries after mutation
-      queryClient.invalidateQueries({
-        queryKey: ['join-markets'],
-      });
-    },
-  });
 };
 
 /**

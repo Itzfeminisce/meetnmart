@@ -1,7 +1,9 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { toast } from '@/hooks/use-toast';
+// import { toast } from '@/hooks/use-toast';
 import { getEnvVar } from './utils';
 import { handleAxiosError } from './axios-error';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 // Default config for axios instance
 const defaultConfig: AxiosRequestConfig = {
@@ -53,14 +55,17 @@ export const useAxios = () => {
     const authAxios = createAxiosInstance();
 
     // Add auth token to requests
-    authAxios.interceptors.request.use((config) => {
+    authAxios.interceptors.request.use(async (config) => {
         // how will this look like in the local storage?
         // __paymate_user
         // __paymate_user.token
-        const token = (JSON.parse(localStorage.getItem('__paymate_') || '{}'))?.__paymate_user?.token;
 
-        if (token && config.headers) {
-            config.headers.Authorization = `Bearer ${token}`;
+
+        const {data : {session}} = await supabase.auth.getSession()
+
+        if (session && config.headers) {
+            config.headers.set("Authorization", `Bearer ${session.access_token}`);
+            config.headers.set("X-Supabase-Refresh", session.refresh_token)
         }
         return config;
     });
@@ -71,11 +76,7 @@ export const useAxios = () => {
         (error: AxiosError) => {
             const errorResponse = handleAxiosError(error);
 
-            toast({
-                title: errorResponse.message || "Error",
-                description: errorResponse.details || "Something went wrong. Please try again later.",
-                variant: errorResponse.variant,
-            });
+            // toast.info(error.response.data.);
 
 
             // Handle 401 Unauthorized errors
@@ -84,7 +85,7 @@ export const useAxios = () => {
                 localStorage.clear()
         
                 // Redirect to login page
-                window.location.href = '/sign-in'
+                window.location.href = '/get-started';
                 return;
             }
 

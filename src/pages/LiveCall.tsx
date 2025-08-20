@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Users, Maximize, Minimize } from 'lucide-react';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Users, Maximize, Minimize, PhoneOff, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DeliveryAgent } from '@/types';
 import { toast } from 'sonner';
@@ -14,18 +14,42 @@ import { Participant, CallControls } from '@/components/LiveKitComponents';
 import { CallTimer, CallTimerHandle } from '@/components/CallTimer';
 import { useLiveKit } from '@/hooks/use-livekit';
 import { CallData, useLiveCall } from '@/contexts/live-call-context';
-import { AppData } from '@/types/call';
+import { AppData, CallAction } from '@/types/call';
+import { useAxios } from '@/lib/axiosUtils';
+import { useSocket } from '@/contexts/SocketContext';
+import SEO from '@/components/SEO';
+
+// Call states enum for better state management
+enum CallState {
+  CONNECTING = 'connecting',
+  WAITING_FOR_PARTICIPANT = 'waiting_for_participant',
+  IN_CALL = 'in_call',
+  PARTICIPANT_LEFT = 'participant_left',
+  CALL_REJECTED = 'call_rejected',
+  DISCONNECTED = 'disconnected'
+}
+
+interface CallStateData {
+  state: CallState;
+  isLoading: boolean;
+  participantCount: number;
+  otherParticipantPresent: boolean;
+}
 
 const LiveCall = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile, userRole } = useAuth();
   const timerRef = useRef<CallTimerHandle>(null);
-
-  const callData = location.state as CallData<never>
-  const [isSeller] = useState(userRole === "seller");
+  const apiClient = useAxios();
   const liveCall = useLiveCall();
+  const socket = useSocket();
+  const params = useParams()
 
+  const callData = location.state as CallData;
+  const [isSeller] = useState(userRole === "seller");
+
+  // UI States
   const [escrowModalOpen, setEscrowModalOpen] = useState(false);
   const [deliveryEscrowModalOpen, setDeliveryEscrowModalOpen] = useState(false);
   const [inviteDeliveryModalOpen, setInviteDeliveryModalOpen] = useState(false);
@@ -34,9 +58,22 @@ const LiveCall = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [manualActiveSpeaker, setManualActiveSpeaker] = useState<string | null>(null);
-  const [waitingForSeller, setWaitingForSeller] = useState<boolean>(true);
 
-  // Use our LiveKit hook
+  // Call States - Unified state management
+  const [callState, setCallState] = useState<CallState>(CallState.CONNECTING);
+  const [isCallRejected, setIsCallRejected] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+
+  // Media States
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOn, setIsVideoOn] = useState(true);
+
+  const roomName = params?.callId || callData?.room;
+  const participantName = profile?.name || user.id;
+
+  if (!roomName) return <Navigate to={"../"} replace />;
+
+  // LiveKit Connection Hook
   const {
     room,
     localParticipant,
@@ -50,150 +87,227 @@ const LiveCall = () => {
     toggleCamera
   } = useLiveKit({
     onParticipantConnected: (participant) => {
-      toast.info(`${participant.identity} joined the call`);
-      setWaitingForSeller(false)
+      const isOtherParticipant = participant.identity !== participantName;
+      
+      if (isOtherParticipant) {
+        toast.info(`${participant.identity} joined the call`);
+        setCallState(CallState.IN_CALL);
+        setReconnecting(false);
+      }
     },
-    onParticipantDisconnected: (participant) => {
-      toast.info(`${participant.identity} left the call`);
+    onParticipantDisconnected: async (participant) => {
+      const isOtherParticipant = participant.identity !== participantName;
+
+      if (isOtherParticipant) {
+        toast.info(`${participant.identity} left the call`);
+        
+        // Completely disconnect the call when other participant leaves
+        await disconnect();
+        setCallState(CallState.PARTICIPANT_LEFT);
+      }
     },
     onError: (error) => {
       toast.error(`Call error: ${error.message}`);
+      setCallState(CallState.DISCONNECTED);
     }
   });
 
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOn, setIsVideoOn] = useState(true);
+  // Socket event handlers
+  useEffect(() => {
+    const handleCallRejected = (data: CallData) => {
+      if (data.caller.id === user?.id) {
+        setIsCallRejected(true);
+        setCallState(CallState.CALL_REJECTED);
+      }
+    };
 
+    socket.subscribe(CallAction.Rejected, handleCallRejected);
+    return () => socket.unsubscribe(CallAction.Rejected, handleCallRejected);
+  }, [socket, user?.id]);
 
-  const roomName = callData.room;
-  const participantName = profile.name || user.id;
-
-
-  // Update mobile status on window resize
+  // Window resize handler
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Connect to the LiveKit room when component mounts
-  useEffect(() => {
+  // Connection management
+  const connectParticipant = useCallback(async () => {
     if (!user || !profile) return;
 
-    connect(roomName, participantName)
-      .then(newRoom => {
-        if (newRoom && !isSeller) {
-          // Notify seller about the call if we're the buyer
-          liveCall.handlePublishOutgoingCall(callData);
-        }
-      });
+    setReconnecting(true);
+    setIsCallRejected(false);
+    setCallState(CallState.CONNECTING);
 
+    try {
+      const newRoom = await connect(roomName, participantName);
+      
+      if (newRoom) {
+        // After successful connection, determine initial state
+        if (!isSeller) {
+          // Buyer should wait for seller
+          setCallState(CallState.WAITING_FOR_PARTICIPANT);
+          
+          // Notify seller about the call
+          liveCall.handlePublishOutgoingCall(callData);
+          await apiClient.Post('/messaging/notify/call', {
+            userId: callData.receiver.id,
+            callId: roomName,
+            callerName: callData.caller.name,
+            icon: "https://meetnmart.com/logo-white.png",
+            redirectUrl: "http://localhost:3000/calls"
+          });
+        } else {
+          // Seller joins - check if buyer is already there
+          const hasOtherParticipants = newRoom.remoteParticipants.size > 0;
+          setCallState(hasOtherParticipants ? CallState.IN_CALL : CallState.WAITING_FOR_PARTICIPANT);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to connect:', error);
+      await disconnect();
+      setCallState(CallState.DISCONNECTED);
+    } finally {
+      setReconnecting(false);
+    }
+  }, [user, profile, roomName, participantName, isSeller, connect, disconnect, liveCall, callData, apiClient]);
+
+  // Initial connection
+  useEffect(() => {
+    connectParticipant();
     return () => {
       disconnect();
     };
-  }, [user, profile]);
+  }, []);
 
-  // Get current active speaker - with manual override support
+  // Call state computation
+  const getCallStateData = useCallback((): CallStateData => {
+    const participantCount = localParticipant ? remoteParticipants.length + 1 : 0;
+    const otherParticipantPresent = remoteParticipants.length > 0;
+
+    return {
+      state: callState,
+      isLoading: isConnecting || reconnecting,
+      participantCount,
+      otherParticipantPresent
+    };
+  }, [callState, isConnecting, reconnecting, localParticipant, remoteParticipants]);
+
+  // Active speaker logic
   const getActiveSpeaker = useCallback(() => {
-    // If manually selected, use that
     if (manualActiveSpeaker) {
       const manualSpeaker = [...remoteParticipants, localParticipant].find(
         p => p && p.identity === manualActiveSpeaker
       );
-      if (manualSpeaker) {
-        return manualSpeaker.identity;
-      }
+      if (manualSpeaker) return manualSpeaker.identity;
     }
 
-    // Otherwise use real active speakers
     if (activeSpeakers.length > 0) {
       return activeSpeakers[0].identity;
     }
 
-    // Default to a remote participant if available
     if (remoteParticipants.length > 0) {
       return remoteParticipants[0].identity;
     }
 
-    // Fall back to local
     return localParticipant?.identity || '';
   }, [activeSpeakers, remoteParticipants, localParticipant, manualActiveSpeaker]);
 
-  const handleEndCall = async () => {
-    // Notify about call ending
-    if (room && user && profile) {
-      liveCall.handlePublishCallEnded(callData);
-    }
-
-    // Disconnect from LiveKit
+  // Call control handlers
+  const handleEndCall = useCallback(async () => {
+    
     await disconnect();
 
-    // Navigate based on role
-    if (isSeller) {
-      navigate(-1);
-    } else {
-      navigate('/rating', {
-        state: {
-          seller: { avatar: "", name: callData.receiver.name, descripition: "Great work" },
-          deliveryAgent,
-          callDuration: timerRef.current?.getTimer()
+    if (room && user && profile) {
+      liveCall.handlePublishCallEnded({
+        ...callData,
+        data: {
+          ...callData.data,
+          callSessionId: liveCall.activeCall?.data?.callSessionId
         }
       });
     }
-  };
 
-  const handleToggleMute = async () => {
+    if (isSeller) {
+      navigate(-1);
+    } else {
+      console.log({callData});
+      
+      navigate('/rating', {
+        state: {
+          seller: callData.receiver,
+          deliveryAgent,
+          callDuration: timerRef.current?.getTimer()
+        },
+        replace: true
+      });
+    }
+  }, [disconnect, room, user, profile, liveCall, callData, isSeller, navigate, deliveryAgent]);
+
+  const handleToggleMute = useCallback(async () => {
     const newState = await toggleMicrophone();
     setIsMuted(!newState);
     toast.success(newState ? 'Microphone unmuted' : 'Microphone muted');
-  };
+  }, [toggleMicrophone]);
 
-  const handleToggleVideo = async () => {
+  const handleToggleVideo = useCallback(async () => {
     const newState = await toggleCamera();
     setIsVideoOn(newState);
     toast.success(newState ? 'Camera turned on' : 'Camera turned off');
-  };
+  }, [toggleCamera]);
 
-  const handlePaymentRequest = (payload: {
+  // Business logic handlers
+  const handlePaymentRequest = useCallback((payload: {
     amount: number,
     itemTitle: string;
     itemDescription: string;
   }) => {
     liveCall.handlePublishEscrowRequested({
       ...callData,
-      data: { 
+      data: {
         amount: payload.amount,
         itemDescription: payload.itemDescription,
-        itemTitle: payload.itemTitle
-       }
-    })
+        itemTitle: payload.itemTitle,
+      }
+    });
     toast.success(`Payment request of ${AppData.CurrencySymbol}${payload.amount.toFixed(2)} sent to buyer!`);
-  };
+  }, [liveCall, callData]);
 
-  const handleDeliveryPaymentRequest = (amount: number) => {
+  const handleDeliveryPaymentRequest = useCallback((amount: number) => {
     toast.success(`Delivery escrow of ${AppData.CurrencySymbol}${amount.toFixed(2)} created successfully!`);
-  };
+  }, []);
 
-  const handleInviteDelivery = () => {
+  const handleInviteDelivery = useCallback(() => {
     setDeliveryOrderSheetOpen(true);
-  };
+  }, []);
 
-  const handleDeliveryOrderSubmit = (orderDetails: any) => {
+  const handleDeliveryOrderSubmit = useCallback((orderDetails: any) => {
     setDeliveryOrderSheetOpen(false);
     setInviteDeliveryModalOpen(true);
-  };
+  }, []);
 
-  const handleDeliveryAgentSelected = (agent: DeliveryAgent) => {
+  const handleDeliveryAgentSelected = useCallback((agent: DeliveryAgent) => {
     setInviteDeliveryModalOpen(false);
     setDeliveryAgent(agent);
     toast.success(`${agent.name} has been invited and will join the call shortly!`);
-  };
+  }, []);
 
-  const toggleFullscreen = () => {
-    setIsFullscreenMode(!isFullscreenMode);
-  };
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {
+        toast.error('Error attempting to enable fullscreen mode');
+      });
+      setIsFullscreenMode(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+        setIsFullscreenMode(false);
+      }
+    }
+  }, []);
 
-  // Format participants for the UI
+  // Participant rendering
   const renderParticipants = useCallback(() => {
     if (!localParticipant) return [];
 
@@ -217,29 +331,47 @@ const LiveCall = () => {
     ];
   }, [localParticipant, remoteParticipants, isVideoOn, isMuted, getActiveSpeaker]);
 
-  // Participant count, including local participant
-  const participantCount = localParticipant ? remoteParticipants.length + 1 : 0;
+  const stateData = getCallStateData();
+
+  // Render different states
+  if (stateData.state === CallState.PARTICIPANT_LEFT || stateData.state === CallState.CALL_REJECTED) {
+    return (
+      <ParticipantLeftCallNotice
+        isLoading={stateData.isLoading}
+        connectParticipant={connectParticipant}
+        handleEndCall={handleEndCall}
+        isSeller={isSeller}
+        isCallRejected={isCallRejected}
+      />
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen w-screen bg-black flex flex-col relative overflow-hidden">
+      <SEO 
+        title="Live Call | MeetnMart"
+        description="Join live video calls with buyers and sellers on MeetnMart. Experience real-time communication, secure transactions, and seamless marketplace interactions through our integrated video calling platform."
+        keywords="live call, video call, marketplace video, buyer seller call, real-time communication, secure video call, marketplace communication, live video chat, seller buyer interaction, video marketplace, call platform, live streaming, video conferencing, marketplace video call, secure communication, real-time video, live interaction, video marketplace platform, buyer seller video, marketplace video chat, live video marketplace"
+      />
       {/* Call Header */}
-      <div className="glass-morphism py-3 px-4 border-b flex justify-between items-center">
+      <div className="absolute top-0 left-0 right-0 z-10 glass-morphism-dark py-3 px-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <Users size={20} />
-          <span className="font-medium">
-            {`${participantCount} participants`}
+          <Users size={20} className="text-white" />
+          <span className="font-medium text-white">
+            {`${stateData.participantCount} participants`}
           </span>
         </div>
-        <div className="glass-morphism px-3 py-1 rounded-full text-sm font-medium">
+        <div className="glass-morphism-dark px-3 py-1 rounded-full text-sm font-medium text-white">
           <CallTimer
             ref={timerRef}
             formatDuration={formatDuration}
+            shouldStart={!isConnecting && stateData.participantCount > 1}
           />
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="rounded-full"
+          className="rounded-full text-white hover:bg-white/10"
           onClick={toggleFullscreen}
         >
           {isFullscreenMode ? <Minimize size={20} /> : <Maximize size={20} />}
@@ -247,88 +379,70 @@ const LiveCall = () => {
       </div>
 
       {/* Main Call Area */}
-      <div className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Main Video/Avatar Space */}
-        <div
-          className={cn(
-            "flex-1 flex flex-col items-center justify-center",
-            isMobile ? "pb-20" : "pb-24"
-          )}
-        >
-          {isConnecting ? (
-            <div className="text-center">
-              <p>Connecting to the call...</p>
+      <div className="w-full h-full flex-1 relative">
+        {stateData.isLoading ? (
+          <div className="text-center text-white absolute inset-0 flex items-center justify-center">
+            <p>Connecting to the call...</p>
+          </div>
+        ) : stateData.state === CallState.WAITING_FOR_PARTICIPANT ? (
+          <div className="w-full h-full flex items-center justify-center text-white">
+            <p>{isSeller ? 'Waiting for buyer to join...' : 'Waiting for seller to join...'}</p>
+          </div>
+        ) : stateData.participantCount <= 2 ? (
+          // Two participant layout
+          <div className="w-full h-full relative">
+            <div className="absolute inset-0">
+              {renderParticipants().find(p => !p.isLocal) && (
+                <Participant
+                  {...renderParticipants().find(p => !p.isLocal)!}
+                  large={true}
+                />
+              )}
             </div>
-          ) : participantCount <= 2 ? (
-            // Two participant layout
-            <div className="relative max-w-2xl w-full h-full flex flex-col items-center justify-center">
-              {/* Main participant (remote) */}
-              <div className="aspect-video w-full h-[calc(100vh - 42rem)] relative rounded-xl overflow-hidden bg-secondary/30 border-2 border-market-orange/50 flex items-center justify-center">
-                {!isConnecting && waitingForSeller && !isSeller ? (<p>Waiting for seller</p>) : (
-                  renderParticipants().find(p => !p.isLocal) && (
-                    <Participant
-                      {...renderParticipants().find(p => !p.isLocal)!}
-                      large={true}
-                    />
-                  )
-                )}
-              </div>
-
-              {/* Self view (small) */}
-              <div className="absolute bottom-5 right-5 w-32 h-32 rounded-lg overflow-hidden border-2 border-background shadow-md">
-                {renderParticipants().find(p => p.isLocal) && (
-                  <Participant
-                    {...renderParticipants().find(p => p.isLocal)!}
-                  />
-                )}
-              </div>
+            <div className="absolute bottom-24 right-5 w-32 h-32 md:w-40 md:h-40 rounded-lg overflow-hidden border-2 border-white/30 shadow-lg z-10">
+              {renderParticipants().find(p => p.isLocal) && (
+                <Participant
+                  {...renderParticipants().find(p => p.isLocal)!}
+                />
+              )}
             </div>
-          ) : (
-            // Multiple participants layout
-            <div className="w-full h-full flex flex-col md:flex-row gap-4">
-              {/* Main active speaker */}
-              <div className="flex-1 relative">
-                <div className="aspect-video w-full h-full max-h-[60vh] md:max-h-none relative rounded-xl overflow-hidden bg-secondary/30 border-2 border-market-orange/50 flex items-center justify-center">
-                  {renderParticipants().find(p => p.isSpeaking) && (
-                    <Participant
-                      {...renderParticipants().find(p => p.isSpeaking)!}
-                      large={true}
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Thumbnail strip (vertical on mobile, horizontal on desktop) */}
-              <div className={cn(
-                "flex gap-2",
-                isMobile ? "flex-row justify-center" : "flex-col justify-start w-1/4"
-              )}>
-                {/* Thumbnails for all non-speaking participants */}
-                {renderParticipants()
-                  .filter(p => !p.isSpeaking)
-                  .map((p, idx) => (
-                    <div
-                      key={p.participant.identity || idx}
-                      className={cn(
-                        "relative rounded-lg overflow-hidden bg-secondary/30 border-2 cursor-pointer hover:border-primary/50 transition-colors",
-                        isMobile ? "h-24 w-24" : "aspect-video w-full"
-                      )}
-                      onClick={() => {
-                        // Manually set active speaker for UI purposes
-                        setManualActiveSpeaker(p.participant.identity || null);
-                      }}
-                    >
-                      <Participant {...p} />
-                    </div>
-                  ))}
-              </div>
+          </div>
+        ) : (
+          // Multiple participants layout
+          <div className="w-full h-full relative">
+            <div className="absolute inset-0">
+              {renderParticipants().find(p => p.isSpeaking) && (
+                <Participant
+                  {...renderParticipants().find(p => p.isSpeaking)!}
+                  large={true}
+                />
+              )}
             </div>
-          )}
-        </div>
+            <div className={cn(
+              "absolute z-10 flex gap-2 bg-black/30 p-2 rounded-lg backdrop-blur-sm",
+              isMobile ? "bottom-24 left-1/2 transform -translate-x-1/2 flex-row" : "right-5 top-1/2 transform -translate-y-1/2 flex-col"
+            )}>
+              {renderParticipants()
+                .filter(p => !p.isSpeaking)
+                .map((p, idx) => (
+                  <div
+                    key={p.participant.identity || idx}
+                    className={cn(
+                      "relative rounded-lg overflow-hidden border border-white/30 cursor-pointer hover:border-primary/80 transition-colors",
+                      isMobile ? "h-20 w-20" : "h-24 w-24"
+                    )}
+                    onClick={() => setManualActiveSpeaker(p.participant.identity || null)}
+                  >
+                    <Participant {...p} />
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Call Controls */}
-      <div className="absolute left-0 right-0 bottom-0">
+      <div className="absolute left-0 right-0 bottom-0 z-10">
         <CallControls
           isMuted={isMuted}
           isVideoOn={isVideoOn}
@@ -344,42 +458,93 @@ const LiveCall = () => {
       </div>
 
       {/* Modals */}
-      {
-        isSeller && (
-          <EscrowRequestModal
-            open={escrowModalOpen}
-            onOpenChange={setEscrowModalOpen}
-            onSuccess={handlePaymentRequest}
-          />
-        )
-      }
+      {isSeller && (
+        <EscrowRequestModal
+          open={escrowModalOpen}
+          onOpenChange={setEscrowModalOpen}
+          onSuccess={handlePaymentRequest}
+        />
+      )}
 
-      {/* Delivery Order Sheet (for collecting address info) */}
       <DeliveryOrderSheet
         open={deliveryOrderSheetOpen}
         onOpenChange={setDeliveryOrderSheetOpen}
-        sellerLocation={"visitor.location"}
+        sellerLocation={""}
         onSubmit={handleDeliveryOrderSubmit}
       />
 
-      {/* Invite Delivery Modal (for selecting a delivery agent) */}
       <InviteDeliveryModal
         open={inviteDeliveryModalOpen}
         onOpenChange={setInviteDeliveryModalOpen}
         onSelect={handleDeliveryAgentSelected}
       />
 
-      {/* Delivery Escrow Modal */}
-      {
-        deliveryAgent && (
-          <DeliveryEscrowModal
-            open={deliveryEscrowModalOpen}
-            onOpenChange={setDeliveryEscrowModalOpen}
-            deliveryAgent={deliveryAgent}
-            onSuccess={handleDeliveryPaymentRequest}
-          />
-        )
-      }
+      {deliveryAgent && (
+        <DeliveryEscrowModal
+          open={deliveryEscrowModalOpen}
+          onOpenChange={setDeliveryEscrowModalOpen}
+          deliveryAgent={deliveryAgent}
+          onSuccess={handleDeliveryPaymentRequest}
+        />
+      )}
+    </div>
+  );
+};
+
+const ParticipantLeftCallNotice = ({
+  isSeller,
+  connectParticipant,
+  handleEndCall,
+  isLoading,
+  isCallRejected,
+}: {
+  isSeller: boolean;
+  isLoading: boolean;
+  connectParticipant: () => void;
+  handleEndCall: () => void;
+  isCallRejected?: boolean;
+}) => {
+  return (
+    <div className="h-screen w-screen bg-black flex items-center justify-center px-4">
+      <div className="text-center text-white max-w-md">
+        <h2 className="text-3xl font-bold mb-4">
+          {isLoading ? "Invitation Sent" :
+            isCallRejected ? "Call Declined" :
+            isSeller ? "Buyer Left the Call" :
+              "Seller Left the Call"}
+        </h2>
+
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground italic">
+            Reconnecting you to the other participant... 🧠 Warming up the signal tubes...
+          </p>
+        ) : isCallRejected ? (
+          <p className="mb-6 text-base">
+            No worries! There are plenty of other amazing sellers waiting to chat with you! 🌟
+          </p>
+        ) : isSeller ? (
+          <p className="mb-6 text-base">
+            Looks like the buyer dipped 🍵 — go stretch, sip some tea, and get ready for your next awesome customer.
+          </p>
+        ) : (
+          <p className="mb-6 text-base">
+            The seller just ninja-vanished 🥷 — hang tight or hit reconnect to bring them back!
+          </p>
+        )}
+
+        <div className="flex justify-center gap-4">
+          {(!isSeller || isCallRejected) && (
+            <Button onClick={connectParticipant} variant="default" className="gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              {isCallRejected ? "Try Again" : "Reconnect"}
+            </Button>
+          )}
+          <Button onClick={handleEndCall} variant="outline" className="gap-2 text-white border-white hover:bg-white/10">
+            <PhoneOff className="w-4 h-4" />
+            Exit
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };

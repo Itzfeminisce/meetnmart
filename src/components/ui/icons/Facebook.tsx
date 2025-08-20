@@ -1,11 +1,9 @@
-export default function Facebook({ className }: { className?: string }) {
+export default function Facebook(props) {
   return (
     <svg
-      className={className}
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 48 48"
-      width="48px"
-      height="48px"
+      {...props}
     >
       <path
         fill="#3F51B5"

@@ -16,12 +16,18 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function getInitials(name: string): string {
   if (!name) return "";
+
   return name
-    .split(' ')
-    .slice(2)
-    .map(part => part[0])
-    .join('')
-    .toUpperCase();
+    .replace(/[^\p{L}\s]/gu, '') // remove non-letter characters, including emojis
+    .split(/\s+/) // split by spaces
+    .filter(Boolean) // remove empty strings
+    .slice(0, 2) // get first two name parts
+    .map(part => part[0].toUpperCase())
+    .join('');
+}
+
+export function getShortName(name: string) {
+  return name?.split(" ")?.[0] + " " + getInitials(name)
 }
 
 /**
@@ -30,18 +36,97 @@ export function getInitials(name: string): string {
  * @returns Formatted string in MM:SS
  */
 
-export function formatDuration(seconds: number): string {
-  if (typeof seconds === "string" && (seconds as string).includes(":")) return seconds;
-  if (+seconds < 0) return "0:00";
+export function formatDate(
+  dateString: string | Date,
+  options: {
+    dateStyle?: 'full' | 'long' | 'medium' | 'short',
+    timeStyle?: 'full' | 'long' | 'medium' | 'short',
+    timeZone?: string
+  } = {}
+): string {
+  const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+
+  // Default options
+  const defaultOptions: Intl.DateTimeFormatOptions = {
+    dateStyle: 'long',
+    timeStyle: 'short',
+    timeZone: 'UTC',
+    ...options
+  };
+
+  return new Intl.DateTimeFormat('en-US', {
+    ...defaultOptions,
+    hour12: true // Use AM/PM format
+  }).format(date);
+}
+
+export function formatDuration(input: number | string): string {
+  if (typeof input === 'string') {
+    // If already in a time format (e.g., "01:23" or "00:10:15")
+    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(input)) {
+      return input;
+    }
+
+    // If it's a Postgres interval string (e.g., "01:23:45" or "00:10:00")
+    const parts = input.split(':').map(Number);
+    if (parts.length === 3) {
+      const [hours, mins, secs] = parts;
+      const totalMinutes = hours * 60 + mins;
+      return `${hours}h ${mins}m`;
+    }
+  }
+
+  // Treat numeric input as seconds
+  const seconds = Number(input);
+  if (isNaN(seconds) || seconds < 0) return "0:00";
+
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-export const getEnvVar = (key: string): string => {
-  const value = import.meta.env[`${key.startsWith("VITE_") ? key : `VITE_${key}`}`];
+export function formatTimeAgo(
+  input: Date | string | number,
+  locale: string = "en"
+): string {
+  const now = new Date();
+  const date = new Date(input);
+  const diffInSeconds = Math.floor((date.getTime() - now.getTime()) / 1000);
+
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+
+  const ranges: [number, Intl.RelativeTimeFormatUnit][] = [
+    [60, "second"],
+    [60 * 60, "minute"],
+    [60 * 60 * 24, "hour"],
+    [60 * 60 * 24 * 7, "day"],
+    [60 * 60 * 24 * 30, "week"],
+    [60 * 60 * 24 * 365, "month"],
+    [Infinity, "year"]
+  ];
+
+  let divisor = 1;
+  let unit: Intl.RelativeTimeFormatUnit = "second";
+
+  for (const [threshold, u] of ranges) {
+    if (Math.abs(diffInSeconds) < threshold) {
+      unit = u;
+      break;
+    }
+    divisor = threshold;
+  }
+
+  const value = Math.round(diffInSeconds / divisor);
+  return rtf.format(value, unit);
+}
+
+
+export const getEnvVar = (key: string, defaultValue: string="http://localhost:3000"): string => {
+  const envKey = `${key.startsWith("VITE_") ? key : `VITE_${key}`}`;
+  const value = import.meta.env?.[envKey] || process.env?.[envKey];
   if (!value) {
-    throw new Error(`Missing environment variable: ${key}`);
+    if (defaultValue) return defaultValue
+    throw new Error(`Missing environment variable: ${envKey}`);
   }
   return value;
 };
@@ -53,4 +138,75 @@ export function toLivekitRoomName(input: string): string {
     .replace(/^-+|-+$/g, '')        // trim leading/trailing hyphens
     .replace(/-{2,}/g, '-')         // collapse multiple hyphens
     .slice(0, 512);                 // enforce max length
+}
+
+
+
+// Format currency
+export const formatCurrency = (amount: number, currency: string = 'NGN') => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency,
+    currencySign: "accounting",
+    currencyDisplay: "narrowSymbol"
+  }).format(amount);
+};
+
+
+
+export const formatDateTime = (dateString) => {
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat('en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true
+  }).format(date);
+};
+
+
+export const logger = (message?: any, ...optionalParams: any[]) => {
+  const env = getEnvVar("NODE_ENV")
+
+  if (env === "production") return;
+
+  console.log(message, optionalParams)
+}
+
+export const sluggify = (input: string): string => {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+};
+
+export function throttle<T extends (...args: any[]) => void>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle: boolean;
+  return function (...args: Parameters<T>) {
+    if (!inThrottle) {
+      func(...args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+}
+
+
+export function generateRandomId(length: number = 10): string {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return result;
+}
+
+export function wait(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }

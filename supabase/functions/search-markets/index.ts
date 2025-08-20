@@ -1,214 +1,144 @@
-
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-
-// CORS headers for browser access
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+};
+const supabase = createClient(Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '');
+const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+async function getCached(key) {
+  const { data, error } = await supabase.from('api_cache').select('data, next_page_token, created_at').eq('key', key).single();
+  if (error || !data) return null;
+  const age = Date.now() - new Date(data.created_at).getTime();
+  if (age > CACHE_TTL_MS) return null;
+  return data;
 }
-
-// Set up Supabase client
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-const supabase = createClient(supabaseUrl, supabaseKey)
-
-// Cache for market searches to reduce API calls
-const searchCache = new Map()
-const CACHE_TTL = 60 * 60 * 1000 // 1 hour cache
-
-// Cache for nearby market results
-const nearbyCache = new Map()
-
-// Helper function to get market information from the database to avoid API calls
-async function getMarketDataFromDb(placeIds: string[]) {
+async function setCached(key, payload, nextPageToken = null, type = 'search') {
+  await supabase.from('api_cache').upsert({
+    key,
+    type,
+    data: payload,
+    next_page_token: nextPageToken,
+    created_at: new Date().toISOString()
+  });
+}
+async function getMarketDataFromDb(placeIds) {
   if (!placeIds.length) return {};
-  
-  const { data } = await supabase
-    .from('markets')
-    .select('place_id, user_count')
-    .in('place_id', placeIds);
-    
-  const marketMap = {};
-  if (data) {
-    data.forEach(market => {
-      marketMap[market.place_id] = market;
+  const { data } = await supabase.from('markets').select('place_id, user_count').in('place_id', placeIds);
+  return (data || []).reduce((acc, market)=>{
+    acc[market.place_id] = market;
+    return acc;
+  }, {});
+}
+serve(async (req)=>{
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: corsHeaders
     });
   }
-  
-  return marketMap;
-}
-
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
-
   try {
-    // Get request body
     const { query, nearby, lat, lng, page = 1, pageSize = 10 } = await req.json();
-    
-    // Get the API key from environment variables
-    const googleMapsApiKey = Deno.env.get('GOOGLE_MAPS_API_KEY')
-    if (!googleMapsApiKey) {
-      return new Response(
-        JSON.stringify({ error: 'Google Maps API key not configured' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      )
+    const googleMapsApiKey = ""; // Deno.env.get('GOOGLE_MAPS_API_KEY');
+    if ((!query || query.length < 2) && !nearby) {
+      return new Response(JSON.stringify({
+        markets: []
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
-    // Return early if query is too short and not looking for nearby places
-    if (!query && query?.length < 2 && !nearby) {
-      return new Response(
-        JSON.stringify({ markets: [] }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    const cacheKey = nearby ? `nearby-${lat?.toFixed(4)}-${lng?.toFixed(4)}-${page}-${pageSize}` : `search-${query}`;
+    const cached = await getCached(cacheKey);
+    if (cached) {
+      return new Response(JSON.stringify({
+        markets: cached.data,
+        nextPageToken: cached.next_page_token,
+        cached: true
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
-    // Check cache first for this query
-    let cacheKey;
-    if (nearby) {
-      // For nearby searches, use lat/lng/page as the cache key
-      cacheKey = `nearby-${lat?.toFixed(4)}-${lng?.toFixed(4)}-${page}-${pageSize}`;
-      const cachedResult = nearbyCache.get(cacheKey);
-      if (cachedResult && (Date.now() - cachedResult.timestamp < CACHE_TTL)) {
-        console.log("Cache hit for nearby:", cacheKey);
-        return new Response(
-          JSON.stringify({ markets: cachedResult.data }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    } else {
-      // For text searches, use query as cache key
-      cacheKey = `search-${query}`;
-      const cachedResult = searchCache.get(cacheKey);
-      if (cachedResult && (Date.now() - cachedResult.timestamp < CACHE_TTL)) {
-        console.log("Cache hit for search:", cacheKey);
-        return new Response(
-          JSON.stringify({ markets: cachedResult.data }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
-
-    // If not in cache, we need to call the API
-    // First, check if we have pagination token from previous request
-    let nextPageToken = null;
-    if (nearby && page > 1) {
-      const prevPageKey = `nearby-${lat?.toFixed(4)}-${lng?.toFixed(4)}-${page-1}-${pageSize}`;
-      const prevPageData = nearbyCache.get(prevPageKey);
-      if (prevPageData) {
-        nextPageToken = prevPageData.nextPageToken;
-      }
-    }
-
-    // Different endpoints based on the search type
-    const endpoint = nearby 
-      ? 'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-      : 'https://maps.googleapis.com/maps/api/place/textsearch/json'
-
-    // Prepare search parameters
-    const searchParams = new URLSearchParams()
+    const endpoint = nearby ? 'https://maps.googleapis.com/maps/api/place/nearbysearch/json' : 'https://maps.googleapis.com/maps/api/place/textsearch/json';
+    const params = new URLSearchParams();
     if (nearby && lat && lng) {
-      searchParams.append('location', `${lat},${lng}`)
-      searchParams.append('radius', '5000')  // 5km radius
-      searchParams.append('type', 'supermarket|market|grocery_or_supermarket|store|shopping_mall')
-      // Add pagination token if we have one
-      if (nextPageToken) {
-        searchParams.append('pagetoken', nextPageToken)
-      }
+      params.append('location', `${lat},${lng}`);
+      params.append('radius', '5000');
+      params.append('type', 'supermarket|market|grocery_or_supermarket|store|shopping_mall');
     } else {
-      searchParams.append('query', `${query} market, nigeria`)
+      params.append('query', `${query} market, nigeria`);
     }
-    searchParams.append('key', googleMapsApiKey)
-
-    // Make request to Google Maps API
-    const googleResponse = await fetch(`${endpoint}?${searchParams.toString()}`)
-    const data = await googleResponse.json()
-
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      console.error('Google Maps API error:', data)
-      return new Response(
-        JSON.stringify({ error: `Google Maps API error: ${data.status}` }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      )
+    if (!googleMapsApiKey) {
+      return new Response(JSON.stringify({
+        error: 'Google Maps API key not configured'
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        },
+        status: 500
+      });
     }
-
-    // Process results
-    const places = data.results || []
-    const placeIds = places.map(place => place.place_id)
-    
-    // Get existing markets from our database
-    const existingMarketsMap = await getMarketDataFromDb(placeIds);
-    
-    // Format results with appropriate pagination
-    const startIdx = nearby ? 0 : (page - 1) * pageSize
-    const endIdx = nearby ? places.length : startIdx + pageSize
-    const paginatedPlaces = places.slice(startIdx, endIdx)
-
-    const results = paginatedPlaces.map(place => {
-      const existingMarket = existingMarketsMap[place.place_id];
-      const userCount = existingMarket ? existingMarket.user_count : 0;
-      
-      return {
+    params.append('key', googleMapsApiKey);
+    const googleResponse = await fetch(`${endpoint}?${params.toString()}`);
+    const data = await googleResponse.json();
+    if (![
+      'OK',
+      'ZERO_RESULTS'
+    ].includes(data.status)) {
+      console.error('Google Maps API error:', data);
+      return new Response(JSON.stringify({
+        error: `Google Maps API error: ${data.status}`
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        },
+        status: 500
+      });
+    }
+    const places = data.results || [];
+    const placeIds = places.map((p)=>p.place_id);
+    const existingMarkets = await getMarketDataFromDb(placeIds);
+    const paginatedPlaces = nearby ? places : places.slice((page - 1) * pageSize, page * pageSize);
+    const results = paginatedPlaces.map((place)=>({
         id: place.place_id,
         place_id: place.place_id,
         name: place.name,
         address: place.formatted_address || place.vicinity,
-        location: place.geometry?.location 
-          ? `(${place.geometry.location.lat},${place.geometry.location.lng})`
-          : null,
-        user_count: userCount,
-        photos: place.photos 
-          ? place.photos.map(photo => ({
-              reference: photo.photo_reference,
-              width: photo.width,
-              height: photo.height
-            }))
-          : []
+        location: place.geometry?.location ? `(${place.geometry.location.lat},${place.geometry.location.lng})` : null,
+        user_count: existingMarkets[place.place_id]?.user_count || 0,
+        photos: (place.photos || []).map((photo)=>({
+            reference: photo.photo_reference,
+            width: photo.width,
+            height: photo.height
+          }))
+      }));
+    await setCached(cacheKey, results, data.next_page_token || null, nearby ? 'nearby' : 'search');
+    return new Response(JSON.stringify({
+      markets: results,
+      nextPageToken: data.next_page_token || null,
+      cached: false
+    }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
       }
     });
-
-    // Cache the results
-    if (nearby) {
-      nearbyCache.set(cacheKey, {
-        timestamp: Date.now(),
-        data: results,
-        nextPageToken: data.next_page_token || null
-      });
-    } else {
-      searchCache.set(cacheKey, {
-        timestamp: Date.now(),
-        data: results
-      });
-    }
-
-    // Limit cache size to prevent memory issues
-    if (searchCache.size > 200) {
-      // Delete oldest entries
-      const keys = [...searchCache.keys()];
-      keys.slice(0, 50).forEach(k => searchCache.delete(k));
-    }
-    if (nearbyCache.size > 200) {
-      // Delete oldest entries
-      const keys = [...nearbyCache.keys()];
-      keys.slice(0, 50).forEach(k => nearbyCache.delete(k));
-    }
-
-    return new Response(
-      JSON.stringify({ 
-        markets: results,
-        nextPageToken: data.next_page_token || null,
-        cached: false
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-  } catch (error) {
-    console.error('Error in search-markets function:', error)
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    )
+  } catch (err) {
+    console.error('Function error:', err);
+    return new Response(JSON.stringify({
+      error: 'Internal server error'
+    }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      },
+      status: 500
+    });
   }
-})
+});
