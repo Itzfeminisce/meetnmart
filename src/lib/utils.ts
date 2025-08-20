@@ -121,10 +121,12 @@ export function formatTimeAgo(
 }
 
 
-export const getEnvVar = (key: string): string => {
-  const value = import.meta.env[`${key.startsWith("VITE_") ? key : `VITE_${key}`}`];
+export const getEnvVar = (key: string, defaultValue: string="http://localhost:3000"): string => {
+  const envKey = `${key.startsWith("VITE_") ? key : `VITE_${key}`}`;
+  const value = import.meta.env?.[envKey] || process.env?.[envKey];
   if (!value) {
-    throw new Error(`Missing environment variable: ${key}`);
+    if (defaultValue) return defaultValue
+    throw new Error(`Missing environment variable: ${envKey}`);
   }
   return value;
 };
@@ -193,4 +195,18 @@ export function throttle<T extends (...args: any[]) => void>(
       setTimeout(() => (inThrottle = false), limit);
     }
   };
+}
+
+
+export function generateRandomId(length: number = 10): string {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return result;
+}
+
+export function wait(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }

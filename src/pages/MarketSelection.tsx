@@ -6,7 +6,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { useDeleteMarketSelection, useGetCategories, useGetMarkets, useSellerCatrgoryMutation, useGetNearbyMarkets } from '@/hooks/api-hooks';
+import { useDeleteMarketSelection, useGetCategories, useGetMarkets, useSellerCatrgoryMutation } from '@/hooks/api-hooks';
 import Loader from '@/components/ui/loader';
 import { MarketWithAnalytics } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,37 +71,9 @@ const useSellerMarketSelection = (markets: MarketWithAnalytics[] | undefined) =>
     };
 };
 
-// Selection summary component
-const SelectionSummary: React.FC<{
-    count: number;
-    type: 'market' | 'category';
-    message: string;
-}> = ({ count, type, message }) => {
-    if (count === 0) return null;
-
-    return (
-        <Card className="bg-market-orange/10 border-market-orange/20">
-            <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h3 className="font-medium text-market-orange">
-                            {count} {type}{count !== 1 ? 's' : ''} selected
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                            {message}
-                        </p>
-                    </div>
-                    <CheckCircle className="h-5 w-5 text-market-orange" />
-                </div>
-            </CardContent>
-        </Card>
-    );
-};
-
 
 
 const MarketSelection = () => {
-    const __useId = useId()
     const isMobile = useIsMobile()
     const [searchParams] = useSearchParams()
     const { user, userRole } = useAuth();
@@ -168,14 +140,14 @@ const MarketSelection = () => {
     //     const alreadyJoinedMarketIds = filteredMarkets
     //       .filter(it => it?.belongs_to_market)
     //       .map(it => it.belongs_to_market); // extract just market_id
-      
+
     //     const allMarketIds = [...alreadyJoinedMarketIds, ...selectedMarkets];
-      
+
     //     const uniqueMarketIds = new Set(allMarketIds);
-      
+
     //     return uniqueMarketIds.size;
     //   }, [selectedMarkets, filteredMarkets]);
-      
+
 
     async function handleSaveSelections() {
         try {
@@ -222,7 +194,7 @@ const MarketSelection = () => {
             ...locationState,
             title,
             markets: [{
-                id: firstMarket.id,
+                id: firstMarket?.id,
                 name: firstMarket.name
             }],
 
@@ -235,6 +207,12 @@ const MarketSelection = () => {
 
     const getNextBehaviourOnActionClick = useCallback(() => {
         let actions: ReactNode[] = [];
+
+        
+
+       
+
+
         switch (locationState.utm_source) {
             case "seller_landing":
                 actions = [
@@ -243,7 +221,7 @@ const MarketSelection = () => {
                             type='button'
                             variant='outline'
                             size='default'
-                            onClick={() => navigate("/categories", {
+                            onClick={() =>  navigate("/categories", {
                                 state: preparePayloadForCategoryPage(newMarketEntry, true)
                             })}
                             className="w-full sm:w-auto">
@@ -279,7 +257,7 @@ const MarketSelection = () => {
                 const _selectedMarket = filteredMarkets.find(mkt => mkt.id == selectedMarkets[0])
                 actions = [
                     <Button
-                    size='sm'
+                        size='sm'
                         type='button'
                         variant='outline'
                         onClick={() => navigate("/categories", {
@@ -289,7 +267,7 @@ const MarketSelection = () => {
                         Browse Categories
                     </Button>,
                     <Button
-                    size='sm'
+                        size='sm'
                         type='button'
                         variant='market'
                         onClick={() =>
@@ -354,25 +332,29 @@ const MarketSelection = () => {
 
     return (
         <>
-            <SEO 
-              title="Market Selection | MeetnMart"
-              description="Choose from a variety of markets to connect with sellers and find the services you need on MeetnMart."
+            <SEO
+                title="Market Selection | MeetnMart"
+                description="Choose from a variety of markets to connect with sellers and find the services you need on MeetnMart."
             />
             {/* <div className="container mx-auto pt-4 mb-[5rem]"> */}
             <AppHeader
                 title={locationState.title}
-                subtitle="Select one or more markets to engage in"
+                subtitle="Select markets to engage in"
                 search={{
                     placeholder: "Search markets, categories or sellers nearby...",
                     onSearch: setSearchQuery,
                     onClear: () => setSearchQuery(""),
                 }}
-                showBackButton={true}
-                onBackClick={() => navigate(-1)}
+                // showBackButton={true}
+                // onBackClick={() => navigate(-1)}
                 rightContentOnNewLine={isMobile}
-                rightContent={selectedMarkets.length > 0 && (
+                rightContent={newMarketEntry.length > 0 && (
                     <div className='flex flex-row sm:flex-row items-stretch sm:items-center justify-between gap-2 w-full'>
-                        <React.Fragment key={__useId}>{getNextBehaviourOnActionClick()}</React.Fragment>
+                        {getNextBehaviourOnActionClick().map((component, idx) => (
+                            <React.Fragment key={idx}>{ }
+                                {component}
+                            </React.Fragment>
+                        ))}
                     </div>
                 )}
             />
@@ -403,7 +385,9 @@ const MarketSelection = () => {
                     </div>
 
                     {searchQuery && filteredMarkets.length < 2 && (
-                        <SearchHint query={searchQuery} />
+                        <SearchHint query={searchQuery} metadata={{
+                            source: "market_selection"
+                        }} />
                     )}
                 </div>
             </div>

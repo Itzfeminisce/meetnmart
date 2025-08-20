@@ -1,2 +1,31 @@
 User-agent: *
-DisAllow: /
+Allow: /
+
+# Disallow admin and private routes
+Disallow: /settings/
+Disallow: /messages/
+Disallow: /calls/
+Disallow: /transactions/
+Disallow: /activity/
+Disallow: /recent-visits/
+Disallow: /recent-calls/
+Disallow: /withdrawals/
+Disallow: /edit-seller-profile/
+Disallow: /edit-buyer-profile/
+Disallow: /seller-dashboard/
+Disallow: /buyer-dashboard/
+Disallow: /catalog/
+Disallow: /role-selection/
+Disallow: /interest-selection/
+Disallow: /getting-started/
+
+# Allow important pages
+Allow: /feeds/
+Allow: /markets/
+Allow: /categories/
+Allow: /search/
+Allow: /sellers/
+Allow: /rating/
+
+# Sitemap
+Sitemap: http://localhost:3000/sitemap.xml

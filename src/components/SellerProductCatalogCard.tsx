@@ -30,7 +30,7 @@ const SellerProductCatalogCard: React.FC<SellerProductCatalogCardProps> = ({ pro
             )}
         >
             {/* Image & Interactive Icons */}
-            <div className="relative aspect-square  w-full overflow-hidden">
+            <div className="relative  w-full overflow-hidden">
                 <ImageGridView images={[product.image]} itemId={product.id} />
 
                 {/* Like Button */}

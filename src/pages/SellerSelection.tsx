@@ -19,7 +19,7 @@ import SellerProductCatalogCard from '@/components/SellerProductCatalogCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SellerCard } from '@/components/SellerCard';
 import { z } from 'zod';
-import { SellerSelectionStateSchema } from '@/types/screens';
+import { SellerSelectionStateSchema, SellerSelectionStateType } from '@/types/screens';
 import AppHeader from '@/components/AppHeader';
 import SellerFilter from '@/components/SellerFilter';
 import { ImageGridView } from '@/components/ImageGridView';
@@ -73,10 +73,29 @@ const SellerSelection = () => {
   const [activeTab, setActiveTab] = useState<string>('catalog');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   // const [searchQuery, setSearchQuery] = useState("")
+  const location = useLocation() 
+  
+  const [preservedChatData] = useState<SellerSelectionStateType>(() => {
+    const locationState = location.state;
+     
+    return  {
+      title: locationState?.title,
+      category: {
+        id: locationState.category?.id,
+        name: locationState.category?.name
+      },
+      market: {
+        id: locationState.market?.id,
+        name: locationState.market?.name
+      },
+      utm_source: locationState?.utm_source
+    }
+  });
 
-  const locationState = SellerSelectionStateSchema.parse(useLocation().state)
 
-  const { market, category,  } = locationState;
+  const locationState = SellerSelectionStateSchema.parse(preservedChatData)
+
+  const { market, category, } = locationState;
 
 
   const { data: sellers = [], isLoading, error, refetch } = useGetNearbySellers({ market_id: market?.id, category_id: category?.id })
@@ -85,7 +104,7 @@ const SellerSelection = () => {
 
   // Memoize handlers
   const handleCall = useCallback(async (seller: NearbySellerResponse) => {
-    navigate('/calls', {
+    navigate(`/calls/${toLivekitRoomName(`call_${Date.now()}_${seller.seller_id}`)}`, {
       state: {
         caller: { id: profile.id, name: profile.name },
         room: toLivekitRoomName(`call_${Date.now()}_${seller.seller_id}`),
@@ -132,10 +151,10 @@ const SellerSelection = () => {
 
   return (
     <>
-    <SEO 
-      title={`${locationState.title} | MeetnMart`}
-      description={`Find and connect with sellers in ${locationState.category.name || "all categories"} on MeetnMart. Browse profiles, reviews, and start conversations with verified sellers.`}
-    />
+      <SEO
+        title={`${locationState.title} | MeetnMart`}
+        description={`Find and connect with sellers in ${locationState.category.name || "all categories"} on MeetnMart. Browse profiles, reviews, and start conversations with verified sellers.`}
+      />
       <AppHeader
         title={locationState.title}
         subtitle={`${locationState.category.name || "All Categories"}, Found: (${filterSellers.length})`}
@@ -255,7 +274,7 @@ const SellerSelection = () => {
                   {/* Tab navigation */}
                   <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className=''>
                     <TabsList className="w-full bg-transparent border-b rounded-none justify-start space-x-4 overflow-x-auto scrollbar-small max-w-full overflow-y-hidden">
-                    <TabsTrigger
+                      <TabsTrigger
                         value="catalog"
                         className={`border-b-2 px-4 py-2 rounded-none text-sm font-medium data-[state=active]:border-market-orange data-[state=active]:text-foreground border-transparent`}
                       >
@@ -270,7 +289,7 @@ const SellerSelection = () => {
                         Reviews & Ratings
                       </TabsTrigger>
 
-                     
+
                     </TabsList>
 
                     <TabsContent value="reviews">

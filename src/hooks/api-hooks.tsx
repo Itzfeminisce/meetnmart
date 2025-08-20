@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
-import { Category, ExpandedTransaction, Feedback, FeedInteractionItem, FeedItem, FeedItemAuthor, FeedOverviewStats, MarketWithAnalytics, NearbySellerResponse, Notification, Product, ProductCrud, SellerMarketAndCategory, UserProfile, WhispaResponse } from '@/types';
+import { Category, Chat, Conversation, ExpandedTransaction, Feedback, FeedInteractionItem, FeedItem, FeedItemAuthor, FeedOverviewStats, Market, MarketWithAnalytics, NearbySellerResponse, Notification, Product, ProductCrud, SearchedMarket, SellerMarketAndCategory, UserProfile, WhispaResponse } from '@/types';
 import {
   useQuery,
   useMutation,
@@ -13,12 +13,12 @@ import {
 import { StatsOverview } from '../types';
 import { MarketResult } from '@/services/marketsService';
 import { useAxios } from '@/lib/axiosUtils';
-import { useFeedStore, useInteractionStatsStore, useUserProfileStore } from '@/contexts/Store';
-import { debounce, useDebounce } from './use-debounce';
-import { useMemo } from 'react';
+import { useFeedStore, useInteractionStatsStore } from '@/contexts/Store';
 import { toast } from 'sonner';
 import { useNotificationStore } from '@/contexts/store/notification';
 import { isAxiosError } from 'axios';
+import { SearchedMarketMeta, useMarketSearchStore } from '@/contexts/store/search';
+import { useChatStore } from '@/contexts/store/conversation';
 
 const axiosUtil = useAxios()
 
@@ -49,6 +49,7 @@ const CACHE_TIMES = {
   // Real-time data - very short cache
   CURRENT_USER: 30 * 1000, // 30 seconds
   WALLET_SUMMARY: 30 * 1000, // 30 seconds
+  CHATS_LIST: 30 * 1000, // 30 seconds
 } as const;
 
 // Create a query client with optimized default options
@@ -113,7 +114,7 @@ export function useFetch<
   queryKey: TQueryKey,
   fetchFn: () => Promise<TData>,
   queryOptions?: Omit<UseQueryOptions<TData, TError, TData, TQueryKey>, 'queryKey' | 'queryFn'> & {
-    cacheTime?: keyof typeof CACHE_TIMES;
+    cacheTime?: keyof typeof CACHE_TIMES | number;
   }
 ) {
   const { cacheTime, ...restOptions } = queryOptions || {};
@@ -488,7 +489,7 @@ export const useGetUserProfile = ({
   return useFetch(
     cacheKeys.userProfile(userId),
     async () => {
-      const response = await axiosUtil.Get<{data: UserProfile}>("/users/profile").then(res => res.data)
+      const response = await axiosUtil.Get<{ data: UserProfile }>("/users/profile").then(res => res.data)
 
       // setProfile(data)
       return response
@@ -524,10 +525,10 @@ type BankForm = {
 
 export const useWithdraw = () => {
   const queryClient = useQueryClient()
-  return useMutate(async (payload: BankForm) => await axiosUtil.Post<{data: any}>("/payments/recipient", payload).then(res => res.data),
+  return useMutate(async (payload: BankForm) => await axiosUtil.Post<{ data: any }>("/payments/recipient", payload).then(res => res.data),
     {
       async onSuccess(data, variables, context) {
-        await queryClient.invalidateQueries({queryKey: cacheKeys.userWallet(data.user_id)})
+        await queryClient.invalidateQueries({ queryKey: cacheKeys.userWallet(data.user_id) })
         toast.success(data.message)
       },
       onError(error, variables, context) {
@@ -867,37 +868,37 @@ type GetNearbyMarketsGlobalSearchParams = {
 
 export type GetNearbyMarketsSearchParamsProps = GetNearbyMarketsNearbySearchParams | GetNearbyMarketsGlobalSearchParams;
 
-function normalizeSearchParams(params: Partial<GetNearbyMarketsSearchParamsProps>): GetNearbyMarketsSearchParamsProps {
-  return {
-    nearby: params.nearby ?? false,
-    page: params.page ?? 1,
-    pageSize: params.pageSize ?? 10,
-    ...(params.nearby ? { lat: params.lat!, lng: params.lng! } : { query: params.query ?? '' }),
-  } as GetNearbyMarketsSearchParamsProps;
-}
 
+export const useFetchNearbyMarkets = () => {
+  const store = useMarketSearchStore();
 
-export const useGetNearbyMarkets = (
-  params?: GetNearbyMarketsSearchParamsProps,
-  enabled = false,
-  locationUpdateCount = 0
-) => {
-  return useFetch(
-    ["nearby_markets", params, locationUpdateCount],
-    async () => {
-      const response = await axiosUtil.Post<{ data: { markets: MarketWithAnalytics[], nextPageTokens: string } }>("/search", normalizeSearchParams(params)).then(it => it.data)
-      return response;
-    },
-    {
-      enabled,
-      cacheTime: 'DEFAULT',
-      throwOnError() {
-        return true
+  const mutation = useMutation({
+    mutationFn: async ({
+      page = 1,
+      action = null,
+      query = null,
+      key = null,
+      params = {}
+    }: Partial<{ query: string; page: number, key?: string; params?: Record<string, string>, action?: "load_more" }> = {}) => {
+      const response = await axiosUtil.Get<{
+        data: { data: SearchedMarket[]; meta: SearchedMarketMeta };
+      }>('/search', { params: { query, page, key, ...params } }).then((r) => r.data);
+
+      if (page > 1 && action === "load_more") {
+        store.append(response.data);
+      } else {
+        store.setData(response.data);
       }
+      store.setMeta(response.meta);
+      return response;
     }
-  );
-};
+  });
 
+  return {
+    ...mutation,
+    fetchMarkets: mutation.mutateAsync, // use mutate({ query, page })
+  };
+};
 
 
 export const useGetCategories = ({ userId = undefined, limit = 20 }: { userId?: string; limit?: number; } = {}) => {
@@ -931,8 +932,8 @@ export const useCreateInterests = () => {
 };
 export const useGetInterests = () => {
   return useFetch(
-    ["interests"], 
-    async () => await axiosUtil.Get<{data: (Category & {is_interested: boolean})[]}>("/users/interests").then(res => res.data),
+    ["interests"],
+    async () => await axiosUtil.Get<{ data: (Category & { is_interested: boolean })[] }>("/users/interests").then(res => res.data),
     {
       cacheTime: "DEFAULT"
     }
@@ -1161,10 +1162,19 @@ export const useSellerCatrgoryMutation = () => {
     },
     {
       async onSuccess() {
+        toast.success("Record created successfully")
         await queryClient.invalidateQueries({ queryKey: ['markets'] })
         await queryClient.invalidateQueries({ queryKey: ['category'] })
         await queryClient.invalidateQueries({ queryKey: ['markets_categories'] })
-      }
+      },
+      onError(error, variables, context) {
+        // @ts-ignore
+        if (error?.code == 23505) {
+          toast.warning("Record already exists.")
+        } else {
+          toast.error("Failed to update record.")
+        }
+      },
     }
   );
 };
@@ -1181,6 +1191,54 @@ export const useDeleteMarketSelection = () => {
     }
   });
 };
+export const useSendMessage = () => {
+  return useMutate(async ({ to, message, context }: { to: string; message: string; context?: any }) => {
+    const response = await axiosUtil.Post<{ data: any }>("/conversations", { to, message, context }).then(res => res.data)
+    return response
+  }, {
+    onError(error, variables, context) {
+      toast.error(isAxiosError(error) ? error.response.data.message : "Failed to send message. Please try again.")
+    },
+    onSuccess(data) {
+      toast.success("Message sent successfully.")
+      queryClient.invalidateQueries({ queryKey: ["CHATS_LIST", data] })
+      queryClient.invalidateQueries({ queryKey: ["CHATS_LIST"] })
+    }
+  });
+};
+export const useGetMessages = () => {
+  const chatStore = useChatStore()
+  return useFetch(
+    ["CHATS_LIST"],
+    async () => {
+      const response = await axiosUtil.Get<{ data: Chat[] }>("/conversations").then(res => res.data)
+      chatStore.setChats(response)
+      return response
+    },
+    {
+      cacheTime: 60000, // Cache for 1 minute
+      refetchOnWindowFocus: true, // Refetch when window is focused
+      refetchInterval: 10000,  // Refetch every 10 seconds
+    }
+  );
+};
+export const useGetConversations = ({ conversationId }: { conversationId: string }) => {
+  const chatStore = useChatStore()
+  return useFetch(
+    ["CHATS_CONVERSATION", conversationId],
+    async () => {
+      const response = await axiosUtil.Get<{ data: Conversation[] }>(`/conversations/${conversationId}`).then(res => res.data);
+      chatStore.setConversations(response);
+      return response;
+    },
+    {
+      enabled: !!conversationId,
+      cacheTime: 60000, // Cache for 1 minute
+      refetchOnWindowFocus: true, // Refetch when window is focused
+      refetchInterval: 5000,  // Refetch every 5 seconds
+    }
+  );
+};
 
 
 
@@ -1188,14 +1246,15 @@ export const useJoinMarket = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (market: MarketResult) => {
+    mutationFn: async (market: { place_id: string, name: string; address: string; map_url: string; location: string; }) => {
       const { data, error } = await supabase.rpc(
-        'increment_market_user_count',
+        'join_market',
         {
           market_place_id: market.place_id,
           name: market.name,
           location: market.location, //market.location,
           address: market.address,
+          map_url: market.map_url
         }
       );
       if (error) throw error;

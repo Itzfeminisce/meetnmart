@@ -6,19 +6,19 @@ import { useGetCategories } from '@/hooks/api-hooks';
 
 interface CategoryFilterProps {
 }
-export const CategoryFilter  = () => {
+export const CategoryFilter = () => {
   const { data: categories = [], isLoading: isLoadingCategories } = useGetCategories()
   const feedStore = useFeedStore()
 
   return (
-    isLoadingCategories ? (
-      <div className="flex justify-center items-center py-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    ) : (
-      <div className="">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex space-x-4 overflow-x-auto scrollbar-none pb-2">
+    <div className="pb-4">
+      {
+        isLoadingCategories ? (
+          <div className="flex justify-center items-center py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : (
+          <div className="flex space-x-4 overflow-x-auto scrollbar-none">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -62,8 +62,8 @@ export const CategoryFilter  = () => {
               );
             })}
           </div>
-        </div>
-      </div>
-    )
+        )
+      }
+    </div>
   );
 };

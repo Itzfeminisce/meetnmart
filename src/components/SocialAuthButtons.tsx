@@ -30,7 +30,7 @@ export function SocialAuthButtons({
             <div className="flex items-center  w-full ">
               <Icon className="h-8 w-8" />
               <span className="text-muted-foreground self-center w-full">
-                Continue with <span className="capitalize">{name}</span>
+                Continue with <span className="capitalize">{name?.replace("_oidc", '')}</span>
               </span>
             </div>
           )}

@@ -38,6 +38,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { CategorySelectionStateType } from '@/types/screens';
 import SEO from '@/components/SEO';
+import { Marquee } from '@/components/Marquee';
 
 const SellerDashboard = () => {
   const isMobile = useIsMobile()
@@ -45,7 +46,7 @@ const SellerDashboard = () => {
   const { data: sellerMarketAndCategories } = useGetSellerMarketAndCategories({ seller: user?.id, })
   const { data: sellerStats, isLoading: isLoadingSellerStats } = useGetSellerStats({ userId: user?.id })
 
-  const { data: recentCalls = [], isLoading: isLoadingTrx, error: trxErr } = useGetTransactions({ params: { user_id: user?.id, limit_count: 2 } })
+  const { data: recentCalls = [], isLoading: isLoadingTrx, error: trxErr } = useGetTransactions({ params: { user_id: user?.id, limit_count: 5 } })
   // const {data: products = [],isLoading: isProductLoading,error: productsError} = useGetProducts();
 
   const [isOnline, setIsOnline] = useState(profile.is_reachable);
@@ -130,7 +131,7 @@ const SellerDashboard = () => {
     />
       <AppHeader
         title={(profile.name)}
-        subtitle={profile.location?.address ?? "Unknown"}
+        subtitle={`${profile.location?.components.state}, ${profile.location?.components.country}`}
         rightContent={(
           <div className="relative">
             <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
@@ -263,9 +264,9 @@ const SellerDashboard = () => {
                       <p className='text-xs text-muted-foreground'>Click <b>Manage</b> to engage in a market</p>
                     </div>
                   )}
-                  {sellerMarketAndCategories?.markets.map(market => (
+                  {sellerMarketAndCategories?.markets.map((market, idx) => (
                     <div
-                      key={market.id}
+                      key={idx}
                       className="flex items-center justify-between p-3 rounded-lg border border-white/10 hover:bg-white/5 transition-colors card-hover"
                     >
                       <div className="flex-1 min-w-0">
@@ -307,9 +308,9 @@ const SellerDashboard = () => {
                     </div>
                   )}
 
-                  {sellerMarketAndCategories?.categories.map(category => (
+                  {sellerMarketAndCategories?.categories.map((category, idx) => (
                     <div
-                      key={category.id}
+                      key={idx}
                       className="flex items-center justify-between p-3 rounded-lg border border-white/10 hover:bg-white/5 transition-colors card-hover"
                     >
                       <div className="flex items-center justify-between gap-2 flex-1 min-w-0">
@@ -414,9 +415,9 @@ const SellerDashboard = () => {
                         <h1 className='text-base'>No records found</h1>
                         <p className='text-xs text-muted-foreground'>Your recent calls will appear here</p>
                       </div>
-                    ) : recentCalls.map((call) => (
+                    ) : recentCalls.slice(0, 2).map((call, idx) => (
                       <div
-                        key={call.reference}
+                        key={idx}
                         onClick={() => call.reference ? navigate(`/transactions/${call.call_session_id}`) : () =>{}}
                         className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg border border-white/10 hover:bg-white/5 transition cursor-pointer", !call.reference && 'cursor-not-allowed')}
                       >

@@ -66,12 +66,12 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     
     // Disconnect existing socket if any
     if (socketRef.current) {
-      console.log('Closing existing socket connection');
+      // console.log('Closing existing socket connection');
       socketRef.current.disconnect();
     }
     
     try {
-      console.log(`Connecting to socket server at ${url}`);
+      // console.log(`Connecting to socket server at ${url}`);
       setConnectionError(null);
       
       // Connection options
@@ -86,7 +86,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
       // Add auth token if available
       if (tokenRef.current) {
         connectionOptions.auth[tokenKey] = tokenRef.current;
-        console.log(`Auth token added with key: ${tokenKey}`);
+        // console.log(`Auth token added with key: ${tokenKey}`);
       }
       
       // Create socket instance
@@ -106,17 +106,17 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
   // Setup socket event listeners
   const setupSocketListeners = useCallback((socket: Socket) => {
     socket.on('connect', () => {
-      console.log(`Socket connected with ID: ${socket.id}`);
+      // console.log(`Socket connected with ID: ${socket.id}`);
       setIsConnected(true);
       setConnectionError(null);
     });
 
     socket.on('connection_confirmed', (data) => {
-      console.log('Server confirmed connection:', data);
+      // console.log('Server confirmed connection:', data);
     });
 
     socket.on('disconnect', (reason) => {
-      console.log(`Socket disconnected. Reason: ${reason}`);
+      // console.log(`Socket disconnected. Reason: ${reason}`);
       setIsConnected(false);
     });
 
@@ -132,7 +132,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     });
 
     socket.on('pong', (data) => {
-      console.log('Received pong:', data);
+      // console.log('Received pong:', data);
       setLastPong(data.timestamp); 
     });
   }, [socketRef]);
@@ -140,7 +140,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
   // Disconnect function
   const disconnect = useCallback(() => {
     if (socketRef.current) {
-      console.log('Manually disconnecting socket');
+      // console.log('Manually disconnecting socket');
       socketRef.current.disconnect();
       socketRef.current = null;
       setIsConnected(false);
@@ -150,47 +150,47 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
   // Ping server to check connection
   const ping = useCallback(() => {
     if (socketRef.current && isConnected) {
-      console.log('Sending ping to server');
+      // console.log('Sending ping to server');
       const startTime = Date.now();
       
       // Try with callback first
       socketRef.current.emit('ping', (response) => {
         const latency = Date.now() - startTime;
-        console.log(`Ping response received in ${latency}ms:`, response);
+        // console.log(`Ping response received in ${latency}ms:`, response);
         setLastPong(response.timestamp);
       });
     } else {
-      console.warn('Cannot ping: socket not connected');
+      // console.warn('Cannot ping: socket not connected');
     }
   }, [isConnected]);
 
   // Subscribe to a room
   const subscribe = useCallback((event: string, listener: (...args: any[]) => void) => {
     if (socketRef.current && isConnected) {
-      console.log(`Subscribing to event: ${event}`);
+      // console.log(`Subscribing to event: ${event}`);
       socketRef.current.on(event, listener);
     } else {
-      console.warn(`Cannot subscribe to ${event}: socket not connected`);
+      // console.warn(`Cannot subscribe to ${event}: socket not connected`);
     }
   }, [isConnected]);
 
   // Subscribe to a room
   const unsubscribe = useCallback((event: string, listener?: (...args: any[]) => void) => {
     if (socketRef.current && isConnected) {
-      console.log(`Unsubscribing from event: ${event}`);
+      // console.log(`Unsubscribing from event: ${event}`);
       socketRef.current.off(event, listener);
     } else {
-      console.warn(`Cannot unsubscribe from ${event}: socket not connected`);
+      // console.warn(`Cannot unsubscribe from ${event}: socket not connected`);
     }
   }, [isConnected]);
 
   // Publish an event
   const publish = useCallback((event: string, ...data: any[]) => {
     if (socketRef.current.connected) {
-      console.log(`Publishing an event: ${event}`);
+      // console.log(`Publishing an event: ${event}`);
       socketRef.current.emit(event, data);
     } else {
-      console.warn(`Cannot publish to ${event}: socket not connected`);
+      // console.warn(`Cannot publish to ${event}: socket not connected`);
     }
   }, [isConnected, socketRef]);
 
@@ -203,7 +203,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     // Cleanup on unmount
     return () => {
       if (socketRef.current) {
-        console.log('Component unmounting, closing socket');
+        // console.log('Component unmounting, closing socket');
         socketRef.current.disconnect();
         socketRef.current = null;
       }

@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { DebouncedInput, DebouncedInputRef } from './ui/debounced-input';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Search configuration type
 interface SearchConfig {
@@ -37,7 +38,7 @@ interface HeaderProps {
   /** Whether to show search on desktop view */
   showSearchOnDesktop?: boolean;
   /** Whether search input should be active by default */
-  defaultSearchActive?: never;
+  defaultSearchActive?: boolean;
   /** Controlled state for search active status */
   isSearchActive?: boolean;
   /** Callback when search active state changes */
@@ -87,12 +88,13 @@ const AppHeader: React.FC<HeaderProps> = ({
   rightContentOnNewLine = false,
   defaultSearchActive = false,
   hideOnScroll = true,
-  scrollThreshold = 10
+  scrollThreshold = 10,
 }) => {
   const [internalSearchActive, setInternalSearchActive] = useState(defaultSearchActive);
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const searchInputRef = useRef<DebouncedInputRef>(null);
+  const isMobile = useIsMobile()
 
   const isSearchActive = controlledSearchActive !== undefined ? controlledSearchActive : internalSearchActive;
 
@@ -108,6 +110,8 @@ const AppHeader: React.FC<HeaderProps> = ({
   useEffect(() => {
     if (isSearchActive && searchInputRef.current) {
       searchInputRef.current.focus();
+    }else{
+      search?.onClear?.()
     }
   }, [isSearchActive]);
 
@@ -170,6 +174,8 @@ const AppHeader: React.FC<HeaderProps> = ({
     if (searchInputRef.current) {
       searchInputRef.current.clear();
     }
+
+    !isMobile && search?.onClear?.() 
   };
 
   const getVariantStyles = () => {
@@ -223,7 +229,7 @@ const AppHeader: React.FC<HeaderProps> = ({
       <div className="px-4 py-3 container">
         <div className="flex flex-col">
           <div className={cn("flex items-center justify-between", isSearchActive && "md:flex hidden")}>
-            {!showBackButton && <div className="w-14 h-14 overflow-hidden">
+            {!showBackButton && <div className="w-12 h-12 overflow-hidden">
               <img src='/logo-white.png' width={"100%"} className='object-cover h-full w-full' />
             </div>}
             <div className="flex items-center space-x-3 flex-1 min-w-0">

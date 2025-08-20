@@ -22,7 +22,13 @@ export type MarketWithAnalytics = {
   age_hours: number;
   updated_recently: boolean;
   belongs_to_market: boolean;
+  map_url: string;
 };
+
+export type SearchedMarket = {
+  distance: string;
+} & Pick<MarketWithAnalytics, "id" | "place_id" | "name" | "address" | "map_url">
+
 
 
 // export type MarketWithAnalytics = {
@@ -66,6 +72,7 @@ export interface Seller {
   avatar?: string;
   description: string;
   is_online: boolean;
+  is_reachable: boolean;
   rating: number;
 
   category: string;
@@ -356,7 +363,7 @@ export interface FeedItem {
   urgency?: 'low' | 'medium' | 'high' | 'not_specified';
   created_at: string;  // ISO timestamp
   expires_at?: string;
-  interactions:  FeedInteraction
+  interactions: FeedInteraction
 }
 
 export interface FeedOverviewStats {
@@ -424,7 +431,7 @@ export interface Notification {
   metadata?: Record<string, any>;
   created_at?: string;
 }
-      
+
 
 export interface UserLocation {
   address: string;
@@ -499,3 +506,56 @@ export interface UserProfile {
   identities: UserIdentity[];
   is_anonymous: boolean;
 }
+
+
+export type MessageStatus = 'sent' | 'delivered' | 'read';
+export type MessageType = 'text' | 'file';
+export type AttachmentType = 'photo' | 'camera' | 'document' | 'file';
+export type ChatAction = 'pin' | 'delete' | 'archive' | 'report';
+
+export interface Conversation {
+  id: string;
+  text: string;
+  sender: 'me' | 'other';
+  timestamp: string;
+  status: MessageStatus;
+  type?: MessageType;
+}
+
+export interface Chat {
+  avatar:        string;
+  id:            string;
+  name:          string;
+  participantId: string;
+  lastMessage:   string;
+  timestamp:     Date;
+  unread:        number;
+  online:        boolean;
+  typing:        boolean;
+  pinned:        boolean;
+}
+
+
+// export interface Chat {
+//   id: string;
+//   created_at: string;
+//   updated_at: string;
+//   user1: Participant;
+//   user2: Participant;
+//   participantId: string;
+//   last_message: LastMessage | null;
+//   conversations: Conversation[]
+// }
+
+// export interface Participant {
+//   id: string;
+//   name: string;
+//   avatar: string | null;
+// }
+
+// export interface LastMessage {
+//   id: string;
+//   type: 'text' | 'file' | string; // extend if needed
+//   content: string;
+//   created_at: string;
+// }

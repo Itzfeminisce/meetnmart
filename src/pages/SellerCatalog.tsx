@@ -49,6 +49,8 @@ import { ImageUploadField } from '@/components/ui/image-upload-field';
 import AppHeader from '@/components/AppHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { useBottomSheet } from '@/components/ui/bottom-sheet-modal';
+import { CatalogBody, CatalogFooter, CatalogHeader } from '@/components/catalog';
 
 // Product form schema
 const productSchema = z.object({
@@ -62,11 +64,10 @@ const productSchema = z.object({
 
 type ProductFormValues = z.infer<typeof productSchema>;
 
-const SellerCatalog = () => {
-  const { user, profile, signOut, isLoading } = useAuth();
-  const navigate = useNavigate();
+const SellerCatalog = () => { 
   const isMobile = useIsMobile()
   const [searchQuery, setSearchQuery] = useState('');
+  const bottomSheet = useBottomSheet()
 
   // Queries with optimized configuration
   const {
@@ -74,13 +75,7 @@ const SellerCatalog = () => {
     isLoading: isProductLoading,
     error: productsError
   } = useGetProducts();
-
-  const {
-    data: categories,
-    error: categoriesError,
-    isLoading: isCategoryLoading
-  } = useGetCategories();
-
+ 
 
   // Filter products by search query
   const filteredProducts = useMemo(() => {
@@ -91,15 +86,8 @@ const SellerCatalog = () => {
       product.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [products, searchQuery]);
-
-  // Mutations with optimistic updates
-  const productCreateMutation = useCreateProduct();
-  const productUpdateMutation = useUpdateProduct();
-
+ 
   const [likesSeller, setLikedSeller] = useState<string[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [productImageUrl, setProductImageUrl] = useState('');
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -112,19 +100,7 @@ const SellerCatalog = () => {
       in_stock: true,
     },
   });
-
-  // Update form when editing product
-  useEffect(() => {
-    if (editingProduct) {
-      form.reset({
-        ...editingProduct,
-        image: editingProduct.image || '',
-      });
-      setProductImageUrl(editingProduct.image || '');
-    }
-  }, [editingProduct, form]);
-
-
+ 
   const handleLikeSeller = useCallback((productId: string) => {
     setLikedSeller(prev =>
       prev.includes(productId)
@@ -133,58 +109,21 @@ const SellerCatalog = () => {
     );
   }, []);
 
-  const handleAddProduct = useCallback(() => {
-    setEditingProduct(null);
-    form.reset();
-    setProductImageUrl('');
-    setDialogOpen(true);
-  }, [form]);
-
-  const handleEditProduct = useCallback((product: Product) => {
-    setEditingProduct(product);
-    form.reset(product);
-    setProductImageUrl(product.image || '');
-    setDialogOpen(true);
-  }, [form]);
-
-  const onSubmit = async (values: ProductFormValues) => {
-    try {
-      if (editingProduct) {
-        await productUpdateMutation.mutateAsync({
-          data: {
-            ...editingProduct,
-            ...values,
-            image: values.image || productImageUrl
-          },
-        });
-        toast.success('Product updated successfully!');
-      } else {
-        await productCreateMutation.mutateAsync({
-          data: {
-            category: values.category,
-            description: values.description,
-            image: values.image || productImageUrl,
-            in_stock: values.in_stock,
-            name: values.name,
-            price: values.price,
-            seller_id: user.id
-          }
-        });
-        toast.success('Product added successfully!');
+  const handleManageProduct = useCallback(({action, product = null}) => {
+    bottomSheet.open({
+      header: <CatalogHeader />,
+      body: <CatalogBody />,
+      footer: <CatalogFooter />,
+      data: {
+        action,
+        product
       }
-
-      setDialogOpen(false);
-      form.reset();
-      setProductImageUrl('');
-    } catch (error) {
-      console.error('Error submitting product:', error);
-      toast.error('Failed to save product. Please try again.');
-    }
-  };
-
+    })
+  }, []);
+  
   // Error handling
-  if (productsError || categoriesError) {
-    return <ErrorComponent error={productsError || categoriesError} />;
+  if (productsError ) {
+    return <ErrorComponent error={productsError } />;
   }
 
   return (
@@ -200,7 +139,7 @@ const SellerCatalog = () => {
 
         rightContentOnNewLine={isMobile}
         rightContent={(
-          <Button variant='market' onClick={handleAddProduct} className='w-full'>
+          <Button variant='market' onClick={() => handleManageProduct({action: "create-product"})} className='w-full'>
             <Plus className="w-4 h-4" />
             <span className=""> Add New Product</span>
           </Button>
@@ -228,7 +167,7 @@ const SellerCatalog = () => {
             ) : filteredProducts.map((product) => (
               <SellerProductCatalogCard
                 product={product}
-                handleEditProduct={() => handleEditProduct(product)}
+                handleEditProduct={() => handleManageProduct({action: "update-product", product})}
                 handleLikeSeller={() => handleLikeSeller(product.id)}
                 likesSeller={likesSeller}
                 key={product.id}
@@ -238,7 +177,7 @@ const SellerCatalog = () => {
             {/* Add New Product Card */}
             <Card
               className="group cursor-pointer hover:shadow-lg transition-all duration-300 border-2 border-dashed hover:border-solid"
-              onClick={handleAddProduct}
+              onClick={() => handleManageProduct({action: "create-product"})}
             >
               <CardContent className="p-8 flex flex-col items-center justify-center h-full min-h-[280px] text-center">
                 <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -253,163 +192,7 @@ const SellerCatalog = () => {
               </CardContent>
             </Card>
           </div>
-        </div>
-
-        {/* Product Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto scrollbar-small">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                {editingProduct ? 'Edit Product' : 'Add New Product'}
-              </DialogTitle>
-            </DialogHeader>
-
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Product Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter product name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <SearchableSelect
-                          options={categories?.map(c => ({
-                            label: c.name,
-                            value: c.id,
-                          }))}
-                          searchPlaceholder='Search Categories'
-                          clearable
-                          disabled={isCategoryLoading}
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        />
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Describe your product in detail..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Provide a detailed description to attract more buyers
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="price"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Price</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Enter price in NGN
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="in_stock"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">In Stock</FormLabel>
-                          <FormDescription>
-                            Is this product currently available?
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <ImageUploadField
-                  filePreferedName={`${user.id}`}
-                  onChange={(url) => {
-                    setProductImageUrl(url);
-                    form.setValue('image', url);
-                  }}
-                  value={productImageUrl || form.getValues().image}
-                  required={true}
-                  showPreview={true}
-                  maxSizeMB={2}
-                  placeholder='https://example.com/image.jpg'
-                  label='Product Image URL (Max: 2MB, PNG/JPEG/JPG)'
-                  helperText='Upload a clear photo to showcase your product'
-                />
-
-                <div className="flex gap-3 pt-4">
-                  <Button type="submit" className="flex-1" disabled={productCreateMutation.isPending || productUpdateMutation.isPending}>
-                    {productCreateMutation.isPending || productUpdateMutation.isPending ? (
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        {editingProduct ? 'Updating...' : 'Adding...'}
-                      </div>
-                    ) : (
-                      editingProduct ? 'Update Product' : 'Add Product'
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setDialogOpen(false)}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        </div> 
       </div>
     </>
   );

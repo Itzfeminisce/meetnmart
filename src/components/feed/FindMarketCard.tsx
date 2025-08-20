@@ -25,7 +25,7 @@ export const FindMarketCard: React.FC<FindMarketCardProps> = ({
     <Link
       to={linkHref}
       className={cn(
-        "flex flex-col gap-1.5 p-3 rounded-lg transition-colors w-full text-left bg-opacity-50 hover:bg-opacity-70", className)}
+        "flex flex-col gap-1.5 p-3  transition-colors w-full text-left bg-opacity-50 hover:bg-opacity-70", className)}
     >
       <div className="flex items-center gap-1.5">
         <MapPin className="w-3.5 h-3.5 shrink-0" />

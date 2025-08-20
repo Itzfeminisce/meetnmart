@@ -131,7 +131,7 @@ export const FeedList: React.FC<FeedListProps> = memo(({
 
   return (
     <main className="">
-      <div className="space-y-4">
+      <div className="space-y-4 bg-background">
         {filteredFeeds.map((item, index) => (
           <MemoizedFeedCard
             key={`feed-${item.id}`} // More descriptive key

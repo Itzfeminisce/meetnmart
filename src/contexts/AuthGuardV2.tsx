@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuthV2 } from './AuthContextV2';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Loader from '@/components/ui/loader';
 
 interface AuthGuardV2Props {
@@ -17,7 +17,7 @@ export const AuthGuardV2: React.FC<AuthGuardV2Props> = ({
   requiresAuth = true,
   onboardingStepRequired = null,
   redirectTo
-}) => {
+}) => { 
   const { isAuthenticated, isLoading, profile} = useAuthV2();
   const location = useLocation();
 
@@ -51,6 +51,7 @@ export const AuthGuardV2: React.FC<AuthGuardV2Props> = ({
     // Redirect to the required onboarding step
     return <Navigate to={onboardingRoutes[onboardingStepRequired] || '/feeds'} replace />;
   }
+
 
   // Render protected content
   return children ? <>{children}</> : <Outlet />;

@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useDeleteMarketSelection, useGetCategories, useGetMarkets, useGetSellerMarketAndCategories, useSellerCatrgoryMutation, useGetNearbyMarkets } from '@/hooks/api-hooks';
+import { useDeleteMarketSelection, useGetCategories, useGetSellerMarketAndCategories, useSellerCatrgoryMutation } from '@/hooks/api-hooks';
 import Loader from '@/components/ui/loader';
 import { Category } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -94,79 +94,21 @@ const useSellerCategorySelection = (availableCategories: Category[]) => {
 };
 
 
-// Selection summary component
-const SelectionSummary: React.FC<{
-  count: number;
-  type: 'market' | 'category';
-  message: string;
-}> = ({ count, type, message }) => {
-  if (count === 0) return null;
-
-  return (
-    <Card className="bg-market-orange/10 border-market-orange/20">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-medium text-market-orange">
-              {count} {type}{count !== 1 ? 's' : ''} selected
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {message}
-            </p>
-          </div>
-          <CheckCircle className="h-5 w-5 text-market-orange" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
 
 const CategorySelection = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile()
   const navigate = useNavigate();
-  const [scrolled, setScrolled] = useState(false);
-  const [activeTab, setActiveTab] = useState<'markets' | 'categories'>('markets');
-  const [levelTwoActiveTab, setLevelTwoActiveTab] = useState<'trending' | 'nearby'>('nearby');
-  const [showLearnMarketStatDialog, setShowLearnMarketStatsDialog] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
+  const location = useLocation()
 
-  const locationState = CategorySelectionStateSchema.parse(useLocation().state)
+  const [preservedChatData] = useState(() => location.state);
 
+  const locationState = CategorySelectionStateSchema.parse(preservedChatData)
 
-  // const { location, detectLocation, isDetecting } = useLocation()
-
-  // const [location, setLocation] = useState<{ latitude: number, longitude: number } | null>(null);
-  // const [isDetectingLocation, setIsDetectingLocation] = useState(false);
-
-  // Custom hooks for selection management
-  // const {
-  //   selectedMarkets,
-  //   searchQuery,
-  //   setSearchQuery,
-  //   handleMarketToggle,
-  //   filterMarkets,
-  // } = useSellerMarketSelection();
-
-  // API hooks with proper typing
-  // const { data: availableMarkets = {} as Record<string, MarketWithAnalytics[]>, isLoading: isMarketLoading } = useGetMarkets({ userId: user?.id, limit: 50 });
   const { data: availableCategories = [] as Category[], isLoading: isCategoryLoading } = useGetCategories({ userId: user?.id, limit: 50 });
-  // const { data: nearbyMarkets, isLoading: isLoadingNearbyMarkets } = useGetNearbyMarkets(
-  //   levelTwoActiveTab === 'nearby' ?
-  //     (location && !searchQuery ?
-  //       { lat: location.latitude, lng: location.longitude, nearby: true, pageSize: 20, query: searchQuery } :
-  //       searchQuery.length > 2 ?
-  //         { query: searchQuery, nearby: false, pageSize: 20 } :
-  //         undefined
-  //     ) :
-  //     searchQuery.length > 2 ?
-  //       { query: searchQuery, nearby: false, pageSize: 20 } :
-  //       undefined,
-  //   (levelTwoActiveTab === 'nearby' && !!location) || searchQuery.length > 2
-  // );
-
+  
   const sellerMaketCategory = useSellerCatrgoryMutation();
   const sellerMarketSelectionDelete = useDeleteMarketSelection();
 
@@ -225,7 +167,7 @@ const CategorySelection = () => {
               onClick={() => navigate(`/sellers/${encodeURIComponent(sluggify(_selectedMarket.name))}`, {
                 state: {
                   title: _selectedMarket.name,
-                  description:  _selectedCategory.name,
+                  description: _selectedCategory.name,
                   market: {
                     id: _selectedMarket.id,
                     name: _selectedMarket.name,
@@ -291,22 +233,17 @@ const CategorySelection = () => {
     return actions;
   }, [locationState])
 
-
-  // const initialSelectedCategoryCount = useMemo(() =>
-  //   filteredCategories.filter(it => it?.belongs_to_category).length + selectedCategories.length,
-  //   [selectedCategories, filteredCategories]
-  // );
-
+ 
   if (isCategoryLoading) {
     return <Loader />;
   }
 
   return (
     <>
-    <SEO 
-      title="Category Selection | MeetnMart"
-      description="Choose from a variety of categories to connect with buyers and showcase your services on MeetnMart."
-    />
+      <SEO
+        title="Category Selection | MeetnMart"
+        description="Choose from a variety of categories to connect with buyers and showcase your services on MeetnMart."
+      />
       <AppHeader
         title={locationState.title}
         subtitle="Select one or more categories to engage in"

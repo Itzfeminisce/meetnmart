@@ -85,7 +85,7 @@ export const useAxios = () => {
                 localStorage.clear()
         
                 // Redirect to login page
-                window.location.href = '/sign-in'
+                window.location.href = '/get-started';
                 return;
             }
 

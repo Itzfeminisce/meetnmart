@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, useRoutes } from "react-router-dom";
+import { BrowserRouter, useNavigate, useRoutes, useSearchParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { appRoutes } from "./routes";
 import { SocketProvider } from "./contexts/SocketContext";
@@ -10,7 +10,7 @@ import { getEnvVar } from "./lib/utils";
 import { LiveCallProvider as LiveCallProvider_V2 } from "./contexts/live-call-context";
 import { PaystackProvider } from "./contexts/paystack-context";
 import { ScrollToTop } from "./components/ScrollTop";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import Loader from "./components/ui/loader";
 import NotificationListener from "./components/NotificationListener";
 import { useNotifications } from "./hooks/useNotification";
@@ -47,28 +47,31 @@ const SocketProviderWithAuth: React.FC<{ children: React.ReactNode }> = ({ child
 };
 
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner position="top-right" />
-     <Suspense>
-     <AuthProviderV2>
-        <SocketProviderWithAuth>
-          <BrowserRouter>
-            <PaystackProvider>
-              <ScrollToTop />
-              <NotificationListener />
-              <LiveCallProvider_V2>
-                <Router />
-              </LiveCallProvider_V2>
-            </PaystackProvider>
-          </BrowserRouter>
-        </SocketProviderWithAuth>
-      </AuthProviderV2>
-     </Suspense>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+ 
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner position="top-right" />
+        <Suspense>
+          <AuthProviderV2>
+            <SocketProviderWithAuth>
+              <BrowserRouter>
+                <PaystackProvider>
+                  <ScrollToTop />
+                  <NotificationListener />
+                  <LiveCallProvider_V2>
+                    <Router />
+                  </LiveCallProvider_V2>
+                </PaystackProvider>
+              </BrowserRouter>
+            </SocketProviderWithAuth>
+          </AuthProviderV2>
+        </Suspense>
+      </TooltipProvider>
+    </QueryClientProvider>
+  )
+};
 
 export default App;

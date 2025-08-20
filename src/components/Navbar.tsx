@@ -138,7 +138,7 @@ const Navbar = () => {
                     className="bg-market-purple hover:bg-market-purple/90 text-white"
                   >
                     <Link
-                      to="/dashboard"
+                      to="/feeds"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       Dashboard

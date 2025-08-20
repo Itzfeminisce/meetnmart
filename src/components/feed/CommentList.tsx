@@ -41,21 +41,21 @@ export const CommentList: React.FC<CommentListProps> = ({ comments }) => {
                             <AvatarFallback><User className="h-2.5 w-2.5" /></AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1 text-xs md:text-sm">
-                                <span className="text-muted-foreground/80 leading-tight">{comment.author.name}</span>
+                            <div className="flex items-center gap-1 text-sm md:text-sm">
+                                <span className="text-foreground/80 leading-tight">{comment.author.name}</span>
                             </div>
                             <div className="flex flex-col text-xs md:text-sm mt-0.5">
                                 <div className="flex items-center gap-1">
-                                    <span className="font-medium text-primary/90">{displayMessage}</span>
+                                    <span className="text-foreground text-sm">{displayMessage}</span>
                                 </div>
                                 <div className="flex items-center gap-x-2 mt-0.5">
-                                    <span className="text-[9px] md:text-xs text-muted-foreground/60">{formatDateTime(comment.created_at)}</span>
+                                    <span className="text-xs md:text-xs text-muted-foreground/60">{formatTimeAgo(comment.created_at)}</span>
                                     {shouldTruncate && (
                                         <button
                                             onClick={() => toggleComment(idx)}
-                                            className="text-xs md:text-sm text-primary hover:underline"
+                                            className="text-xs md:text-sm text-muted-foreground hover:underline"
                                         >
-                                            {isExpanded ? 'show less' : 'read more'}
+                                            {isExpanded ? 'See less' : 'See more'}
                                         </button>
                                     )}
                                 </div>

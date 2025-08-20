@@ -1,220 +1,149 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   MapPin, ArrowRight, Search, Store, CheckCircle,
   Loader2, SignpostIcon, Package,
-  ArrowLeft,
-  Trash2,
-  ArrowUp,
-  ArrowDown,
-  SearchIcon,
-  User,
-  Eye
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { useDeleteMarketSelection, useGetCategories, useGetMarkets, useGetSellerMarketAndCategories, useSellerCatrgoryMutation, useGetNearbyMarkets } from '@/hooks/api-hooks';
-import Loader from '@/components/ui/loader';
-import { Category, MarketWithAnalytics } from '@/types';
+import {
+  useGetCategories,
+  useFetchNearbyMarkets
+} from '@/hooks/api-hooks';
 import { useAuth } from '@/contexts/AuthContext';
-import MarketInsightsDialog from '@/components/MarketInsightsDialog';
 import { cn } from '@/lib/utils';
 import { useLocation as useUserLocation } from '@/hooks/useLocation';
 import AppHeader from '@/components/AppHeader';
 import SEO from '@/components/SEO';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { ExpandedResult, useMarketSearchStore } from '@/contexts/store/search';
+import { useSocket } from '@/contexts/SocketContext';
+import { SellerSearchCard } from '@/components/search/SellerSearchCard';
+import { FeedSearchCard } from '@/components/search/FeedSearchCard';
+import { ProductSearchCard } from '@/components/search/ProductSearchCard';
+import MarketSearchCard from '@/components/search/MarketSearchCard';
+import SkeletonSearchCard from '@/components/search/SkeletonSearchCard';
 
 
 
-// Search-specific market card component
-const SearchMarketCard = ({ market }: { market: MarketWithAnalytics & { distance?: number } }) => {
-  const navigate = useNavigate();
-
-  const handleClick = () => {
-    navigate(`/market/${market.id}`);
-  };
-
-  return (
-    <div
-      onClick={handleClick}
-      className="group relative overflow-hidden rounded-lg border bg-card p-4 transition-all hover:border-market-orange/50 hover:shadow-sm"
-    >
-      <div className="flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-base truncate group-hover:text-market-orange transition-colors">
-            {market.name}
-          </h3>
-          <p className="text-sm text-muted-foreground truncate mt-1">
-            {market.address}
-          </p>
-
-          {/* Market stats */}
-          <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-            {market.user_count !== null && (
-              <div className="flex items-center gap-1">
-                <User className="h-3 w-3" />
-                <span>{market.user_count} sellers</span>
-              </div>
-            )}
-            {market.impressions !== null && (
-              <div className="flex items-center gap-1">
-                <Eye className="h-3 w-3" />
-                <span>{market.impressions} views</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Distance indicator if available */}
-        {typeof market.distance === 'number' && (
-          <div className="flex-shrink-0">
-            <Badge variant="secondary" className="text-xs">
-              {market.distance < 1
-                ? `${Math.round(market.distance * 1000)}m`
-                : `${market.distance.toFixed(1)}km`}
-            </Badge>
-          </div>
-        )}
-      </div>
-
-      {/* Hover effect */}
-      <div className="absolute inset-0 bg-gradient-to-r from-market-orange/0 via-market-orange/0 to-market-orange/0 opacity-0 group-hover:opacity-5 transition-opacity" />
-    </div>
-  );
-};
 
 const SearchPage = () => {
+  const isMobile = useIsMobile();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [showLearnMarketStatDialog, setShowLearnMarketStatsDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
-  const [isSearching, setIsSearching] = useState(!!searchParams.get("q"));
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [showAllMarkets, setShowAllMarkets] = useState(false);
+  const [expandedResults, setExpandedResults] = useState<ExpandedResult[]>([])
+  const [activeExpandedResultsMeta, setActiveExpandedResultsMeta] = useState<ExpandedResult>()
+  const socket = useSocket()
 
+  const searchStore = useMarketSearchStore();
   const { location: userLocation, detectLocation, isDetecting } = useUserLocation();
 
-  // Trigger search on mount if there's a query parameter
-  useEffect(() => {
-    const query = searchParams.get("q");
-    if (query) {
-      handleSearch(query);
-    }
-  }, []); // Only run on mount
+  const {
+    isPending: isLoadingNearbyMarkets,
+    error: searchApiError,
+    fetchMarkets: refetch,
+  } = useFetchNearbyMarkets();
 
-  // API hooks with proper typing
-  const { data: availableMarkets = {} as Record<string, MarketWithAnalytics[]>, isLoading: isMarketLoading } = useGetMarkets({ userId: user?.id, limit: 50 });
-  const { data: availableCategories = [] as Category[], isLoading: isCategoryLoading } = useGetCategories({ userId: user?.id, limit: 50 });
+  const currentPage = Number(searchStore.meta?.page) ?? 1;
+  const availableCategories = useGetCategories({ userId: user?.id, limit: 50 }).data ?? [];
 
-  const { data: nearbyMarkets, isLoading: isLoadingNearbyMarkets } = useGetNearbyMarkets(
-    userLocation && !searchQuery ?
-      { lat: userLocation.latitude, lng: userLocation.longitude, nearby: true, pageSize: 20 } :
-      searchQuery.length > 2 ?
-        { query: searchQuery, nearby: false, pageSize: 20 } :
-        undefined,
-    !!userLocation || searchQuery.length > 2
-  );
-
-  // Filtered markets with deduplication and proper null checks
-  const filteredMarkets = useMemo(() => {
-    if (!isSearching && !userLocation) {
-      return availableMarkets.impressions || [];
-    }
-
-    const marketMap = new Map<string, MarketWithAnalytics & { distance?: number }>();
-
-    // Process nearby markets with null check
-    const nearbyMarketsList = Array.isArray(nearbyMarkets?.markets) ? nearbyMarkets.markets : [];
-    for (const market of nearbyMarketsList) {
-      if (!market?.id) continue;
-      const existing = marketMap.get(market.id);
-      if (!existing || (market.belongs_to_market && !existing.belongs_to_market)) {
-        marketMap.set(market.id, market);
-      }
-    }
-
-    // Process available markets if no nearby markets
-    if (marketMap.size === 0) {
-      const availableMarketsList = availableMarkets.impressions || [];
-      for (const market of availableMarketsList) {
-        if (!market?.id) continue;
-        const existing = marketMap.get(market.id);
-        if (!existing || (market.belongs_to_market && !existing.belongs_to_market)) {
-          marketMap.set(market.id, market);
-        }
-      }
-    }
-
-    const uniqueMarkets = Array.from(marketMap.values());
-    return uniqueMarkets;
-  }, [availableMarkets, nearbyMarkets, userLocation, isSearching]);
-
-  // Display markets with show more functionality
-  const displayMarkets = useMemo(() => {
-    if (showAllMarkets) return filteredMarkets;
-    return filteredMarkets.slice(0, 5);
-  }, [filteredMarkets, showAllMarkets]);
-
-  const remainingCount = filteredMarkets.length - displayMarkets.length;
-
-  // Popular categories for quick access
-  const popularCategories = useMemo(() =>
-    availableCategories.filter(cat => cat.popular).slice(0, 5),
-    [availableCategories]
-  );
-
-  const handleSearch = (query: string) => {
+  const handleSearch = useCallback(async (query: string) => {
+    if (!!!query) return;
     setSearchQuery(query);
-    setIsSearching(query.length > 0);
     setActiveCategory(null);
-  };
+    searchStore.reset();
 
-  const handleLocationSearch = async () => {
-    setIsSearching(true);
-    setActiveCategory(null);
-  };
+    const params = new URLSearchParams(searchParams);
+    query ? params.set("q", query) : params.delete("q");
+    setSearchParams(params);
+
+    await refetch({ query, page: 1 });
+  }, [searchParams]);
+
+  const handleLocationSearch = useCallback(async () => {
+    searchStore.reset();
+    if (!userLocation) await detectLocation();
+    await refetch({});
+  }, [userLocation]);
 
   const handleClearSearch = () => {
     setSearchQuery('');
-    setIsSearching(false);
     setActiveCategory(null);
+    searchStore.reset();
+    const params = new URLSearchParams(searchParams);
+    params.delete("q");
+    setSearchParams(params);
   };
 
   const handleCategoryClick = (categoryId: string) => {
-    const category = availableCategories.find(cat => cat.id === categoryId);
-    if (category) {
-      setSearchQuery(category.name);
-      setIsSearching(true);
-      setActiveCategory(categoryId);
-    }
+    const category = availableCategories.find(c => c.id === categoryId);
+    if (!category) return;
+    setActiveCategory(categoryId);
+    handleSearch(category.name);
   };
 
-  // Only show initial loading state when no search is active
-  if ((isMarketLoading || isCategoryLoading) && !isSearching) {
-    return <Loader />;
+  const loadMore = async () => {
+    if (!searchStore.meta?.has_next_page) return;
+    await refetch({ query: searchQuery, page: currentPage + 1, key: activeExpandedResultsMeta.key, action: "load_more", params: { id: activeExpandedResultsMeta.id } });
+  };
+
+  const handleFetchExtendedSearchResult = async (meta: ExpandedResult) => {
+    setActiveExpandedResultsMeta(meta)
+    const response = await refetch({ query: searchQuery, page: 1, key: meta.key, });
+  }
+
+  const isSearching = !!searchQuery;
+  const hasError = !!searchApiError;
+
+
+
+  useEffect(() => {
+
+    function handleSearchExpandedResult(response: ExpandedResult[]) {
+      console.log("[handleSearchExpandedResult]", { response });
+      setExpandedResults(response)
+    }
+
+    socket.subscribe("search_expanded_results", handleSearchExpandedResult)
+
+    return () => socket.unsubscribe("search_expanded_results", handleSearchExpandedResult)
+  }, [socket])
+
+
+
+  const getCard = ({ type, props }: { type: ExpandedResult['id'], props: any }) => {
+    if (isLoadingNearbyMarkets) return <SkeletonSearchCard />
+    switch (type) {
+      case "PRODUCT":
+        return <ProductSearchCard data={props} />
+      case "MARKET":
+        return <MarketSearchCard data={props} />
+      case "SELLER":
+        return <SellerSearchCard data={props} />
+      case "FEED":
+        return <FeedSearchCard data={props} />
+      default:
+        break;
+    }
   }
 
   return (
     <>
-      <SEO
-        title="Search Markets | MeetnMart"
-        description="Search and discover local markets, sellers, and products in your area. Find nearby vendors, explore categories, and connect with local businesses through MeetnMart's marketplace search."
-        keywords="search markets, local markets, nearby sellers, market search, local vendors, marketplace search, find markets, local business search, category search, seller search, location-based search, market discovery, local commerce search, neighborhood markets, vendor search, product search, local marketplace search, community markets, area markets, market finder, local shopping search"
-        ogType="website"
-        ogUrl="https://meetnmart.com/search"
-        canonical="https://meetnmart.com/search"
-      />
+      <SEO title="Search Markets | MeetnMart" description="Search and discover local markets..." />
+
       <AppHeader
         title="Search"
         subtitle={userLocation ? "Markets near you" : "Discover markets around you"}
         search={{
-          placeholder: "Search markets, categories or sellers nearby...",
+          placeholder: "Search markets and sellers in your area",
           onSearch: handleSearch,
           onClear: handleClearSearch,
-          defaultValue: searchQuery,
+          defaultValue: searchQuery ?? "",
         }}
-        
+        defaultSearchActive={searchParams.has("q")}
         rightContent={
           <Button
             size="icon"
@@ -223,17 +152,12 @@ const SearchPage = () => {
             disabled={isDetecting}
             className="rounded-lg bg-secondary/50 border-none hover:bg-secondary/70"
           >
-            {isDetecting ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <MapPin size={16} className="text-market-blue" />
-            )}
+            {isDetecting ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} className="text-market-blue" />}
           </Button>
         }
       />
 
-      <div className="container mx-auto  animate-fade-in   pb-[5rem]">
-        {/* Location-based search hint */}
+      <div className="container mx-auto animate-fade-in pb-[5rem]">
         {!userLocation && !isSearching && (
           <div className="mb-6 p-4 bg-secondary/30 rounded-lg">
             <div className="flex items-center gap-3">
@@ -248,23 +172,20 @@ const SearchPage = () => {
           </div>
         )}
 
-        {/* Popular Categories */}
-        {!isSearching && popularCategories.length > 0 && (
+        {!isSearching && availableCategories.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold">Popular Categories</h2>
               <span className="text-sm text-muted-foreground">Quick access</span>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-              {popularCategories.map(category => (
+            <div className={cn("flex gap-2 overflow-x-auto pb-2 -mx-4 px-4", isMobile ? "scrollbar-none" : "scrollbar-small")}>
+              {availableCategories.map(category => (
                 <button
                   key={category.id}
                   onClick={() => handleCategoryClick(category.id)}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded-full whitespace-nowrap transition-colors",
-                    activeCategory === category.id
-                      ? "bg-market-orange text-white"
-                      : "bg-secondary/50 hover:bg-secondary/70"
+                    activeCategory === category.id ? "bg-market-orange text-white" : "bg-secondary/50 hover:bg-secondary/70"
                   )}
                 >
                   {category.icon}
@@ -274,89 +195,115 @@ const SearchPage = () => {
             </div>
           </div>
         )}
+        <div className="space-y-2">
+          {(searchStore.data).length > 0 && (
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">
+                {userLocation ? "Markets near you" : "Search results"}
+              </h2>
+              <span className="text-sm text-muted-foreground">
+                {(searchStore.data).length} results found
+              </span>
+            </div>
+          )}
 
-        {/* Search results or default content */}
-        <div className="space-y-6">
-          {isSearching ? (
-            <>
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">
-                  {userLocation ? "Markets near you" : "Search results"}
-                </h2>
-                {filteredMarkets.length > 0 && (
-                  <span className="text-sm text-muted-foreground">
-                    {filteredMarkets.length} markets found
-                  </span>
-                )}
-              </div>
+          <div className={cn("flex sticky py-4 top-0 z-10 bg-background gap-2 overflow-x-auto -mx-4 px-4", isMobile ? "scrollbar-none" : "scrollbar-small")}>
 
-              {isLoadingNearbyMarkets ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-market-orange" />
-                  <span className="ml-2 text-muted-foreground">Searching markets...</span>
-                </div>
-              ) : filteredMarkets.length === 0 ? (
-                <div className="text-center py-8">
-                  <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="font-medium mb-2">No markets found</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Try adjusting your search or location
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {displayMarkets.map(market => (
-                      <SearchMarketCard key={market.id} market={market} />
-                    ))}
-                  </div>
-
-                  {remainingCount > 0 && (
-                    <div className="flex justify-center mt-6">
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowAllMarkets(true)}
-                        className="text-sm"
-                      >
-                        Show {remainingCount} more markets
-                      </Button>
-                    </div>
+            {(searchStore.data).length > 0 && (
+              <>
+                <button
+                onClick={handleClearSearch}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-none whitespace-nowrap transition-colors text-[.9rem]",
+                    "bg-market-orange/10 text-white"
                   )}
-                </>
-              )}
-            </>
+                >
+                  <X className="h-4 w-4" />
+                  Clear
+                </button>
+
+                <button
+                  onClick={() => handleFetchExtendedSearchResult({
+                    id: "MARKET",
+                    type: "Markets",
+                    count: 0,
+                    key: ""
+                  })}
+                  className={cn(
+                    "flex items-center gap-2 px-2 bg-secondary/50 hover:bg-secondary/70 gap-x-2 rounded-none"
+                  )}
+                >
+                  {isLoadingNearbyMarkets && activeExpandedResultsMeta?.id === "MARKET" && (
+                    <Loader2 className="h-4 w-4 animate-spin text-market-orange" />
+                  )}
+                  Markets
+                </button>
+              </>
+            )
+            }
+
+            {expandedResults.length > 0 && (
+              expandedResults.filter(result => result.count > 0).map((result, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleFetchExtendedSearchResult(result)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 whitespace-nowrap transition-colors text-[.9rem]",
+                    "bg-secondary/50 hover:bg-secondary/70 gap-x-2 rounded-none", activeExpandedResultsMeta?.id === result.id && "border border-market-orange"
+                  )}
+                >
+                  {isLoadingNearbyMarkets && activeExpandedResultsMeta.id === result.id && (
+                    <Loader2 className="h-4 w-4 animate-spin text-market-orange" />
+                  )}
+                  {result.count}
+                  <span className="text-[.9rem]">{result.type}</span>
+                </button>
+              )))}
+          </div>
+
+          {hasError ? (
+            <div className="text-center py-8">
+              <div className="bg-destructive/10 text-destructive p-4 rounded-lg mb-4">
+                <p className="text-sm">Failed to search markets. Please try again.</p>
+              </div>
+              <Button variant="outline" onClick={() => refetch({ query: searchQuery, page: 1 })}>Try again</Button>
+            </div>
+          ) : isLoadingNearbyMarkets && (searchStore.data).length === 0 ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-market-orange" />
+              <span className="ml-2 text-muted-foreground">Searching markets...</span>
+            </div>
+          ) : (searchStore.data).length === 0 ? (
+            <div className="text-center py-8 space-y-2">
+              <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="font-medium mb-2">No markets found</h3>
+              <p className="text-sm text-muted-foreground">
+                {searchQuery ? `No results for "${searchQuery}"` : "Try adjusting your search or location"}
+              </p>
+              {searchQuery && <Button variant="outline" onClick={handleClearSearch}>Clear search</Button>}
+            </div>
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {displayMarkets.map(market => (
-                  <SearchMarketCard key={market.id} market={market} />
+                {(searchStore.data).map((market, index) => (
+                  <React.Fragment key={index}>
+                    {getCard({ props: market, type: activeExpandedResultsMeta?.id ?? "MARKET" })}
+                  </React.Fragment>
                 ))}
               </div>
-
-              {remainingCount > 0 && (
-                <div className="flex justify-center mt-6">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowAllMarkets(true)}
-                    className="text-sm"
-                  >
-                    Show {remainingCount} more markets
-                  </Button>
-                </div>
+              {searchStore.meta?.has_next_page && (
+                <Button onClick={loadMore} disabled={isLoadingNearbyMarkets} variant='outline' size='sm' className="w-full md:max-w-sm justify-center mt-6">
+                  {isLoadingNearbyMarkets && <Loader2 className="h-8 w-8 animate-spin text-market-orange" />}
+                  Load More
+                </Button>
               )}
             </>
           )}
         </div>
       </div>
-
-      <MarketInsightsDialog
-        onOpenChange={setShowLearnMarketStatsDialog}
-        open={showLearnMarketStatDialog}
-      />
     </>
   );
 };
-
 
 
 export default SearchPage;

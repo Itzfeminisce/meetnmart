@@ -9,7 +9,10 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "gen:types": "supabase gen types typescript --local > src/integrations/supabase/types.ts"
+    "gen:types": "supabase gen types typescript --local > src/integrations/supabase/types.ts",
+    "sitemap": "tsx scripts/generate-sitemap.ts",
+    "sitemap:dev": "cross-env VITE_BASE_URL=http://localhost:3000 SITEMAP_OUTPUT_DIR=public tsx scripts/generate-sitemap-simple.ts",
+    "sitemap:simple": "VITE_BASE_URL=https://yourdomain.com SITEMAP_OUTPUT_DIR=public tsx scripts/generate-sitemap-simple.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -86,12 +89,14 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react-swc": "^3.5.0",
     "autoprefixer": "^10.4.20",
+    "cross-env": "^10.0.0",
     "eslint": "^9.9.0",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.9",
     "globals": "^15.9.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.11",
+    "tsx": "^4.20.3",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
     "vite": "^5.4.1",

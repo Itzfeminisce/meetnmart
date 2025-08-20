@@ -71,7 +71,7 @@ const LiveCall = () => {
   const roomName = params?.callId || callData?.room;
   const participantName = profile?.name || user.id;
 
-  if (!roomName) return <Navigate to={"/"} replace />;
+  if (!roomName) return <Navigate to={"../"} replace />;
 
   // LiveKit Connection Hook
   const {
@@ -216,7 +216,6 @@ const LiveCall = () => {
 
   // Call control handlers
   const handleEndCall = useCallback(async () => {
-    console.log({liveCall});
     
     await disconnect();
 
@@ -233,6 +232,8 @@ const LiveCall = () => {
     if (isSeller) {
       navigate(-1);
     } else {
+      console.log({callData});
+      
       navigate('/rating', {
         state: {
           seller: callData.receiver,

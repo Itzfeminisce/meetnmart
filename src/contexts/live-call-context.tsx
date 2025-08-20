@@ -101,7 +101,7 @@ export const LiveCallProvider: React.FC<{ children: ReactNode }> = ({ children }
 
 
       publish(CallAction.Accepted, callData)
-      navigate("/calls", {
+      navigate(`/calls/${callData.room}`, {
         state: callData
       })
     }

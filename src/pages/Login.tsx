@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { redirect, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, ShoppingBasket, PhoneCall, Star, Users, ShieldCheck, CheckCircle, Badge, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, ShoppingBasket, PhoneCall, Star, Users, ShieldCheck, CheckCircle, Badge, Mail, Lock, Eye, EyeOff, Linkedin } from 'lucide-react';
 import AuthModal from '@/components/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { SocialAuthButtons } from '@/components/SocialAuthButtons';
@@ -59,7 +59,11 @@ const Index = () => {
       await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: userHomeUrl,
+          redirectTo: `${window.location.origin}?redirectTo=${userHomeUrl}`,
+          queryParams: {
+            source: provider,
+            redirect: userHomeUrl,
+          }
         },
       });
     } catch (error) {
@@ -138,18 +142,12 @@ const Index = () => {
             <div className="w-full flex items-center justify-center">
               <Logo containerClassName="w-16 h-16 "/>
             </div>
-
-            <span
-      className={cn(
-        "text-[10px] uppercase font-semibold rounded-full border text-market-orange bg-orange-100 dark:bg-orange-900/30",
-      "absolute bottom-2 right-[42%] md:right-[44%] bg-market-orange text-white font-bold px-2" )}
-    >
-      Beta
-    </span>
             {/* <Beta className="ml-2 bg-background/50 absolute top-0 right-0 border-market-orange" /> */}
           </div>
-          <p className="text-lg text-muted-foreground mb-8">
-  Negotiate in real-time. Shop local like never before.
+
+          
+          <p className="text-lg md:text-2xl text-muted-foreground mb-4 font-medium">
+  Let's begin!
 </p>
           <div className="glass-morphism p-6 rounded-xl mb-8">
             {!isAuthenticated ? (
@@ -161,10 +159,10 @@ const Index = () => {
                       <SocialAuthButtons 
                         onAuthRequested={onSocialAuthFormSubmit} 
                         isLoading={isLoading} 
-                        providers={[{name: 'google', icon: Google}, {icon: Facebook, name: 'facebook'}]} 
+                        providers={[{name: 'google', icon: Google}, {name: "linkedin_oidc", icon: Linkedin}]} 
                       />
                       
-                      <Button
+                      {/* <Button
                         disabled={isLoading}
                         variant="outline"
                         onClick={() => setShowAuthModal(true)}
@@ -172,7 +170,7 @@ const Index = () => {
                       >
                         <PhoneCall className="mr-2 h-4 w-4" />
                         Continue with Phone
-                      </Button>
+                      </Button> */}
 
                       <div className="relative my-4">
                         <div className="absolute inset-0 flex items-center">
@@ -277,11 +275,11 @@ const Index = () => {
                   </>
                 )}
 
-                {!showEmailForm && (
+                {/* {!showEmailForm && (
                   <div className="mt-6 text-sm text-muted-foreground text-center">
                     <p>Test credentials: +15086842093, OTP: 123456</p>
                   </div>
-                )}
+                )} */}
               </div>
             ) : (
               // Authenticated User Section

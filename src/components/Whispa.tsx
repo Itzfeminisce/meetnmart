@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
+import { WhispaIcon } from './ui/svg/Whispa';
 
 // Memoized Message Component
 const Message = React.memo(({ message, isStreaming }: { message: { type: string; content: string }; isStreaming?: boolean }) => (
@@ -293,7 +294,7 @@ const Whispa = ({ isInNav = false }: { isInNav?: boolean }) => {
       setTimeout(() => {
         const welcomeMsg = {
           type: 'ai',
-          content: "Welcome! I'm Whispa, your intelligent assistant for all things MeetnMart. Ask me to find sellers, search products, or explore local markets. How can I assist today?",
+          content: "Welcome! I'm Whispa, your intelligent assistant for all things MeetnMart. Ask me to find sellers, search products, or explore local markets.",
           timestamp: new Date()
         };
         setMessages([welcomeMsg]);
@@ -311,12 +312,7 @@ const Whispa = ({ isInNav = false }: { isInNav?: boolean }) => {
     }
     return "fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6";
   }, [isInNav]);
-
-  // Optimized bubble positioning and sizing
-  const bubbleStyles = useMemo(() => {
-    const baseStyles = "relative group cursor-pointer";
-    return baseStyles;
-  }, []);
+ 
 
   // Optimized chat container styles with better mobile handling
   const chatContainerStyles = useMemo(() => {
@@ -325,46 +321,18 @@ const Whispa = ({ isInNav = false }: { isInNav?: boolean }) => {
     }
     
     if (isInNav) {
-      return cn("fixed bottom-5 right-5 w-[min(96vw,24rem)] max-h-[min(90vh,32rem)] bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-2xl sm:rounded-3xl shadow-2xl border border-orange-500/20 backdrop-blur-xl overflow-hidden flex flex-col z-40", "min-h-[98vh] left-1 sm:left-auto w-[98%] bottom-1");
+      return cn("fixed bottom-5 right-5 w-[min(96vw,24rem)] max-h-[min(90vh,32rem)] bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-2xl sm:rounded-3xl shadow-2xl border border-orange-500/20 backdrop-blur-xl overflow-hidden flex flex-col z-40", "min-h-[95vh] left-0 sm:left-auto w-[100%] bottom-0 rounded-none");
     }
     
-    return "fixed bottom-20 right-4 sm:bottom-24 sm:right-6 w-[min(96vw,24rem)] max-h-[min(85vh,32rem)] bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-2xl sm:rounded-3xl shadow-2xl border border-orange-500/20 backdrop-blur-xl overflow-hidden flex flex-col z-40";
+    return cn("fixed bottom-20 right-4 sm:bottom-24 sm:right-6 w-[min(96vw,24rem)] max-h-[min(85vh,32rem)] bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-2xl sm:rounded-3xl shadow-2xl border border-orange-500/20 backdrop-blur-xl overflow-hidden flex flex-col z-40", "max-w-lg");
   }, [isMobile, isInNav]);
-
-  // Optimized bubble size
-  const bubbleSize = useMemo(() => {
-    if (isInNav) return "w-14 h-14";
-    return "w-12 h-12 sm:w-14 sm:h-14";
-  }, [isInNav]);
-
-  // Optimized icon size
-  const iconSize = useMemo(() => {
-    if (isInNav) return "w-8 h-8";
-    return "w-6 h-6 sm:w-7 sm:h-7";
-  }, [isInNav]);
+ 
 
   return (
     <div className={containerPositioning}>
       {/* Main AI Bubble Button */}
-      {!isOpen && (
-        <div
-          onClick={toggleBubble}
-          className={bubbleStyles}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-600 rounded-full blur-lg opacity-75 group-hover:opacity-100 transition-opacity duration-300 animate-pulse"></div>
-
-          <div className={`${bubbleSize} bg-gradient-to-br from-orange-500 to-orange-700 rounded-full flex items-center justify-center shadow-2xl transform transition-all duration-300 hover:scale-110 hover:rotate-12 border-2 border-orange-300/30 relative`}>
-            <BadgeHelp className={`${iconSize} text-white animate-pulse`} />
-
-            {!isInNav && (
-              <>
-                <div className="absolute -top-1 -right-1 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-orange-300 rounded-full animate-bounce opacity-60"></div>
-                <div className="absolute -bottom-1 -left-1 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-orange-400 rounded-full animate-bounce opacity-80" style={{ animationDelay: '0.5s' }}></div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      {!isOpen && <WhispaIcon size={40} className='hover:bg-market-orange/20 rounded-full cursor-pointer' onClick={toggleBubble} />}
+    
 
       {/* Chat Interface */}
       {isOpen && (

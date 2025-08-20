@@ -166,13 +166,13 @@ export const useFeedStore = create<FeedStoreState & Actions>()(
       }));
     },
 
- // Add this to your Zustand store
-appendFeeds: (newFeeds: FeedItem[]) => {
-  set(state => ({
-    feeds: [...state.feeds, ...newFeeds],
-    filteredFeeds: [...state.filteredFeeds, ...newFeeds]
-  }))
-},
+    // Add this to your Zustand store
+    appendFeeds: (newFeeds: FeedItem[]) => {
+      set(state => ({
+        feeds: [...state.feeds, ...newFeeds],
+        filteredFeeds: [...state.filteredFeeds, ...newFeeds]
+      }))
+    },
 
     refetch: (options: RefetchOption) => {
       set(state => ({
@@ -296,53 +296,127 @@ appendFeeds: (newFeeds: FeedItem[]) => {
       });
     },
 
+    // addInteraction: (feedId, interaction) => {
+    //   set((state) => {
+    //     const feed = state.feeds.find(f => f.id === feedId);
+    //     if (!feed) return state;
+
+    //     const isEqual = (a: any, b: any): boolean => {
+    //       if (a === b) return true;
+    //       if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+    //       const keysA = Object.keys(a);
+    //       const keysB = Object.keys(b);
+    //       if (keysA.length !== keysB.length) return false;
+    //       return keysA.every(key => isEqual(a[key], b[key]));
+    //     }
+
+    //     // Check if interaction already exists using a more efficient comparison
+    //     const existingIndex = feed.interactions.items.findIndex(item =>
+    //       isEqual(item.type, "bookmark") &&
+    //       isEqual(item.author?.id, interaction.author?.id) &&
+    //       isEqual(item.metadata, interaction.metadata)
+    //     );
+
+    //     let newItems;
+    //     const stats = { ...feed.interactions.stats };
+
+    //     // Update stats based on interaction type
+    //     const DEFAULT_STATS = {
+    //       commentCount: 0,
+    //       messageCount: 0,
+    //       callCount: 0,
+    //       viewCount: 0,
+    //       bookmarkCount: 0
+    //     };
+
+    //     const updatedStats = { ...DEFAULT_STATS, ...stats };
+
+    //     if (existingIndex !== -1) {
+    //       // Remove existing interaction if it exists (toggle off)
+    //       newItems = [...feed.interactions.items];
+    //       newItems.splice(existingIndex, 1);
+    //       updatedStats[`${interaction.type}Count`] = Math.max(0, (updatedStats[`${interaction.type}Count`] || 0) - 1);
+    //     } else {
+    //       // Add new interaction (toggle on)
+    //       newItems = [interaction, ...feed.interactions.items];
+    //       updatedStats[`${interaction.type}Count`] = (updatedStats[`${interaction.type}Count`] || 0) + 1;
+    //     }
+
+    //     Object.assign(stats, updatedStats);
+
+    //     const updatedFeed = {
+    //       ...feed,
+    //       interactions: {
+    //         items: newItems,
+    //         stats
+    //       }
+    //     };
+
+    //     return {
+    //       feeds: state.feeds.map(f => f.id === feedId ? updatedFeed : f),
+    //       filteredFeeds: state.filteredFeeds.map(f => f.id === feedId ? updatedFeed : f),
+    //       feedStats: {
+    //         ...state.feedStats,
+    //         [feedId]: {
+    //           ...state.feedStats[feedId],
+    //           comments: stats.commentCount,
+    //           messages: stats.messageCount,
+    //           calls: stats.callCount,
+    //           views: stats.viewCount,
+    //           bookmarks: stats.bookmarkCount
+    //         }
+    //       }
+    //     };
+    //   });
+    // },
     addInteraction: (feedId, interaction) => {
       set((state) => {
         const feed = state.feeds.find(f => f.id === feedId);
         if (!feed) return state;
 
-        const isEqual = (a: any, b: any): boolean => {
-          if (a === b) return true;
-          if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
-          const keysA = Object.keys(a);
-          const keysB = Object.keys(b);
-          if (keysA.length !== keysB.length) return false;
-          return keysA.every(key => isEqual(a[key], b[key]));
-        }
+        // Simple and reliable comparison function
+        const isSameInteraction = (existing: any, incoming: any): boolean => {
+          return existing.type === incoming.type &&
+            existing.author?.id === incoming.author?.id;
+        };
 
-        // Check if interaction already exists using a more efficient comparison
+        // Find existing interaction of the same type from the same author
         const existingIndex = feed.interactions.items.findIndex(item =>
-          isEqual(item.type, "bookmark") &&
-          isEqual(item.author?.id, interaction.author?.id) &&
-          isEqual(item.metadata, interaction.metadata)
+          isSameInteraction(item, interaction)
         );
 
         let newItems;
         const stats = { ...feed.interactions.stats };
 
-        // Update stats based on interaction type
-        const DEFAULT_STATS = {
-          commentCount: 0,
-          messageCount: 0,
-          callCount: 0,
-          viewCount: 0,
-          bookmarkCount: 0
+        // Map interaction types to their corresponding stat property names
+        const statPropertyMap: Record<string, keyof typeof stats> = {
+          'comment': 'commentCount',
+          'message': 'messageCount',
+          'call': 'callCount',
+          'bookmark': 'bookmarkCount',
+          'share': 'viewCount', // assuming shares are tracked as views
+          'delivery': 'viewCount' // or create a new deliveryCount if needed
         };
 
-        const updatedStats = { ...DEFAULT_STATS, ...stats };
+        const statProperty = statPropertyMap[interaction.type];
 
         if (existingIndex !== -1) {
-          // Remove existing interaction if it exists (toggle off)
-          newItems = [...feed.interactions.items];
-          newItems.splice(existingIndex, 1);
-          updatedStats[`${interaction.type}Count`] = Math.max(0, (updatedStats[`${interaction.type}Count`] || 0) - 1);
+          // Remove existing interaction (toggle off)
+          newItems = feed.interactions.items.filter((_, index) => index !== existingIndex);
+
+          // Decrement the corresponding stat
+          if (statProperty && stats[statProperty] > 0) {
+            stats[statProperty] = stats[statProperty] - 1;
+          }
         } else {
           // Add new interaction (toggle on)
           newItems = [interaction, ...feed.interactions.items];
-          updatedStats[`${interaction.type}Count`] = (updatedStats[`${interaction.type}Count`] || 0) + 1;
-        }
 
-        Object.assign(stats, updatedStats);
+          // Increment the corresponding stat
+          if (statProperty) {
+            stats[statProperty] = (stats[statProperty] || 0) + 1;
+          }
+        }
 
         const updatedFeed = {
           ...feed,
@@ -352,6 +426,7 @@ appendFeeds: (newFeeds: FeedItem[]) => {
           }
         };
 
+        // Update both feeds arrays and feedStats
         return {
           feeds: state.feeds.map(f => f.id === feedId ? updatedFeed : f),
           filteredFeeds: state.filteredFeeds.map(f => f.id === feedId ? updatedFeed : f),
@@ -369,7 +444,6 @@ appendFeeds: (newFeeds: FeedItem[]) => {
         };
       });
     },
-
     removeInteraction: (feedId, interactionIndex) => {
       set((state) => {
         const feed = state.feeds.find(f => f.id === feedId);

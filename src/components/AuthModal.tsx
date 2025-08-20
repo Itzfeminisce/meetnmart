@@ -27,16 +27,19 @@ const AuthModal = ({ open, onOpenChange, onSuccess }: AuthModalProps) => {
       toast.error("Please enter a valid phone number");
       return;
     }
-
-    setIsLoading(true);
     const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
 
-    await signInWithPhone(formattedPhone);
+    try {
+      setIsLoading(true);
 
-    setIsLoading(false);
+      await signInWithPhone(formattedPhone);
+      toast.success(`OTP sent to ${formattedPhone}`);
+      setStep('otp');
+    } catch (error) {
 
-    toast.success(`OTP sent to ${formattedPhone}`);
-    setStep('otp');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleOtpSubmit = async (e: React.FormEvent) => {

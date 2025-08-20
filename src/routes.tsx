@@ -5,7 +5,7 @@ import BottomNavigation from "./components/BottomNavigation";
 
 
 import Search from "./pages/Search";
-import Loader from "./components/ui/loader";
+import Loader, { LinearLoader } from "./components/ui/loader";
 import FeedPage from "./pages/Feed";
 import FeedDetails from "./pages/FeedDetail";
 import InterestSelection from "./pages/InterestSelection";
@@ -20,6 +20,10 @@ import TermsOfService from "./pages/Legals/TermsOfService";
 import RefundsPolicy from "./pages/Legals/ReturnsPolicy";
 import CookiePolicy from "./pages/Legals/CookiePolicy";
 import BasicProfileSettings from "./components/settings/BasicProfileSettings";
+import { BottomSheetProvider } from "./components/ui/bottom-sheet-modal";
+import ChatList from "./components/chat/ChatList";
+import ChatMessages from "./components/chat/ChatMessages";
+import { WhispaIcon } from "./components/ui/svg/Whispa";
 
 const Index = lazy(() => import("./pages/Index"));
 const Login = lazy(() => import("./pages/Login"));
@@ -46,6 +50,7 @@ const SellerCatalog = lazy(() => import("./pages/SellerCatalog"));
 export const appRoutes: RouteObject[] = [
   // Guest Routes
 
+  { path: "/logo", element: <WhispaIcon /> },
   { path: "/", element: <Index /> },
   { path: "/getting-started", element: <Login /> },
   // { path: "/good-to-know", element: <EntrySlides />},
@@ -62,12 +67,17 @@ export const appRoutes: RouteObject[] = [
   // Protected Routes (requires auth AND role)
   {
     element: <>
-      <Suspense fallback={<Loader />}>
-        <ProtectedRouteV2 />
-      </Suspense>
+      <Suspense fallback={<LinearLoader />}>
+        <BottomSheetProvider>
+          <ProtectedRouteV2 />
       <BottomNavigation />
+        </BottomSheetProvider>
+      </Suspense>
     </>,
     children: [
+      // { path: "/messages", element: <ChatLayout /> },
+      { path: "/messages", element: <ChatList /> },
+      { path: "/messages/:conversationId", element: <ChatMessages /> },
       { path: "/feeds", element: <FeedPage /> },
 
       { path: "/markets/:marketOrCategoryName?", element: <MarketSelection /> },

@@ -112,17 +112,6 @@ export const FeedPreview: React.FC<FeedPreviewProps> = ({ formData, uploadedImag
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-        <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse"></div>
-        <div className="flex flex-col">
-          <p className="text-sm font-medium text-white/60">Live preview - how others will see your post</p>
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-market-orange animate-pulse" />
-            <p className="text-xs font-semibold text-market-orange">Enhanced by Whispa AI</p>
-          </div>
-        </div>
-      </div>
-
       <Card className={getCardStyle("buyer_request")}>
         <CardContent className="p-4">
           <div className="flex flex-col gap-4">
@@ -134,9 +123,6 @@ export const FeedPreview: React.FC<FeedPreviewProps> = ({ formData, uploadedImag
                   <span className="font-semibold text-base sm:text-lg text-foreground truncate">
                     {title}
                   </span>
-                  <Badge variant="secondary" className="text-xs flex-shrink-0 capitalize">
-                    {category}
-                  </Badge>
                 </div>
 
                 <p className="text-muted-foreground text-sm sm:text-base leading-relaxed break-words">

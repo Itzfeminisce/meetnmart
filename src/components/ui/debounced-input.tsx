@@ -20,7 +20,7 @@ export interface DebouncedInputRef {
 
 export const DebouncedInput = forwardRef<DebouncedInputRef, DebouncedInputProps>(
     ({ className, onChangeText, delay = 500, placeholder, showSearchIcon = true, isMobile = false, ...props }, ref) => {
-        const [query, setQuery] = useState('')
+        const [query, setQuery] = useState(props.defaultValue?.toString() ?? '')
         const inputRef = useRef<HTMLInputElement>(null)
 
         const debouncedSearch = useDebounce(onChangeText, delay)

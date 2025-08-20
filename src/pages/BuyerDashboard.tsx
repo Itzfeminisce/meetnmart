@@ -76,18 +76,7 @@ const BuyerDashboard = () => {
       />
       <AppHeader
         title={`Hello, ${profile?.name || 'Buyer'}!`}
-        subtitle={
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-              <span>{buyerStats.rating} rating</span>
-            </div>
-            <div className="md:flex items-center gap-1 hidden ">
-              <Phone className="h-4 w-4" />
-              <span>{buyerStats.completedCalls} calls completed</span>
-            </div>
-          </div>
-        }
+        subtitle={`${profile.location?.components.state}, ${profile.location?.components.country}`}
         rightContent={
           <Avatar onClick={handleEditProfile} className="h-12 w-12 cursor-pointer ring-2 ring-market-green/20 hover:ring-market-green/40 transition-all">
             <AvatarImage src={profile?.avatar} alt="Profile" />
@@ -295,8 +284,8 @@ const BuyerDashboard = () => {
                   </Button>
                 </div>
               ) : (
-                recentCalls?.map((call) => (
-                  <RecentCallCard role={userRole} key={call.transaction_id} recentCall={call} />
+                recentCalls?.map((call, idx) => (
+                  <RecentCallCard role={userRole} key={idx} recentCall={call} />
                 ))
               )}
             </div>

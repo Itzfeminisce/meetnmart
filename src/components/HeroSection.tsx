@@ -8,7 +8,7 @@ import Showcase from './Showcase';
 import { useAuth } from '@/contexts/AuthContext';
 
 const HeroSection = () => {
-  const {isAuthenticated} = useAuth()
+  const { isAuthenticated } = useAuth()
   return (
     <section className="relative min-h-screen flex items-center justify-center py-20 overflow-hidden">
       {/* <div className="">
@@ -50,7 +50,7 @@ const HeroSection = () => {
             className="bg-market-purple hover:bg-market-purple/90 text-white px-8 py-6 text-lg rounded-lg"
           >
             <Link to={isAuthenticated ? "/feeds" : "/getting-started"}>
-              Get Started
+              {isAuthenticated ? "Dashboard" : "Get Started"}
             </Link>
           </Button>
           {/* <Button

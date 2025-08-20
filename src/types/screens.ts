@@ -22,7 +22,7 @@ export type UtmSource = z.infer<typeof UtmSourceSchema>
 export type UtmRole = z.infer<typeof UtmRoleSchema>
 
 export const MarketSelectionLocationStateSchema = z.object({
-    title: z.string().default("Available Markets"),
+    title: z.string().default("Markets"),
     desciption: z.string().optional().default("The magic happens here."),
     categoryIds: z.array(z.string()).default([]),
     utm_source: UtmSourceSchema,

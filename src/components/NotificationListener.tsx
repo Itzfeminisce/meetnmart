@@ -25,7 +25,7 @@ export default function NotificationListener() {
     }
 
     function check_required_user_preferences_handler(payload) {
-        console.log({ check_required_user_preferences_handler: payload, permissionStatus, isInitialized });
+        // console.log({ check_required_user_preferences_handler: payload, permissionStatus, isInitialized });
 
 
     }

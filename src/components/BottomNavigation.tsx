@@ -1,12 +1,14 @@
-import { Home, Search, Bell, User, Grid2X2Icon } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Home, Search, Bell, User, Grid2X2Icon, Mail, Plus, ShoppingBasket } from "lucide-react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import AuthModal from "./AuthModal";
 import Whispa from "./Whispa";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUserProfileStore } from "@/contexts/Store";
 import { useAuthV2 } from "../contexts/AuthContextV2";
+import { FeedFormBody, FeedFormFooter, FeedFormHeader } from "./feed/FeedForm";
+import { useBottomSheet } from "./ui/bottom-sheet-modal";
 
 // Memoized navigation button component
 const NavButton = memo(({
@@ -29,9 +31,9 @@ const NavButton = memo(({
     className={`flex flex-col items-center justify-center transition-colors duration-200 relative ${isActive ? 'text-market-orange' : 'text-muted-foreground'
       }`}
   >
-    <Icon size={size} />
-    <span className="text-xs mt-1">{label}</span>
-    {badge && (<span className="absolute top-2 md:top-2 right-4 md:right-7 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>)}
+    <Icon size={size} className="w-5 h-5" />
+    {/* <span className="text-xs mt-1">{label}</span> */}
+    {badge && (<span className="absolute top-2 md:top-2 right-5 md:right-5 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>)}
   </button>
 ));
 
@@ -45,19 +47,24 @@ const BottomNavigation = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [searchParams] = useSearchParams()
+  const { open } = useBottomSheet()
+
   // const profile = useUserProfileStore(ctx => ctx.data)
 
   // Memoize URLs to prevent unnecessary re-renders
   const userDashboardUrl = useMemo(() => `/${profile?.role}-dashboard`, [profile]);
   const userHomeUrl = '/feeds'
-  
+
   // Memoize navigation handlers
-  const navigateToHome = useCallback(() => navigate(userHomeUrl), [location, ]);
-  const navigateToSearch = useCallback(() => navigate('/search'), [location]);
-  const navigateToHistory = useCallback(() => navigate('/activity'), [location]);
-  const navigateToCatalog = useCallback(() => navigate('/catalog'), [location]);
-  const navigateToProfile = useCallback(() => navigate(userDashboardUrl), [location, ]);
-  
+  const navigateToHome = () => navigate(userHomeUrl);
+  const navigateToSearch = () => navigate('/search');
+  const navigateToHistory = () => navigate('/activity');
+  const navigateToCatalog = () => navigate('/catalog');
+  const navigateToMessage = () => navigate('/messages');
+  const navigateToMarket = () => navigate('/markets');
+  const navigateToProfile = () => navigate(userDashboardUrl);
+
   const isActive = useCallback((path: string) => {
     return location.pathname === path;
   }, [location.pathname, navigate]);
@@ -78,6 +85,7 @@ const BottomNavigation = () => {
     }, 700);
   }, []);
 
+
   // Scroll detection effect with cleanup
   useEffect(() => {
     // Add scroll listener with passive option for better performance
@@ -94,7 +102,11 @@ const BottomNavigation = () => {
 
   // Memoize the check for hiding the navigation
   const shouldHideNavigation = useMemo(() => {
-    return /^\/(calls|good-to-know|settings.+|interest-selection|role-selection|recent-calls|markets|sellers.+|rating|categories)$/.test(location.pathname);
+    return /^\/(calls|good-to-know|settings.+|calls.*|messages\/.*|interest-selection|role-selection|recent-calls|sellers.+|rating)$/.test(location.pathname);
+  }, [location.pathname]);
+
+  const showCreatePostButton = useMemo(() => {
+    return /^\/(feeds)$/.test(location.pathname);
   }, [location.pathname]);
 
   // Memoize active states
@@ -103,8 +115,10 @@ const BottomNavigation = () => {
     search: isActive('/search'),
     activity: isActive('/activity'),
     catalog: isActive('/catalog'),
+    message: isActive('/messages'),
+    market: isActive('/markets'),
     profile: isActive(userDashboardUrl)
-  }), [isActive,userHomeUrl, profile, userDashboardUrl]);
+  }), [isActive, userHomeUrl, profile, userDashboardUrl]);
 
   // Memoize conditional navigation items
   const conditionalNavItem = useMemo(() => {
@@ -122,21 +136,42 @@ const BottomNavigation = () => {
     if (profile?.role === "seller" && !isMobile) {
       navItems.push(
         <NavButton
-              onClick={navigateToCatalog}
-              isActive={activeStates.catalog}
-              icon={Grid2X2Icon}
-              label="Catalog"
-            />
+          onClick={navigateToCatalog}
+          isActive={activeStates.catalog}
+          icon={Grid2X2Icon}
+          label="Catalog"
+        />
       )
     }
     return navItems;
-  }, [activeStates,  isMobile]);
+  }, [activeStates, isMobile]);
 
- 
+  const handleOpenFeedForm = () => {
+    open({
+      viewId: 'create-feed-post',
+      header: <FeedFormHeader />,
+      body: <FeedFormBody />,
+      footer: <FeedFormFooter />,
+      data: {
+        formData: {
+          content: "",
+          location: "Balogun Market, Lagos",
+          urgency: "not_specified"
+        },
+        showPreview: false,
+        isProcessing: false,
+        errors: {},
+        uploadedImages: [],
+        imageFiles: []
+      },
+      closable: true,
+      persistent: false
+    });
+  };
   // Early return if navigation should be hidden
-  if (shouldHideNavigation) return null;
+  if (shouldHideNavigation || searchParams.has("s_view_detail")) return null;
 
-  
+
   // useEffect(() => {
   //   if (profile) {
   //     profileStore.setProfileData(profile)
@@ -148,12 +183,12 @@ const BottomNavigation = () => {
     <>
       <div
         className={`
-          fixed bottom-0 left-0 right-0 h-16 bg-card glass-morphism border-t border-border shadow-lg z-50
-          transition-opacity duration-200 ease-out
+          fixed bottom-0 left-0 right-0 h-12 shadow-lg z-50
+          transition-opacity duration-200 ease-out bg-background
         `}
         style={{ opacity: isScrolling ? 0.6 : 1 }}
       >
-        <div className="grid grid-cols-5 h-full max-w-md mx-auto relative">
+        <div className="grid grid-cols-6 md:grid-cols-7  h-full max-w-md mx-auto relative">
           <NavButton
             onClick={navigateToHome}
             isActive={activeStates.home}
@@ -167,25 +202,45 @@ const BottomNavigation = () => {
             icon={Search}
             label="Search"
           />
+          <NavButton
+            onClick={navigateToMarket}
+            isActive={activeStates.market}
+            icon={ShoppingBasket}
+            label="Market"
+          />
 
           {/* Whispa Container - Only visible on mobile */}
-          <div className="md:hidden flex items-center justify-center -mt-5">
-            {/* <div 
-              className="relative -mt-5 transition-all duration-200 ease-out"
-              style={whispaScrollStyles}
-            > */}
+          <div className="md:hidden flex items-center justify-center">
+
             <Whispa isInNav={true} />
+
+            {showCreatePostButton && (
+              <button className="w-10 h-10 bg-market-orange/90 shadow-md absolute right-2 -top-[100%] flex items-center justify-center rounded-full hover:bg-market-orange transition-all" onClick={handleOpenFeedForm}>
+                <Plus size={20} className="w-5 h-5" />
+              </button>
+            )}
+
             {/* </div> */}
           </div>
 
-          {conditionalNavItem}
+          {conditionalNavItem.map((it, idx) => <React.Fragment key={idx}>{it}</React.Fragment>)}
 
           <NavButton
-            onClick={navigateToProfile}
-            isActive={activeStates.profile}
-            icon={User}
-            label="Profile"
+            onClick={navigateToMessage}
+            isActive={activeStates.message}
+            icon={Mail}
+            label="Messages"
           />
+
+          {!isMobile && (
+            <NavButton
+              onClick={navigateToProfile}
+              isActive={activeStates.profile}
+              icon={User}
+              label="Profile"
+            />
+          )}
+
         </div>
       </div>
 

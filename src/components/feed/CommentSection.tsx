@@ -54,7 +54,8 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   const handleQuickAction = async (action: string) => {
     setSubmittingAction(action);
     try {
-      await onSendComment(action);
+      setComment(action);
+      // await onSendComment(action);
     } finally {
       setSubmittingAction(null);
     }
@@ -92,7 +93,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
 
   return (
     <div className="animate-in slide-in-from-top-2 duration-200">
-      <Card className="border-t-0 rounded-t-none">
+      <Card className="border-t-0 rounded-none">
         <CardContent className="p-2">
           <div className="space-y-4">
             {/* Comments List */}

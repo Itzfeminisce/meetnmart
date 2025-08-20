@@ -2,7 +2,15 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Compass, Search } from 'lucide-react';
-export const SearchHint: React.FC<{ query: string }> = ({ query }) => {
+
+interface SearchHintProps {
+    query: string;
+    metadata?: {
+        source: string
+    }
+}
+
+export const SearchHint: React.FC<SearchHintProps> = ({ query, metadata }) => {
     const navigate = useNavigate();
     
     return (
@@ -18,17 +26,19 @@ export const SearchHint: React.FC<{ query: string }> = ({ query }) => {
                                 No results found for "{query}"
                             </h3>
                             <p className="text-sm text-muted-foreground">
-                                Expand your search to find more markets and categories
+                                Expand your search to find more results
                             </p>
                         </div>
                     </div>
                     <Button 
                         variant="outline" 
-                        onClick={() => navigate(`/search?q=${encodeURIComponent(query)}`)}
+                        onClick={() => navigate(`/search?q=${encodeURIComponent(query)}`,{
+                            state: metadata
+                        })}
                         className="w-full sm:w-auto flex items-center justify-center gap-2"
                     >
                         <Search className="h-4 w-4" />
-                        <span>Search All Markets</span>
+                        <span>Expand your search</span>
                     </Button>
                 </div>
             </CardContent>

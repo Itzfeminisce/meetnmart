@@ -64,7 +64,7 @@ const Transactions = () => {
     const isMobile = useIsMobile()
 
 
-    const { data: allCalls, isLoading: isLoadingTrx, error: trxErr } = useGetTransactions({ params: { user_id: user.id } });
+    const { data: allCalls, isLoading: isLoadingTrx, error: trxErr } = useGetTransactions({ params: { user_id: user.id, limit_count: 50 } });
     const [filteredCalls, setFilteredCalls] = useState([]);
 
     // Apply filters and sorting
