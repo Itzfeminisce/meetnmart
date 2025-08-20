@@ -1,9 +1,12 @@
+ 
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { CheckCircle, BadgeDollarSign, Star } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+ 
 import { formatCurrency, getInitials } from '@/lib/utils';
+ 
 
 export interface PaymentDetailsType {
   amount: number;
@@ -37,6 +40,7 @@ export const SellerPaymentFeedbackModal = ({
 }: SellerPaymentFeedbackModalProps) => {
   const [animateSuccess, setAnimateSuccess] = useState(true);
   
+ 
   const handleClose = () => {
     if (onClose) {
       onClose();
@@ -56,7 +60,8 @@ export const SellerPaymentFeedbackModal = ({
           </div>
           
           <DialogTitle className="text-gradient text-2xl font-bold">
-            You made sales!
+ 
+            You made sales! 
           </DialogTitle>
           
           <div className="text-market-green font-medium text-lg mb-2">
@@ -156,5 +161,5 @@ export const SellerPaymentFeedbackModal = ({
         </div>
       </DialogContent>
     </Dialog>
-  );
-};
+  ); 
+}; 

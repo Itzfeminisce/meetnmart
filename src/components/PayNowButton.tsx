@@ -1,19 +1,18 @@
 import React from 'react';
-import { PaystackInlinePayment } from '@/components/PaystackInlinePayment';
-import { Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { PaystackInlinePayment } from './PaystackInlinePayment';
 
-interface PayNowButtonProps {
-    amount?: number;
-    email?: string;
-    reference?: string;
-    metadata?: Record<string, any>;
-    onSuccess?: (response: any) => void;
-    buttonText?: string;
-    className?: string;
-    onPaymentStart?: () => void;
-    disabled: boolean;
-}
-
+export type PayNowButtonProps = {
+  amount: number;
+  email: string;
+  onSuccess: (response: any) => void;
+  onPaymentStart?: () => void;
+  className?: string;
+  buttonText?: string;
+  disabled?: boolean;
+  metadata?: Record<string, any>;
+};
+ 
 export const PayNowButton: React.FC<PayNowButtonProps> = ({
     amount,
     email,
@@ -50,3 +49,4 @@ export const PayNowButton: React.FC<PayNowButtonProps> = ({
         />
     );
 };
+ 

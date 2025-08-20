@@ -182,6 +182,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_socket_cache: {
+        Row: {
+          expires_at: string
+          id: number
+          key: string
+          updated_at: string | null
+          value: string
+        }
+        Insert: {
+          expires_at: string
+          id?: never
+          key: string
+          updated_at?: string | null
+          value: string
+        }
+        Update: {
+          expires_at?: string
+          id?: never
+          key?: string
+          updated_at?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       waitlist: {
         Row: {
           created_at: string
@@ -328,7 +352,12 @@ export type Database = {
         }
       }
       increment_market_user_count: {
-        Args: { market_place_id: string }
+        Args: {
+          market_place_id: string
+          name: string
+          address: string
+          location?: string
+        }
         Returns: undefined
       }
     }
