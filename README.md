@@ -1,6 +1,6 @@
-# MeetNMart
+# MeetnMart
 
-MeetNMart is a public, TypeScript-based marketplace and communication platform designed to connect buyers and sellers in real-time. It features live audio/video calls, chat, deep linking, and robust moderation tools, all optimized for both SEO and user experience.
+MeetnMart is a public, TypeScript-based marketplace and communication platform designed to connect buyers and sellers in real-time. It features live audio/video calls, chat, deep linking, and robust moderation tools, all optimized for both SEO and user experience.
 
 ## Features
 
@@ -114,3 +114,4 @@ For issues and questions:
 
 [Itzfeminisce](https://github.com/Itzfeminisce)  
 Homepage: [meetnmart.com](https://www.meetnmart.com)
+
